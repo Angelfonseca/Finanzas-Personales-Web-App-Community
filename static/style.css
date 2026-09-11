@@ -1,0 +1,133 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f6f9;
+    color: #333;
+    margin: 0;
+    padding: 30px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.container {
+    width: 100%;
+    max-width: 700px;
+}
+.cards {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+.card {
+    flex: 1;
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    text-align: center;
+}
+.card h3 {
+    margin: 0 0 10px 0;
+    font-size: 0.9rem;
+    color: #7f8c8d;
+    text-transform: uppercase;
+}
+.card p {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: bold;
+}
+.card.balance p { color: #2980b9; }
+.card.ingresos p { color: #27ae60; }
+.card.gastos p { color: #c0392b; }
+
+.panel {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    margin-bottom: 25px;
+}
+h2 {
+    margin-top: 0;
+    color: #2c3e50;
+    text-align: center;
+}
+.form-group {
+    margin-bottom: 15px;
+}
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+input, select, button {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 1rem;
+}
+button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background 0.2s;
+}
+button:hover {
+    background-color: #2980b9;
+}
+.btn-eliminar {
+    background-color: #e74c3c;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    width: auto;
+    margin: 0;
+}
+.btn-eliminar:hover {
+    background-color: #c0392b;
+}
+#mensaje {
+    margin-top: 15px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+th, td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+    font-size: 0.9rem;
+}
+th {
+    background-color: #f8f9fa;
+    color: #2c3e50;
+}
+.text-gasto { color: #c0392b; font-weight: bold; }
+.text-ingreso { color: #27ae60; font-weight: bold; }
+.table-responsive {
+    overflow-x: auto;
+}
+.monthly-card {
+    background: #fdfdfd;
+    border-left: 4px solid #3498db;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.monthly-info span {
+    font-weight: bold;
+    margin-right: 15px;
+}
