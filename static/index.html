@@ -5,11 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mis Finanzas Personales</title>
     <link rel="stylesheet" href="/static/style.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
     <div class="container">
-        <!-- Tarjetas de Resumen General -->
+        <!-- Tarjetas de Resumen General (Arriba a todo lo ancho) -->
         <div class="cards">
             <div class="card balance">
                 <h3>Balance Total</h3>
@@ -25,61 +27,76 @@
             </div>
         </div>
 
-        <!-- Formulario de Registro -->
-        <div class="panel">
-            <h2>💰 Registrar / Quitar Movimientos</h2>
-            <form id="transaccion-form">
-                <div class="form-group">
-                    <label for="fecha">Fecha:</label>
-                    <input type="date" id="fecha" required>
+        <!-- Contenedor en Grid de Dos Columnas -->
+        <div class="dashboard-grid">
+            
+            <!-- COLUMNA IZQUIERDA: Gráfica y Resumen Mensual -->
+            <div class="columna-izquierda">
+                <div class="panel">
+                    <h2>📊 Comportamiento Mensual</h2>
+                    <div class="chart-container">
+                        <canvas id="graficaFinanzas"></canvas>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="monto">Monto ($):</label>
-                    <input type="number" step="0.01" id="monto" placeholder="0.00" required>
-                </div>
-                <div class="form-group">
-                    <label for="tipo">Tipo:</label>
-                    <select id="tipo">
-                        <option value="gasto">Gasto</option>
-                        <option value="ingreso">Ingreso</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="descripcion">Descripción:</label>
-                    <input type="text" id="descripcion" placeholder="Ej. Supermercado, Nómina...">
-                </div>
-                <button type="submit">Guardar Transacción</button>
-            </form>
-            <div id="mensaje"></div>
-        </div>
 
-        <!-- Resumen Mensual -->
-        <div class="panel">
-            <h2>📅 Resumen Mensual</h2>
-            <div id="lista-resumen-mensual">
-                <!-- Se llena con JS -->
+                <div class="panel">
+                    <h2>📅 Desglose Mensual</h2>
+                    <div id="lista-resumen-mensual">
+                        <!-- Se llena con JS -->
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <!-- Historial y Gestión de Movimientos -->
-        <div class="panel">
-            <h2>📜 Todos los Movimientos</h2>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Descripción</th>
-                            <th>Tipo</th>
-                            <th>Monto</th>
-                            <th>Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabla-movimientos">
-                        <!-- Se llena dinámicamente con JS -->
-                    </tbody>
-                </table>
+            <!-- COLUMNA DERECHA: Formulario y Tabla de Movimientos -->
+            <div class="columna-derecha">
+                <div class="panel">
+                    <h2>💰 Registrar / Quitar Movimientos</h2>
+                    <form id="transaccion-form">
+                        <div class="form-group">
+                            <label for="fecha">Fecha:</label>
+                            <input type="date" id="fecha" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="monto">Monto ($):</label>
+                            <input type="number" step="0.01" id="monto" placeholder="0.00" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="tipo">Tipo:</label>
+                            <select id="tipo">
+                                <option value="gasto">Gasto</option>
+                                <option value="ingreso">Ingreso</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="descripcion">Descripción:</label>
+                            <input type="text" id="descripcion" placeholder="Ej. Supermercado, Nómina...">
+                        </div>
+                        <button type="submit">Guardar Transacción</button>
+                    </form>
+                    <div id="mensaje"></div>
+                </div>
+
+                <div class="panel">
+                    <h2>📜 Todos los Movimientos</h2>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Descripción</th>
+                                    <th>Tipo</th>
+                                    <th>Monto</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-movimientos">
+                                <!-- Se llena con JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
+
         </div>
     </div>
 
