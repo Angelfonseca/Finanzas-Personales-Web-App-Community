@@ -2,11 +2,49 @@ document.getElementById('fecha').valueAsDate = new Date();
 
 const form = document.getElementById('transaccion-form');
 const mensajeDiv = document.getElementById('mensaje');
-let miGrafica = null; // Variable para controlar la instancia de Chart.js
+const btnModo = document.getElementById('btn-modo');
+let miGrafica = null;
+
+// --- GESTIÓN DE MODO OSCURO ---
+const temaGuardado = localStorage.getItem('theme');
+if (temaGuardado === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    btnModo.textContent = '☀️ Modo Claro';
+}
+
+btnModo.addEventListener('click', () => {
+    const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (esOscuro) {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('theme', 'light');
+        btnModo.textContent = '🌙 Modo Oscuro';
+    } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('theme', 'dark');
+        btnModo.textContent = '☀️ Modo Claro';
+    }
+    // Actualizar colores de la gráfica al cambiar el tema
+    if (miGrafica) {
+        actualizarColoresGrafica();
+    }
+});
+
+function actualizarColoresGrafica() {
+    const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = esOscuro ? '#e0e0e0' : '#333333';
+    const gridColor = esOscuro ? '#333333' : '#eee';
+
+    miGrafica.options.scales.x.ticks.color = textColor;
+    miGrafica.options.scales.y.ticks.color = textColor;
+    miGrafica.options.scales.x.grid.color = gridColor;
+    miGrafica.options.scales.y.grid.color = gridColor;
+    miGrafica.options.plugins.legend.labels.color = textColor;
+    miGrafica.update();
+}
+// -----------------------------
 
 async function cargarDatos() {
     try {
-        // 1. Cargar Resumen General
         const resResumen = await fetch('/api/resumen');
         const dataResumen = await resResumen.json();
         
@@ -14,7 +52,6 @@ async function cargarDatos() {
         document.getElementById('lbl-ingresos').textContent = `$${dataResumen.ingresos.toFixed(2)}`;
         document.getElementById('lbl-gastos').textContent = `$${dataResumen.gastos.toFixed(2)}`;
 
-        // 2. Cargar Resumen Mensual y actualizar Gráfica
         const resMensual = await fetch('/api/resumen-mensual');
         const dataMensual = await resMensual.json();
         
@@ -22,27 +59,24 @@ async function cargarDatos() {
         contenedorMensual.innerHTML = '';
 
         if (dataMensual.length === 0) {
-            contenedorMensual.innerHTML = '<p style="text-align: center; color: #7f8c8d;">Sin registros mensuales aún.</p>';
+            contenedorMensual.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Sin registros mensuales aún.</p>';
         } else {
             dataMensual.forEach(m => {
-                const balanceMes = m.ingresos - m.gastos;
                 const div = document.createElement('div');
                 div.className = 'monthly-card';
                 div.innerHTML = `
                     <div><strong>${m.mes}</strong></div>
                     <div class="monthly-info">
-                        <span style="color: #27ae60;">+${m.ingresos.toFixed(2)}</span>
-                        <span style="color: #c0392b;">-${m.gastos.toFixed(2)}</span>
+                        <span style="color: #2ecc71;">+${m.ingresos.toFixed(2)}</span>
+                        <span style="color: #e74c3c;">-${m.gastos.toFixed(2)}</span>
                     </div>
                 `;
                 contenedorMensual.appendChild(div);
             });
         }
 
-        // Renderizar o actualizar Chart.js (Datos ordenados cronológicamente para la gráfica)
         actualizarGrafica(dataMensual.slice().reverse());
 
-        // 3. Cargar Tabla de Transacciones
         const resTrans = await fetch('/api/transacciones');
         const dataTrans = await resTrans.json();
         
@@ -50,7 +84,7 @@ async function cargarDatos() {
         tbody.innerHTML = '';
 
         if (dataTrans.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #7f8c8d;">No hay movimientos.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No hay movimientos.</td></tr>';
         } else {
             dataTrans.forEach(t => {
                 const tr = document.createElement('tr');
@@ -72,6 +106,9 @@ async function cargarDatos() {
 
 function actualizarGrafica(dataMensual) {
     const ctx = document.getElementById('graficaFinanzas').getContext('2d');
+    const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = esOscuro ? '#e0e0e0' : '#333333';
+    const gridColor = esOscuro ? '#333333' : '#eee';
     
     const meses = dataMensual.map(m => m.mes);
     const ingresos = dataMensual.map(m => m.ingresos);
@@ -91,15 +128,15 @@ function actualizarGrafica(dataMensual) {
                     {
                         label: 'Ingresos',
                         data: ingresos,
-                        backgroundColor: 'rgba(39, 174, 96, 0.7)',
-                        borderColor: '#27ae60',
+                        backgroundColor: 'rgba(46, 204, 113, 0.7)',
+                        borderColor: '#2ecc71',
                         borderWidth: 1
                     },
                     {
                         label: 'Gastos',
                         data: gastos,
-                        backgroundColor: 'rgba(192, 57, 43, 0.7)',
-                        borderColor: '#c0392b',
+                        backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                        borderColor: '#e74c3c',
                         borderWidth: 1
                     }
                 ]
@@ -107,7 +144,20 @@ function actualizarGrafica(dataMensual) {
             options: {
                 responsive: true,
                 scales: {
-                    y: { beginAtZero: true }
+                    x: {
+                        ticks: { color: textColor },
+                        grid: { color: gridColor }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: textColor },
+                        grid: { color: gridColor }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: textColor }
+                    }
                 }
             }
         });
@@ -133,17 +183,17 @@ form.addEventListener('submit', async (e) => {
         });
 
         if (response.ok) {
-            mensajeDiv.style.color = 'green';
+            mensajeDiv.style.color = '#2ecc71';
             mensajeDiv.textContent = '¡Movimiento guardado!';
             form.reset();
             document.getElementById('fecha').valueAsDate = new Date();
             cargarDatos();
         } else {
-            mensajeDiv.style.color = 'red';
+            mensajeDiv.style.color = '#e74c3c';
             mensajeDiv.textContent = 'Error al guardar.';
         }
     } catch (error) {
-        mensajeDiv.style.color = 'red';
+        mensajeDiv.style.color = '#e74c3c';
         mensajeDiv.textContent = 'Error de conexión.';
     }
 });

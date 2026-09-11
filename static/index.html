@@ -5,13 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mis Finanzas Personales</title>
     <link rel="stylesheet" href="/static/style.css">
-    <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
     <div class="container">
-        <!-- Tarjetas de Resumen General (Arriba a todo lo ancho) -->
+        <!-- Botón de Modo Oscuro / Claro -->
+        <div class="header-top">
+            <button id="btn-modo" class="btn-theme">🌙 Modo Oscuro</button>
+        </div>
+
+        <!-- Tarjetas de Resumen General -->
         <div class="cards">
             <div class="card balance">
                 <h3>Balance Total</h3>
@@ -27,10 +31,10 @@
             </div>
         </div>
 
-        <!-- Contenedor en Grid de Dos Columnas -->
+        <!-- Grid de Dos Columnas -->
         <div class="dashboard-grid">
             
-            <!-- COLUMNA IZQUIERDA: Gráfica y Resumen Mensual -->
+            <!-- Columna Izquierda: Gráfica y Resumen Mensual -->
             <div class="columna-izquierda">
                 <div class="panel">
                     <h2>📊 Comportamiento Mensual</h2>
@@ -41,13 +45,11 @@
 
                 <div class="panel">
                     <h2>📅 Desglose Mensual</h2>
-                    <div id="lista-resumen-mensual">
-                        <!-- Se llena con JS -->
-                    </div>
+                    <div id="lista-resumen-mensual"></div>
                 </div>
             </div>
 
-            <!-- COLUMNA DERECHA: Formulario y Tabla de Movimientos -->
+            <!-- Columna Derecha: Formulario y Tabla -->
             <div class="columna-derecha">
                 <div class="panel">
                     <h2>💰 Registrar / Quitar Movimientos</h2>
@@ -89,9 +91,7 @@
                                     <th>Acción</th>
                                 </tr>
                             </thead>
-                            <tbody id="tabla-movimientos">
-                                <!-- Se llena con JS -->
-                            </tbody>
+                            <tbody id="tabla-movimientos"></tbody>
                         </table>
                     </div>
                 </div>

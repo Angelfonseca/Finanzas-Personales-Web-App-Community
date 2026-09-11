@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import sqlite3
 from database import init_db
@@ -7,6 +8,11 @@ from database import init_db
 app = FastAPI(title="Finanzas Personales API", version="1.0")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# <--- 2. NUEVA RUTA PARA LA RAÍZ
+@app.get("/")
+def leer_raiz():
+    return FileResponse("static/index.html")
 
 class Transaccion(BaseModel):
     fecha: str

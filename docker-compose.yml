@@ -1,0 +1,10 @@
+services:
+  finanzas-app:
+    build: .
+    container_name: finanzas-app
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    volumes:
+      # Conecta TODA tu carpeta local del Raspberry Pi con el contenedor
+      - .:/app

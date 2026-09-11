@@ -1,16 +1,65 @@
+/* Variables de Color por Defecto (Modo Claro) */
+:root {
+    --bg-color: #f4f6f9;
+    --panel-bg: #ffffff;
+    --text-color: #333333;
+    --text-muted: #7f8c8d;
+    --border-color: #ddd;
+    --th-bg: #f8f9fa;
+    --table-border: #eee;
+    --card-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+/* Variables para el Modo Oscuro */
+[data-theme="dark"] {
+    --bg-color: #121212;
+    --panel-bg: #1e1e1e;
+    --text-color: #e0e0e0;
+    --text-muted: #a0a0a0;
+    --border-color: #333333;
+    --th-bg: #252525;
+    --table-border: #2c2c2c;
+    --card-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f4f6f9;
-    color: #333;
+    background-color: var(--bg-color);
+    color: var(--text-color);
     margin: 0;
     padding: 30px 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    transition: background-color 0.3s, color 0.3s;
 }
+
 .container {
     width: 100%;
     max-width: 1100px;
+}
+
+/* Botón de Modo Oscuro */
+.header-top {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 15px;
+}
+.btn-theme {
+    background-color: var(--panel-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    padding: 8px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    box-shadow: var(--card-shadow);
+    transition: background 0.2s;
+    width: auto;
+}
+.btn-theme:hover {
+    opacity: 0.8;
 }
 
 /* Tarjetas superiores */
@@ -21,16 +70,16 @@ body {
 }
 .card {
     flex: 1;
-    background: white;
+    background: var(--panel-bg);
     padding: 20px;
     border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    box-shadow: var(--card-shadow);
     text-align: center;
 }
 .card h3 {
     margin: 0 0 10px 0;
     font-size: 0.9rem;
-    color: #7f8c8d;
+    color: var(--text-muted);
     text-transform: uppercase;
 }
 .card p {
@@ -38,50 +87,41 @@ body {
     font-size: 1.4rem;
     font-weight: bold;
 }
-.card.balance p { color: #2980b9; }
-.card.ingresos p { color: #27ae60; }
-.card.gastos p { color: #c0392b; }
+.card.balance p { color: #3498db; }
+.card.ingresos p { color: #2ecc71; }
+.card.gastos p { color: #e74c3c; }
 
-/* Estructura de Dos Columnas (Dashboard Grid) */
+/* Estructura de Dos Columnas */
 .dashboard-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 25px;
 }
-
-/* En pantallas pequeñas o celulares, pasa a una sola columna */
 @media (max-width: 900px) {
-    .dashboard-grid {
-        grid-template-columns: 1fr;
-    }
+    .dashboard-grid { grid-template-columns: 1fr; }
 }
 
 .panel {
-    background: white;
+    background: var(--panel-bg);
     padding: 25px;
     border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    box-shadow: var(--card-shadow);
     margin-bottom: 25px;
 }
 h2 {
     margin-top: 0;
-    color: #2c3e50;
+    color: var(--text-color);
     text-align: center;
     font-size: 1.2rem;
 }
-.form-group {
-    margin-bottom: 15px;
-}
-label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 600;
-    font-size: 0.9rem;
-}
+.form-group { margin-bottom: 15px; }
+label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; color: var(--text-color); }
 input, select, button {
     width: 100%;
     padding: 10px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-color);
+    background-color: var(--panel-bg);
+    color: var(--text-color);
     border-radius: 6px;
     box-sizing: border-box;
     font-size: 1rem;
@@ -93,49 +133,27 @@ button {
     font-weight: bold;
     cursor: pointer;
     margin-top: 10px;
-    transition: background 0.2s;
 }
-button:hover {
-    background-color: #2980b9;
-}
+button:hover { background-color: #2980b9; }
 .btn-eliminar {
     background-color: #e74c3c;
+    color: white;
     padding: 6px 10px;
     font-size: 0.8rem;
     width: auto;
     margin: 0;
 }
-.btn-eliminar:hover {
-    background-color: #c0392b;
-}
-#mensaje {
-    margin-top: 15px;
-    text-align: center;
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 10px;
-}
-th, td {
-    padding: 10px;
-    text-align: left;
-    border-bottom: 1px solid #eee;
-    font-size: 0.85rem;
-}
-th {
-    background-color: #f8f9fa;
-    color: #2c3e50;
-}
-.text-gasto { color: #c0392b; font-weight: bold; }
-.text-ingreso { color: #27ae60; font-weight: bold; }
-.table-responsive {
-    overflow-x: auto;
-}
+.btn-eliminar:hover { background-color: #c0392b; }
+#mensaje { margin-top: 15px; text-align: center; font-weight: 600; font-size: 0.9rem; }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--table-border); font-size: 0.85rem; color: var(--text-color); }
+th { background-color: var(--th-bg); color: var(--text-color); }
+.text-gasto { color: #e74c3c; font-weight: bold; }
+.text-ingreso { color: #2ecc71; font-weight: bold; }
+.table-responsive { overflow-x: auto; }
 .monthly-card {
-    background: #fdfdfd;
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
     border-left: 4px solid #3498db;
     padding: 10px 15px;
     margin-bottom: 10px;
@@ -145,10 +163,7 @@ th {
     align-items: center;
     font-size: 0.9rem;
 }
-.monthly-info span {
-    font-weight: bold;
-    margin-left: 10px;
-}
+.monthly-info span { font-weight: bold; margin-left: 10px; }
 .chart-container {
     position: relative;
     width: 100%;
