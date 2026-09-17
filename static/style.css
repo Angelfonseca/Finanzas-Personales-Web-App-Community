@@ -27,16 +27,26 @@ body {
     background-color: var(--bg-color);
     color: var(--text-color);
     margin: 0;
-    padding: 30px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    padding: 0;
+    display: block; 
     transition: background-color 0.3s, color 0.3s;
 }
 
 .container {
-    width: 100%;
-    max-width: 1100px;
+    width: 95%; 
+    max-width: 1100px; /* Punto intermedio ideal para escritorio */
+    margin: 0 auto;
+    padding: 20px 0;
+    box-sizing: border-box;
+}
+
+/* Si tu diseño tiene dos columnas */
+@media (min-width: 1024px) {
+    .dashboard-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+    }
 }
 
 /* Botón de Modo Oscuro */
@@ -170,4 +180,68 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     max-height: 300px;
     display: flex;
     justify-content: center;
+}
+.grid-apartados {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+/* --- ESTILOS DE APARTADOS Y METAS --- */
+.card-apartado {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    background-color: var(--panel-bg); 
+    color: var(--text-color);          
+    box-shadow: var(--card-shadow);
+    position: relative;                
+}
+
+/* Botón de borrar apartado */
+.btn-eliminar-apartado {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: transparent;
+    color: #e74c3c;
+    border: none;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    width: auto;
+    margin: 0;
+    box-shadow: none;
+}
+.btn-eliminar-apartado:hover {
+    color: #c0392b;
+    background-color: transparent;
+}
+
+.progress-bar-bg {
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  height: 12px;
+  width: 100%;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.progress-bar-fill {
+  background-color: #4caf50;
+  height: 100%;
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.acciones-apartado {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.acciones-apartado input {
+  width: 100px;
 }

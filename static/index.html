@@ -34,7 +34,7 @@
         <!-- Grid de Dos Columnas -->
         <div class="dashboard-grid">
             
-            <!-- Columna Izquierda: Gráfica y Resumen Mensual -->
+            <!-- Columna Izquierda: Gráfica, Resumen Mensual y Apartados -->
             <div class="columna-izquierda">
                 <div class="panel">
                     <h2>📊 Comportamiento Mensual</h2>
@@ -46,6 +46,39 @@
                 <div class="panel">
                     <h2>📅 Desglose Mensual</h2>
                     <div id="lista-resumen-mensual"></div>
+                </div>
+
+                <!-- SECCIÓN DE APARTADOS Y METAS (AHORA EN COLUMNA IZQUIERDA) -->
+                <div class="panel apartados-section">
+                    <h2>🎯 Apartados y Metas de Ahorro</h2>
+
+                    <!-- Formulario de creación -->
+                    <form id="form-apartado" class="card-form">
+                        <div class="form-group">
+                            <label for="nombre-apartado">Nombre:</label>
+                            <input type="text" id="nombre-apartado" placeholder="Ej. Fondo Emergencia, Vacaciones" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="tipo-apartado">Tipo:</label>
+                            <select id="tipo-apartado" onchange="toggleMetaInput()">
+                                <option value="libre">Sobre Libre</option>
+                                <option value="meta">Meta de Ahorro</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="group-meta-monto" style="display: none;">
+                            <label for="meta-monto">Monto Meta ($):</label>
+                            <input type="number" id="meta-monto" step="0.01" min="1" placeholder="Ej. 5000">
+                        </div>
+
+                        <button type="submit">Crear Apartado</button>
+                    </form>
+
+                    <!-- Grilla de tarjetas -->
+                    <div id="contenedor-apartados" class="grid-apartados">
+                        <!-- Se puebla dinámicamente -->
+                    </div>
                 </div>
             </div>
 

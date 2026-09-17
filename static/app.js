@@ -23,7 +23,6 @@ btnModo.addEventListener('click', () => {
         localStorage.setItem('theme', 'dark');
         btnModo.textContent = '☀️ Modo Claro';
     }
-    // Actualizar colores de la gráfica al cambiar el tema
     if (miGrafica) {
         actualizarColoresGrafica();
     }
@@ -41,10 +40,11 @@ function actualizarColoresGrafica() {
     miGrafica.options.plugins.legend.labels.color = textColor;
     miGrafica.update();
 }
-// -----------------------------
 
+// --- CARGA GENERAL DE DATOS ---
 async function cargarDatos() {
     try {
+        // 1. Resumen general
         const resResumen = await fetch('/api/resumen');
         const dataResumen = await resResumen.json();
         
@@ -52,6 +52,7 @@ async function cargarDatos() {
         document.getElementById('lbl-ingresos').textContent = `$${dataResumen.ingresos.toFixed(2)}`;
         document.getElementById('lbl-gastos').textContent = `$${dataResumen.gastos.toFixed(2)}`;
 
+        // 2. Resumen mensual
         const resMensual = await fetch('/api/resumen-mensual');
         const dataMensual = await resMensual.json();
         
@@ -77,6 +78,7 @@ async function cargarDatos() {
 
         actualizarGrafica(dataMensual.slice().reverse());
 
+        // 3. Tabla de transacciones
         const resTrans = await fetch('/api/transacciones');
         const dataTrans = await resTrans.json();
         
@@ -98,6 +100,9 @@ async function cargarDatos() {
                 tbody.appendChild(tr);
             });
         }
+
+        // 4. Cargar apartados y metas
+        await cargarApartados();
 
     } catch (error) {
         console.error("Error al actualizar datos:", error);
@@ -164,6 +169,7 @@ function actualizarGrafica(dataMensual) {
     }
 }
 
+// --- TRANSACCIONES ---
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -216,4 +222,148 @@ async function eliminarTransaccion(id) {
     }
 }
 
+// --- APARTADOS Y METAS ---
+function toggleMetaInput() {
+    const tipo = document.getElementById('tipo-apartado').value;
+    const metaGroup = document.getElementById('group-meta-monto');
+    metaGroup.style.display = tipo === 'meta' ? 'block' : 'none';
+}
+
+async function cargarApartados() {
+    try {
+        const res = await fetch('/api/apartados');
+        const apartados = await res.json();
+        
+        const contenedor = document.getElementById('contenedor-apartados');
+        contenedor.innerHTML = '';
+
+        if (!apartados || apartados.length === 0) {
+            contenedor.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 10px;">No hay apartados o metas aún.</p>';
+            return;
+        }
+
+        apartados.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'card-apartado';
+            
+            let contenidoMeta = '';
+            if (item.tipo === 'meta') {
+                const porcentaje = Math.min(item.porcentaje, 100);
+                contenidoMeta = `
+                    <p style="margin: 5px 0;"><small>Meta: $${item.meta_monto.toFixed(2)} (${item.porcentaje}%)</small></p>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" style="width: ${porcentaje}%;"></div>
+                    </div>
+                `;
+            }
+
+            card.innerHTML = `
+                <button type="button" class="btn-eliminar-apartado" onclick="eliminarApartado(${item.id})" title="Eliminar">×</button>
+                <h3 style="margin: 0 20px 8px 0;">${item.nombre} <small style="font-weight: normal; font-size: 0.8rem;">(${item.tipo})</small></h3>
+                <p style="margin: 5px 0;"><strong>Saldo:</strong> $${item.monto_actual.toFixed(2)}</p>
+                ${contenidoMeta}
+                <div class="acciones-apartado">
+                    <input type="number" id="monto-acc-${item.id}" step="0.01" min="0.01" placeholder="Monto">
+                    <button type="button" onclick="realizarMovimiento(${item.id}, 'depositar')">+</button>
+                    <button type="button" onclick="realizarMovimiento(${item.id}, 'retirar')">-</button>
+                </div>
+            `;
+            
+            contenedor.appendChild(card);
+        });
+    } catch (error) {
+        console.error("Error al cargar apartados:", error);
+    }
+}
+
+const formApartado = document.getElementById('form-apartado');
+if (formApartado) {
+    formApartado.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const nombreInput = document.getElementById('nombre-apartado');
+        const tipoInput = document.getElementById('tipo-apartado');
+        const metaInput = document.getElementById('meta-monto');
+
+        const nombre = nombreInput.value.trim();
+        const tipo = tipoInput.value;
+        const meta_monto = tipo === 'meta' ? parseFloat(metaInput.value) : null;
+
+        if (!nombre) {
+            alert("Ingresa un nombre para el apartado.");
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/apartados', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre, tipo, meta_monto })
+            });
+
+            if (res.ok) {
+                formApartado.reset();
+                toggleMetaInput();
+                await cargarApartados();
+            } else {
+                const error = await res.json();
+                alert(error.detail || 'Error al crear apartado');
+            }
+        } catch (err) {
+            console.error("Error de red:", err);
+            alert("Error al conectar con el servidor.");
+        }
+    });
+}
+
+async function realizarMovimiento(id, accion) {
+    const input = document.getElementById(`monto-acc-${id}`);
+    const monto = parseFloat(input.value);
+
+    if (isNaN(monto) || monto <= 0) {
+        alert('Ingresa un monto válido.');
+        return;
+    }
+
+    const res = await fetch(`/api/apartados/${id}/movimiento`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monto, accion })
+    });
+
+    if (res.ok) {
+        cargarDatos();
+    } else {
+        const error = await res.json();
+        alert(error.detail || 'Error en la operación');
+    }
+}
+async function eliminarApartado(id) {
+    if (!confirm("¿Seguro que deseas eliminar este apartado? Se perderá el registro de este sobre.")) return;
+
+    try {
+        const res = await fetch(`/api/apartados/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (res.ok) {
+            cargarApartados();
+        } else {
+            alert("No se pudo eliminar el apartado.");
+        }
+    } catch (error) {
+        console.error("Error al eliminar:", error);
+    }
+}
+
+// Asegúrate de agregarla a los exports globales al final de app.js:
+window.eliminarApartado = eliminarApartado;
+
+// EXPONER FUNCIONES PARA EL DOM
+window.toggleMetaInput = toggleMetaInput;
+window.realizarMovimiento = realizarMovimiento;
+window.eliminarTransaccion = eliminarTransaccion;
+
+// ARRANQUE DE APLICACIÓN
 cargarDatos();
