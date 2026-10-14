@@ -7,6 +7,8 @@ import json
 import urllib.request
 import urllib.parse
 import sqlite3
+import os
+import time
 from datetime import datetime
 from database import init_db
 
@@ -138,6 +140,7 @@ def obtener_resumen(moneda_base: str = "MXN"):
 
     tasas = obtener_tasas_cambio()
     tasa_usd_mxn = tasas.get("MXN", 18.40)
+    moneda_base_upper = moneda_base.upper()
 
     inversiones_total = 0.0
     for inv in filas_inv:
@@ -148,23 +151,31 @@ def obtener_resumen(moneda_base: str = "MXN"):
         
         # Si el activo está en USD y la moneda base es MXN, se multiplica por el tipo de cambio
         # Si el activo ya está en MXN, NO se multiplica (factor 1.0)
-        if m_act == "USD" and moneda_base.upper() == "MXN":
+        if m_act == "USD" and moneda_base_upper == "MXN":
             val *= tasa_usd_mxn
-        elif m_act == "MXN" and moneda_base.upper() == "USD":
+        elif m_act == "MXN" and moneda_base_upper == "USD":
             val /= tasa_usd_mxn if tasa_usd_mxn > 0 else 1.0
 
         inversiones_total += val
 
-    balance = ingresos - gastos
-    patrimonio = balance + apartados + inversiones_total
+    # Las transacciones de flujo de efectivo y apartados están denominadas en MXN.
+    # Si la moneda base solicitada es USD, se convierten dividiendo entre la tasa de cambio USD/MXN.
+    factor_mxn_a_base = (1.0 / tasa_usd_mxn) if (moneda_base_upper == "USD" and tasa_usd_mxn > 0) else 1.0
+
+    ingresos_conv = ingresos * factor_mxn_a_base
+    gastos_conv = gastos * factor_mxn_a_base
+    balance_conv = (ingresos - gastos) * factor_mxn_a_base
+    apartados_conv = apartados * factor_mxn_a_base
+
+    patrimonio = balance_conv + apartados_conv + inversiones_total
 
     return {
-        "moneda_base": moneda_base.upper(),
+        "moneda_base": moneda_base_upper,
         "tasa_usd_mxn": tasa_usd_mxn,
-        "ingresos": round(ingresos, 2),
-        "gastos": round(gastos, 2),
-        "balance": round(balance, 2),
-        "apartados": round(apartados, 2),
+        "ingresos": round(ingresos_conv, 2),
+        "gastos": round(gastos_conv, 2),
+        "balance": round(balance_conv, 2),
+        "apartados": round(apartados_conv, 2),
         "inversiones": round(inversiones_total, 2),
         "patrimonio_neto": round(patrimonio, 2)
     }
@@ -236,7 +247,7 @@ def listar_apartados():
 
 @app.delete("/api/apartados/{apartado_id}")
 def eliminar_apartado(apartado_id: int):
-    conn = get_db()  # <-- Usamos tu función correcta aquí
+    conn = get_db()
     cursor = conn.cursor()
     
     # Verificamos si existe
@@ -244,6 +255,14 @@ def eliminar_apartado(apartado_id: int):
     if not apartado:
         conn.close()
         raise HTTPException(status_code=404, detail="Apartado no encontrado")
+
+    if apartado["monto_actual"] > 0:
+        saldo = float(apartado["monto_actual"])
+        conn.close()
+        raise HTTPException(
+            status_code=400,
+            detail=f"No puedes eliminar un apartado con saldo disponible (${saldo:.2f}). Retira los fondos al balance disponible primero."
+        )
         
     cursor.execute('DELETE FROM apartados WHERE id = ?', (apartado_id,))
     conn.commit()
@@ -557,8 +576,17 @@ def api_buscar_ticker(q: str = ""):
         return []
     return buscar_tickers_mercado(q)
 
+_CACHE_TASAS = {
+    "datos": None,
+    "expira_en": 0.0
+}
+
 def obtener_tasas_cambio():
-    """Consulta tipos de cambio de referencia contra USD."""
+    """Consulta tipos de cambio de referencia contra USD con caché en memoria (TTL 5 min)."""
+    ahora = time.time()
+    if _CACHE_TASAS["datos"] is not None and ahora < _CACHE_TASAS["expira_en"]:
+        return _CACHE_TASAS["datos"]
+
     # Valores base por defecto
     tasas = {
         "USD": 1.0,
@@ -575,9 +603,16 @@ def obtener_tasas_cambio():
         precio_eur = consultar_precio_mercado("EURUSD=X")
         if precio_eur and precio_eur > 0:
             tasas["EUR"] = round(1.0 / precio_eur, 4)
+
+        _CACHE_TASAS["datos"] = tasas
+        _CACHE_TASAS["expira_en"] = ahora + 300  # 5 minutos
     except Exception:
-        pass
-    return tasas
+        if _CACHE_TASAS["datos"] is not None:
+            return _CACHE_TASAS["datos"]
+        _CACHE_TASAS["datos"] = tasas
+        _CACHE_TASAS["expira_en"] = ahora + 60
+
+    return _CACHE_TASAS["datos"]
 
 @app.get("/api/tipo-cambio")
 def get_tipo_cambio():
@@ -587,6 +622,18 @@ def get_tipo_cambio():
         "tasas": tasas,
         "actualizado_en": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
+
+@app.get("/api/backup")
+def descargar_backup():
+    """Permite descargar una copia de seguridad directa del archivo SQLite finanzas.db."""
+    if not os.path.exists("finanzas.db"):
+        raise HTTPException(status_code=404, detail="Base de datos no encontrada.")
+    fecha_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return FileResponse(
+        "finanzas.db",
+        filename=f"finanzas_backup_{fecha_str}.db",
+        media_type="application/octet-stream"
+    )
 
 
 

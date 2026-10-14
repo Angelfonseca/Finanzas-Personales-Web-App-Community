@@ -11,13 +11,15 @@
 
     <div class="container">
         <!-- Barra Superior: Título, Moneda Global y Modo Oscuro -->
-        <!-- Barra Superior: Título, Moneda Global y Modo Oscuro -->
         <header class="app-header">
             <div class="header-top-bar">
                 <div class="app-brand">
                     <h1>💰 Finanzas</h1>
                 </div>
-                <button id="btn-modo" class="btn-theme" title="Alternar tema">🌙 Modo Oscuro</button>
+                <div class="header-actions">
+                    <a href="/api/backup" download class="btn-backup" title="Descargar copia de seguridad de la base de datos">💾 Respaldo</a>
+                    <button id="btn-modo" class="btn-theme" title="Alternar tema">🌙 Modo Oscuro</button>
+                </div>
             </div>
             <div class="header-currency-bar">
                 <div class="moneda-global-wrap">

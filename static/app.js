@@ -120,7 +120,7 @@ async function cargarDatos() {
         } else {
             dataTrans.forEach(t => {
                 const tr = document.createElement('tr');
-                const descSegura = (t.descripcion || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const descSegura = (t.descripcion || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n').replace(/\r/g, '\\r');
                 tr.innerHTML = `
                     <td>${t.fecha}</td>
                     <td>${t.descripcion || '-'}</td>
@@ -342,7 +342,7 @@ if (formApartado) {
             if (res.ok) {
                 formApartado.reset();
                 toggleMetaInput();
-                await cargarApartados();
+                await cargarDatos();
             } else {
                 const error = await res.json();
                 alert(error.detail || 'Error al crear apartado');
@@ -385,9 +385,10 @@ async function eliminarApartado(id) {
         });
 
         if (res.ok) {
-            cargarApartados();
+            await cargarDatos();
         } else {
-            alert("No se pudo eliminar el apartado.");
+            const error = await res.json();
+            alert(error.detail || "No se pudo eliminar el apartado.");
         }
     } catch (error) {
         console.error("Error al eliminar:", error);
@@ -611,7 +612,9 @@ function inicializarBuscadorTickers() {
                 const res = await fetch(`/api/inversiones/buscar?q=${encodeURIComponent(val)}`);
                 if (!res.ok) return;
                 const sugerencias = await res.json();
-                renderizarSugerenciasTickers(sugerencias, dropdown, input);
+                if (input.value.trim().toUpperCase() === val.toUpperCase()) {
+                    renderizarSugerenciasTickers(sugerencias, dropdown, input);
+                }
             } catch (err) {
                 console.error("Error al buscar tickers:", err);
             }
