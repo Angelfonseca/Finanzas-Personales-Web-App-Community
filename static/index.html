@@ -15,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mis Finanzas Personales</title>
     <!-- Hojas de estilo y biblioteca de gráficos Chart.js -->
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=2.2">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -582,7 +582,7 @@
                 <h3>🎯 Crear Nuevo Apartado / Meta</h3>
                 <button type="button" class="btn-modal-close" onclick="cerrarModalCrearApartado()">&times;</button>
             </div>
-            <form id="form-apartado">
+            <form id="form-apartado" onsubmit="guardarNuevoApartado(event)">
                 <div class="form-group">
                     <label for="nombre-apartado">Nombre del Apartado:</label>
                     <input type="text" id="nombre-apartado" placeholder="Ej. Fondo de Emergencia, Vacaciones" required autocomplete="off">
@@ -610,6 +610,6 @@
     </div>
 
     <!-- Script de lógica de la aplicación -->
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=2.2"></script>
 </body>
 </html>

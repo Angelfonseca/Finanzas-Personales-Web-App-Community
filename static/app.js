@@ -132,6 +132,14 @@ function establecerSesionActiva(user, token) {
         btnTabAdmin.style.display = (user.role === 'admin') ? 'inline-block' : 'none';
     }
 
+    // Si un usuario no admin tiene guardada la pestaña admin, redirigir al resumen
+    if (user.role !== 'admin') {
+        const pestanaGuardada = localStorage.getItem('active_tab');
+        if (pestanaGuardada === 'tab-admin') {
+            cambiarPestana('tab-dashboard');
+        }
+    }
+
     // Cargar datos financieros del tenant
     cargarTiposCambio();
     cargarDatos();
@@ -582,41 +590,48 @@ async function cargarApartados() {
     }
 }
 
+async function guardarNuevoApartado(e) {
+    if (e) e.preventDefault();
+    const nombreInput = document.getElementById('nombre-apartado');
+    const tipoInput = document.getElementById('tipo-apartado');
+    const metaInput = document.getElementById('meta-monto');
+
+    const nombre = nombreInput ? nombreInput.value.trim() : '';
+    const tipo = tipoInput ? tipoInput.value : 'libre';
+    const meta_monto = (tipo === 'meta' && metaInput && metaInput.value) ? parseFloat(metaInput.value) : null;
+
+    if (!nombre) {
+        alert("Ingresa un nombre para el apartado.");
+        return;
+    }
+
+    if (tipo === 'meta' && (meta_monto === null || isNaN(meta_monto) || meta_monto <= 0)) {
+        alert("Una meta requiere un monto objetivo válido mayor a cero.");
+        return;
+    }
+
+    try {
+        const res = await apiFetch('/api/apartados', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre, tipo, meta_monto })
+        });
+
+        if (res.ok) {
+            cerrarModalCrearApartado();
+            await cargarDatos();
+        } else {
+            const error = await res.json();
+            alert(error.detail || 'Error al crear apartado');
+        }
+    } catch (err) {
+        alert("Error al conectar con el servidor.");
+    }
+}
+
 const formApartado = document.getElementById('form-apartado');
 if (formApartado) {
-    formApartado.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const nombreInput = document.getElementById('nombre-apartado');
-        const tipoInput = document.getElementById('tipo-apartado');
-        const metaInput = document.getElementById('meta-monto');
-
-        const nombre = nombreInput.value.trim();
-        const tipo = tipoInput.value;
-        const meta_monto = tipo === 'meta' ? parseFloat(metaInput.value) : null;
-
-        if (!nombre) {
-            alert("Ingresa un nombre para el apartado.");
-            return;
-        }
-
-        try {
-            const res = await apiFetch('/api/apartados', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre, tipo, meta_monto })
-            });
-
-            if (res.ok) {
-                cerrarModalCrearApartado();
-                await cargarDatos();
-            } else {
-                const error = await res.json();
-                alert(error.detail || 'Error al crear apartado');
-            }
-        } catch (err) {
-            alert("Error al conectar con el servidor.");
-        }
-    });
+    formApartado.addEventListener('submit', guardarNuevoApartado);
 }
 
 function abrirModalCrearApartado() {
@@ -1399,6 +1414,10 @@ function inicializarTabs() {
 }
 
 function cambiarPestana(tabId) {
+    if (tabId === 'tab-admin' && (!usuarioActual || usuarioActual.role !== 'admin')) {
+        tabId = 'tab-dashboard';
+    }
+
     const targetContent = document.getElementById(tabId);
     if (!targetContent) return;
 
@@ -1603,6 +1622,7 @@ window.realizarMovimiento = realizarMovimiento;
 window.eliminarApartado = eliminarApartado;
 window.abrirModalCrearApartado = abrirModalCrearApartado;
 window.cerrarModalCrearApartado = cerrarModalCrearApartado;
+window.guardarNuevoApartado = guardarNuevoApartado;
 window.eliminarTransaccion = eliminarTransaccion;
 window.abrirModalEditarTransaccion = abrirModalEditarTransaccion;
 window.cerrarModalEditarTransaccion = cerrarModalEditarTransaccion;

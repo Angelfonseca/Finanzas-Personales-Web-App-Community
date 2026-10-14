@@ -9,7 +9,7 @@ Este módulo implementa:
 5. Exportación de reportes a Excel (.xlsx) y respaldos físicos de base de datos por tenant.
 """
 
-from fastapi import FastAPI, HTTPException, status, Depends
+from fastapi import FastAPI, HTTPException, status, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
@@ -43,6 +43,15 @@ app = FastAPI(
 
 # Montar recursos estáticos (HTML, CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.middleware("http")
+async def add_no_cache_static_header(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static/") or request.url.path == "/":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 @app.get("/", summary="Página principal SPA")
 def leer_raiz():
