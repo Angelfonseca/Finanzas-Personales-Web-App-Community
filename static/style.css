@@ -1,3 +1,17 @@
+/*
+ * static/style.css - Estilos Globales, Tematización y Diseño Responsivo
+ *
+ * Estructura de estilos de la aplicación:
+ * 1. Variables CSS y Temas ([data-theme="dark"] para Modo Oscuro y :root para Claro).
+ * 2. Encabezado principal, Acciones (Exportar Excel, Respaldo, Modo) y Selector de Divisa.
+ * 3. Barra de navegación por pestañas (Tabs) con estados activos.
+ * 4. Tarjetas de métricas (Hero Net Worth, Cards de Flujo de Efectivo e Inversiones).
+ * 5. Paneles de formulario, tablas responsivas con columna fija (Sticky Ticker) y Chart.js.
+ * 6. Módulos de Sobres/Metas (barras de progreso) e Inversiones (autocomplete, gráfica de dona).
+ * 7. Modales de edición con animación suave y backdrop blur.
+ * 8. Media queries avanzadas para móviles, tablets y monitores de escritorio.
+ */
+
 *, *::before, *::after {
     box-sizing: border-box;
 }
@@ -7,7 +21,9 @@ html, body {
     max-width: 100%;
 }
 
-/* Variables de Color por Defecto (Modo Claro) */
+/* ========================================================== */
+/* 1. VARIABLES DE COLOR (MODO CLARO Y MODO OSCURO)           */
+/* ========================================================== */
 :root {
     --bg-color: #f4f6f9;
     --panel-bg: #ffffff;

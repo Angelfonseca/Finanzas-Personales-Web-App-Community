@@ -1,3 +1,15 @@
+"""
+export_service.py - Servicio de Exportación y Generación de Reportes Financieros en Excel
+
+Este módulo genera un libro de cálculo profesional (.xlsx) utilizando la biblioteca openpyxl.
+El reporte consolida:
+1. Resumen General y Métricas Patrimoniales (Efectivo, Sobres/Metas y Portafolio).
+2. Historial cronológico completo de Movimientos (Ingresos y Gastos).
+3. Portafolio de Inversiones valorado con cotizaciones en tiempo real.
+4. Gráfica nativa de Pastel (PieChart) de Asignación de Activos (Asset Allocation).
+5. Conversión multimoneda según la divisa base solicitada (MXN o USD).
+"""
+
 import io
 from datetime import datetime
 import sqlite3
@@ -9,44 +21,66 @@ from openpyxl.utils import get_column_letter
 
 def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
     """
-    Genera un archivo Excel (.xlsx) completo y profesional con:
-    1. Resumen General y Métricas Patrimoniales
-    2. Historial detallado de Movimientos (Ingresos y Gastos)
-    3. Portafolio de Inversiones con cotizaciones en vivo y Gráfica de Pastel (Asset Allocation)
+    Construye y retorna un libro de Excel (.xlsx) en memoria a través de io.BytesIO.
+    
+    Parámetros:
+    -----------
+    moneda_base : str (opcional, default 'MXN')
+        Divisa base para consolidar todas las métricas patrimoniales ('MXN' o 'USD').
+    
+    Retorna:
+    --------
+    io.BytesIO
+        Stream binario con el archivo Excel generado y listo para ser enviado en la respuesta HTTP.
     """
+    # Importación diferida para evitar dependencias circulares con el módulo principal
     from main import get_db, obtener_tasas_cambio, consultar_precio_y_moneda_mercado, ahora_local
 
+    # Normalizar la moneda base seleccionada (solo se aceptan MXN o USD)
     moneda_base = moneda_base.strip().upper()
     if moneda_base not in ["MXN", "USD"]:
         moneda_base = "MXN"
 
-    # 1. Obtener tasas de cambio
+    # =========================================================================
+    # PASO 1: OBTENCIÓN DE TASAS DE CAMBIO
+    # =========================================================================
+    # Se obtienen los tipos de cambio en vivo o en caché para conversiones multimoneda.
     tasas = obtener_tasas_cambio()
     tasa_usd_mxn = tasas.get("MXN", 18.40)
+    
+    # Factor para convertir flujos originados en pesos mexicanos (MXN) a la divisa solicitada
     factor_mxn_a_base = (1.0 / tasa_usd_mxn) if (moneda_base == "USD" and tasa_usd_mxn > 0) else 1.0
 
-    # 2. Conectar a BD y sincronizar cotizaciones al momento
+    # =========================================================================
+    # PASO 2: CONEXIÓN A BD Y ACTUALIZACIÓN EN VIVO DE COTIZACIONES
+    # =========================================================================
     conn = get_db()
     cursor = conn.cursor()
 
-    # Actualizar cotizaciones de inversiones en vivo al momento de la exportación
+    # Sincronizar precios de mercado al momento exacto de la exportación para máxima fidelidad
     filas_inv_raw = cursor.execute("SELECT * FROM inversiones ORDER BY id DESC").fetchall()
     for inv in filas_inv_raw:
         precio_mkt, moneda_mkt = consultar_precio_y_moneda_mercado(inv["ticker"])
         if precio_mkt and precio_mkt > 0:
             cursor.execute(
-                "UPDATE inversiones SET precio_actual = ?, moneda = ?, actualizado_en = CURRENT_TIMESTAMP WHERE id = ?",
+                """
+                UPDATE inversiones 
+                SET precio_actual = ?, moneda = ?, actualizado_en = CURRENT_TIMESTAMP 
+                WHERE id = ?
+                """,
                 (precio_mkt, moneda_mkt, inv["id"])
             )
     conn.commit()
 
-    # Consultar datos actualizados
+    # Consultar las tres entidades clave del modelo relacional
     transacciones = cursor.execute("SELECT * FROM transacciones ORDER BY fecha DESC, id DESC").fetchall()
     apartados = cursor.execute("SELECT * FROM apartados ORDER BY id DESC").fetchall()
     inversiones_db = cursor.execute("SELECT * FROM inversiones ORDER BY id DESC").fetchall()
     conn.close()
 
-    # 3. Procesar cálculos de Inversiones
+    # =========================================================================
+    # PASO 3: CÁLCULOS MATEMÁTICOS Y PATRIMONIALES DE INVERSIONES
+    # =========================================================================
     posiciones = []
     total_inv_invertido = 0.0
     total_inv_valor = 0.0
@@ -57,6 +91,7 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
         precio_act = float(inv["precio_actual"])
         moneda_activo = (inv["moneda"] or "USD").upper()
 
+        # Determinar el factor de conversión según la divisa del activo y la divisa base del reporte
         if moneda_activo == "USD" and moneda_base == "MXN":
             factor_inv = tasa_usd_mxn
         elif moneda_activo == "MXN" and moneda_base == "USD":
@@ -64,6 +99,7 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
         else:
             factor_inv = 1.0
 
+        # Montos consolidados en la moneda base del reporte
         cap_inv = round(cant * costo_prom * factor_inv, 2)
         val_mkt = round(cant * precio_act * factor_inv, 2)
         pnl = round(val_mkt - cap_inv, 2)
@@ -85,46 +121,53 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
             "peso_porcentaje": 0.0
         })
 
+    # PnL agregado de todo el portafolio
     total_inv_pnl = round(total_inv_valor - total_inv_invertido, 2)
     total_inv_pnl_pct = (total_inv_pnl / total_inv_invertido) if total_inv_invertido > 0 else 0.0
 
+    # Calcular peso porcentual relativo (% Asset Allocation) de cada activo
     for pos in posiciones:
         pos["peso_porcentaje"] = (pos["valor_actual"] / total_inv_valor) if total_inv_valor > 0 else 0.0
 
-    # 4. Procesar cálculos de Apartados y Transacciones
+    # =========================================================================
+    # PASO 4: CÁLCULOS DE APARTADOS Y FLUJO DE EFECTIVO
+    # =========================================================================
     total_ingresos_mxn = sum(float(t["monto"]) for t in transacciones if t["tipo"] == "ingreso")
     total_gastos_mxn = sum(float(t["monto"]) for t in transacciones if t["tipo"] == "gasto")
     balance_mxn = total_ingresos_mxn - total_gastos_mxn
     total_apartados_mxn = sum(float(a["monto_actual"]) for a in apartados)
 
-    # Convertir a moneda base seleccionada
+    # Conversión a la divisa base seleccionada
     ingresos_base = round(total_ingresos_mxn * factor_mxn_a_base, 2)
     gastos_base = round(total_gastos_mxn * factor_mxn_a_base, 2)
     balance_base = round(balance_mxn * factor_mxn_a_base, 2)
     apartados_base = round(total_apartados_mxn * factor_mxn_a_base, 2)
+    
+    # Patrimonio Neto = Balance Disponible + Ahorro en Sobres/Metas + Valor de Inversiones
     patrimonio_neto = round(balance_base + apartados_base + total_inv_valor, 2)
 
-    # ==========================================
-    # --- CREACIÓN DEL LIBRO EXCEL ---
-    # ==========================================
+    # =========================================================================
+    # PASO 5: DISEÑO Y ESTILOS INSTITUCIONALES EN OPENPYXL
+    # =========================================================================
     wb = openpyxl.Workbook()
 
-    # Estilos compartidos
-    fill_header = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
-    fill_subheader = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
-    fill_zebra = PatternFill(start_color="F9FAFB", end_color="F9FAFB", fill_type="solid")
-    fill_total = PatternFill(start_color="EAEEF3", end_color="EAEEF3", fill_type="solid")
+    # Rellenos (Fills) con paleta corporativa Navy Blue
+    fill_header = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")      # Azul oscuro institucional
+    fill_subheader = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")   # Azul suave para resaltar
+    fill_zebra = PatternFill(start_color="F9FAFB", end_color="F9FAFB", fill_type="solid")       # Alternancia sutil de filas
+    fill_total = PatternFill(start_color="EAEEF3", end_color="EAEEF3", fill_type="solid")       # Fila de totales
 
+    # Tipografías (Fonts)
     font_title = Font(name="Calibri", size=15, bold=True, color="1F4E78")
     font_subtitle = Font(name="Calibri", size=10, italic=True, color="595959")
     font_section = Font(name="Calibri", size=12, bold=True, color="1F4E78")
     font_header = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    font_subheader = Font(name="Calibri", size=11, bold=True, color="1F4E78")
     font_bold = Font(name="Calibri", size=11, bold=True)
     font_regular = Font(name="Calibri", size=11)
-    font_green = Font(name="Calibri", size=11, color="1E7E34", bold=True)
-    font_red = Font(name="Calibri", size=11, color="C82333", bold=True)
+    font_green = Font(name="Calibri", size=11, color="1E7E34", bold=True)  # Rendimientos positivos
+    font_red = Font(name="Calibri", size=11, color="C82333", bold=True)    # Rendimientos negativos / Gastos
 
+    # Bordes (Borders)
     border_thin = Border(
         left=Side(style='thin', color='D9D9D9'),
         right=Side(style='thin', color='D9D9D9'),
@@ -133,32 +176,36 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
     )
     border_total = Border(
         top=Side(style='thin', color='000000'),
-        bottom=Side(style='double', color='000000')
+        bottom=Side(style='double', color='000000')  # Línea doble contable para totales
     )
 
+    # Alineaciones (Alignments)
     align_center = Alignment(horizontal="center", vertical="center")
     align_left = Alignment(horizontal="left", vertical="center")
     align_right = Alignment(horizontal="right", vertical="center")
 
+    # Formatos numéricos compatibles con Excel
     fmt_currency = '"$"#,##0.00'
     fmt_pct = '0.00%'
     fmt_qty = '#,##0.0000'
 
+    # Marca temporal de emisión del reporte
     fecha_hora_emision = ahora_local().strftime('%d/%m/%Y %H:%M:%S')
 
-    # ------------------------------------------
-    # HOJA 1: RESUMEN GENERAL
-    # ------------------------------------------
+    # =========================================================================
+    # HOJA 1: RESUMEN GENERAL Y MÉTRICAS PATRIMONIALES
+    # =========================================================================
     ws1 = wb.active
     ws1.title = "Resumen General"
-    ws1.views.sheetView[0].showGridLines = True
+    ws1.views.sheetView[0].showGridLines = True  # Mantener visibles las líneas de cuadrícula
 
+    # Título principal del reporte y metadata
     ws1['A1'] = "REPORTE FINANCIERO Y PATRIMONIAL"
     ws1['A1'].font = font_title
     ws1['A2'] = f"Emitido el: {fecha_hora_emision} | Moneda Base: {moneda_base} | Tipo de cambio: 1 USD ≈ ${tasa_usd_mxn:.2f} MXN"
     ws1['A2'].font = font_subtitle
 
-    # Sección 1: Indicadores Patrimoniales
+    # Sección 1.1: Indicadores Patrimoniales Principales
     ws1['A4'] = "1. INDICADORES PATRIMONIALES Y FINANCIEROS"
     ws1['A4'].font = font_section
 
@@ -200,13 +247,14 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
 
         c2.number_format = fmt_currency
 
+        # Resaltar la fila de Patrimonio Neto con fondo institucional suave
         if "Patrimonio" in nombre:
             c1.fill = fill_subheader
             c2.fill = fill_subheader
             c3.fill = fill_subheader
             c2.font = font_section
 
-    # Sección 2: Desglose de Sobres de Ahorro y Metas
+    # Sección 1.2: Desglose de Sobres de Ahorro y Metas
     start_row_ap = 16
     ws1.cell(row=start_row_ap, column=1, value="2. SOBRES DE AHORRO Y METAS").font = font_section
 
@@ -253,9 +301,9 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
             if pct_ap is not None:
                 c_pct.number_format = fmt_pct
 
-    # ------------------------------------------
-    # HOJA 2: MOVIMIENTOS (TRANSACCIONES)
-    # ------------------------------------------
+    # =========================================================================
+    # HOJA 2: HISTORIAL DE MOVIMIENTOS (TRANSACCIONES)
+    # =========================================================================
     ws2 = wb.create_sheet(title="Movimientos")
     ws2.views.sheetView[0].showGridLines = True
 
@@ -297,10 +345,11 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
             c_desc.alignment = align_left
             c_monto.alignment = align_right
 
+            # Resaltar visualmente el tipo de flujo
             c_tipo.font = font_green if es_ingreso else font_red
             c_monto.number_format = fmt_currency
 
-        # Fila de Totales de Movimientos
+        # Fila de Totales de Movimientos (Balance Neto de Caja)
         last_row = len(transacciones) + 5
         ws2.cell(row=last_row, column=1, value="")
         ws2.cell(row=last_row, column=2, value="")
@@ -316,9 +365,9 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
         c_tot.alignment = align_right
         c_tot.number_format = fmt_currency
 
-    # ------------------------------------------
-    # HOJA 3: INVERSIONES & ASSET ALLOCATION
-    # ------------------------------------------
+    # =========================================================================
+    # HOJA 3: PORTAFOLIO DE INVERSIONES & ASSET ALLOCATION
+    # =========================================================================
     ws3 = wb.create_sheet(title="Inversiones & Allocation")
     ws3.views.sheetView[0].showGridLines = True
 
@@ -380,6 +429,7 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
             c_rend.alignment = align_center
             c_peso.alignment = align_center
 
+            # Formatos de moneda y porcentaje contable
             c_cant.number_format = fmt_qty
             c_prom.number_format = fmt_currency
             c_act.number_format = fmt_currency
@@ -389,6 +439,7 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
             c_rend.number_format = fmt_pct
             c_peso.number_format = fmt_pct
 
+            # Color condicional para PnL individual (verde = ganancia, rojo = pérdida)
             c_pnl.font = font_green if pos["pnl"] >= 0 else font_red
 
         # Fila de Totales del Portafolio
@@ -423,42 +474,42 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
         c_tot_peso.number_format = fmt_pct
         c_tot_pnl.font = font_green if total_inv_pnl >= 0 else font_red
 
-        # ------------------------------------------
-        # GRÁFICA DE PASTEL (ASSET ALLOCATION PIE CHART)
-        # ------------------------------------------
+        # =====================================================================
+        # GRÁFICA DE PASTEL NATIVA EN EXCEL (PIECHART DE ASSET ALLOCATION)
+        # =====================================================================
         pie = PieChart()
         pie.title = f"Asset Allocation (% Peso) - {moneda_base}"
 
         # Categorías: Tickers (Columna 1, filas 5 a len+4)
         labels = Reference(ws3, min_col=1, min_row=5, max_row=len(posiciones) + 4)
-        # Datos: Valor de Mercado (Columna 7, encabezado en fila 4, datos filas 5 a len+4)
+        # Serie de Datos: Valor de Mercado (Columna 7, encabezado en fila 4, datos filas 5 a len+4)
         data = Reference(ws3, min_col=7, min_row=4, max_row=len(posiciones) + 4)
 
         pie.add_data(data, titles_from_data=True)
         pie.set_categories(labels)
 
-        # Mostrar etiquetas porcentuales en cada rebanada del pastel
+        # Mostrar etiquetas de porcentaje directamente en cada sector del gráfico
         pie.dataLabels = DataLabelList()
         pie.dataLabels.showPercent = True
         pie.dataLabels.showVal = False
         pie.dataLabels.showCatName = False
 
-        # Dimensiones de la gráfica
+        # Dimensiones visuales ideales para no solapar la tabla
         pie.width = 17
         pie.height = 11.5
 
-        # Insertar a un lado de la tabla (Columna L, fila 4)
+        # Posicionar el gráfico a la derecha de la tabla de posiciones (en la celda L4)
         ws3.add_chart(pie, "L4")
 
-    # ==========================================
-    # --- AUTOAJUSTE DE ANCHOS DE COLUMNAS ---
-    # ==========================================
+    # =========================================================================
+    # PASO 6: AUTOAJUSTE INTELIGENTE DEL ANCHO DE COLUMNAS
+    # =========================================================================
     for ws in [ws1, ws2, ws3]:
         for col in ws.columns:
             max_len = 0
             col_letter = get_column_letter(col[0].column)
             for cell in col:
-                # Omitir títulos principales y celdas combinadas largas para no ensanchar artificialmente
+                # Omitir títulos principales y celdas informativas largas para no ensanchar artificialmente
                 if cell.row in [1, 2, 4]:
                     continue
                 val_str = str(cell.value or "")
@@ -468,6 +519,9 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
                     max_len = len(val_str)
             ws.column_dimensions[col_letter].width = max(max_len + 4, 13)
 
+    # =========================================================================
+    # PASO 7: RETORNO DEL BUFFER EN MEMORIA (BYTESIO)
+    # =========================================================================
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
