@@ -19,7 +19,7 @@ from openpyxl.chart import PieChart, Reference
 from openpyxl.chart.label import DataLabelList
 from openpyxl.utils import get_column_letter
 
-def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
+def generar_reporte_excel(moneda_base: str = "MXN", conn: sqlite3.Connection = None, db_name: str = "user_1.db") -> io.BytesIO:
     """
     Construye y retorna un libro de Excel (.xlsx) en memoria a través de io.BytesIO.
     
@@ -27,6 +27,10 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
     -----------
     moneda_base : str (opcional, default 'MXN')
         Divisa base para consolidar todas las métricas patrimoniales ('MXN' o 'USD').
+    conn : sqlite3.Connection (opcional)
+        Conexión inyectada hacia la base de datos del tenant autenticado.
+    db_name : str (opcional)
+        Nombre de archivo de la base de datos del tenant en caso de abrir nueva conexión.
     
     Retorna:
     --------
@@ -34,7 +38,8 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
         Stream binario con el archivo Excel generado y listo para ser enviado en la respuesta HTTP.
     """
     # Importación diferida para evitar dependencias circulares con el módulo principal
-    from main import get_db, obtener_tasas_cambio, consultar_precio_y_moneda_mercado, ahora_local
+    from main import obtener_tasas_cambio, consultar_precio_y_moneda_mercado, ahora_local
+    from database import get_tenant_conn
 
     # Normalizar la moneda base seleccionada (solo se aceptan MXN o USD)
     moneda_base = moneda_base.strip().upper()
@@ -54,7 +59,10 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
     # =========================================================================
     # PASO 2: CONEXIÓN A BD Y ACTUALIZACIÓN EN VIVO DE COTIZACIONES
     # =========================================================================
-    conn = get_db()
+    debe_cerrar = False
+    if conn is None:
+        conn = get_tenant_conn(db_name)
+        debe_cerrar = True
     cursor = conn.cursor()
 
     # Sincronizar precios de mercado al momento exacto de la exportación para máxima fidelidad
@@ -76,7 +84,8 @@ def generar_reporte_excel(moneda_base: str = "MXN") -> io.BytesIO:
     transacciones = cursor.execute("SELECT * FROM transacciones ORDER BY fecha DESC, id DESC").fetchall()
     apartados = cursor.execute("SELECT * FROM apartados ORDER BY id DESC").fetchall()
     inversiones_db = cursor.execute("SELECT * FROM inversiones ORDER BY id DESC").fetchall()
-    conn.close()
+    if debe_cerrar:
+        conn.close()
 
     # =========================================================================
     # PASO 3: CÁLCULOS MATEMÁTICOS Y PATRIMONIALES DE INVERSIONES

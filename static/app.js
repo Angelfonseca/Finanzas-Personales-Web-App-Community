@@ -1,78 +1,282 @@
 /**
- * static/app.js - Controlador Principal del Frontend (SPA)
+ * static/app.js - Controlador Principal del Frontend (SPA Multi-Tenant)
  * 
- * Este archivo gestiona la lógica del cliente para la aplicación de finanzas:
- * - Navegación fluida por pestañas (Dashboard, Movimientos, Metas, Inversiones).
- * - Renderizado reactivo de gráficas con Chart.js (Barras mensuales y Dona de Asset Allocation).
- * - Sincronización y persistencia de moneda base (MXN / USD) y tema visual (Claro / Oscuro).
- * - Formularios interactivos, modales de edición y autocompletado en tiempo real con Yahoo Finance.
- * - Exportación de reportes a Excel y descargas de copias de seguridad.
+ * Este módulo gestiona:
+ * 1. Autenticación JWT y Guardias de Ruta (Login, Logout y Validación de Sesión).
+ * 2. Cliente HTTP Interceptor (apiFetch) con inyección automática de Bearer Token y captura 401/403.
+ * 3. Purga Limpia de Estado al Cerrar Sesión (destrucción de Chart.js, memoria y DOM).
+ * 4. Navegación por pestañas (Dashboard, Movimientos, Metas, Inversiones y Panel de Administración).
+ * 5. Panel de Administración: KPIs de tenants, tabla de usuarios con tiempo relativo y modal de alta.
+ * 6. Visualizaciones reactivas con Chart.js y autocompletado en tiempo real con Yahoo Finance.
  */
 
 // =============================================================================
-// 1. UTILIDADES Y FECHA LOCAL
+// 1. ESTADO GLOBAL DE LA APLICACIÓN
+// =============================================================================
+
+let usuarioActual = null;          // Objeto con metadata del usuario en sesión
+let miGrafica = null;              // Instancia Chart.js de barras (Ingresos vs Gastos)
+let graficaDona = null;            // Instancia Chart.js de dona (Asset Allocation)
+let monedaGlobal = localStorage.getItem('moneda_global') || 'MXN';
+let tasasCambio = { USD: 1.0, MXN: 18.40, EUR: 0.89 };
+let debounceTimerBuscar = null;
+
+// =============================================================================
+// 2. CLIENTE HTTP INTERCEPTOR (apiFetch)
 // =============================================================================
 
 /**
- * Retorna la fecha local del dispositivo en formato ISO 'YYYY-MM-DD'.
- * Evita desfaces causados por toISOString() que utiliza tiempo universal UTC.
+ * Cliente HTTP centralizado que intercepta todas las peticiones hacia la API:
+ * 1. Inyecta la cabecera 'Authorization: Bearer <token>' automáticamente.
+ * 2. Si el servidor responde 401 Unauthorized o 403 Forbidden, purga la sesión
+ *    y redirige de inmediato a la pantalla de login.
  */
-function obtenerFechaLocalISO() {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+async function apiFetch(url, options = {}) {
+    const token = localStorage.getItem('jwt_token');
+    const headers = options.headers ? { ...options.headers } : {};
+
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(url, { ...options, headers });
+
+    // Si el token expiró o la cuenta fue suspendida en master_db
+    if (response.status === 401 || response.status === 403) {
+        if (!url.includes('/auth/login')) {
+            cerrarSesionLimpia("Tu sesión ha expirado o tu cuenta ha sido suspendida.");
+            throw new Error("No autorizado");
+        }
+    }
+
+    return response;
 }
 
-// Inicializar el campo de fecha con el día de hoy
-document.getElementById('fecha').value = obtenerFechaLocalISO();
+// =============================================================================
+// 3. AUTENTICACIÓN, LOGIN Y PURGA DE SESIÓN
+// =============================================================================
 
-// Referencias a elementos recurrentes del DOM
-const form = document.getElementById('transaccion-form');
-const mensajeDiv = document.getElementById('mensaje');
+/**
+ * Verifica si existe una sesión activa válida al cargar la aplicación.
+ */
+async function verificarSesionInicial() {
+    const token = localStorage.getItem('jwt_token');
+    const vistaLogin = document.getElementById('vista-login');
+    const vistaApp = document.getElementById('vista-app');
+
+    if (!token) {
+        mostrarVistaLogin();
+        return;
+    }
+
+    try {
+        const res = await apiFetch('/auth/me');
+        if (res.ok) {
+            const data = await res.json();
+            establecerSesionActiva(data.user, token);
+        } else {
+            cerrarSesionLimpia();
+        }
+    } catch (e) {
+        cerrarSesionLimpia();
+    }
+}
+
+/**
+ * Muestra la vista de login y oculta la aplicación financiera.
+ */
+function mostrarVistaLogin(errorMsg = '') {
+    const vistaLogin = document.getElementById('vista-login');
+    const vistaApp = document.getElementById('vista-app');
+    const loginError = document.getElementById('login-error');
+
+    if (vistaLogin) vistaLogin.style.display = 'flex';
+    if (vistaApp) vistaApp.style.display = 'none';
+
+    if (loginError) {
+        if (errorMsg) {
+            loginError.textContent = errorMsg;
+            loginError.style.display = 'block';
+        } else {
+            loginError.style.display = 'none';
+        }
+    }
+}
+
+/**
+ * Configura la UI para el usuario autenticado y carga sus datos.
+ */
+function establecerSesionActiva(user, token) {
+    usuarioActual = user;
+    localStorage.setItem('jwt_token', token);
+    localStorage.setItem('user_info', JSON.stringify(user));
+
+    // Ocultar login y mostrar aplicación
+    const vistaLogin = document.getElementById('vista-login');
+    const vistaApp = document.getElementById('vista-app');
+    if (vistaLogin) vistaLogin.style.display = 'none';
+    if (vistaApp) vistaApp.style.display = 'block';
+
+    // Actualizar badges de usuario en el header
+    const lblUser = document.getElementById('lbl-username');
+    const lblRole = document.getElementById('lbl-user-role');
+    if (lblUser) lblUser.textContent = user.username;
+    if (lblRole) {
+        lblRole.textContent = user.role;
+        lblRole.className = `badge-role ${user.role === 'admin' ? 'badge-role-admin' : 'badge-role-user'}`;
+    }
+
+    // Pestaña de administración: visible estrictamente para rol admin
+    const btnTabAdmin = document.getElementById('btn-tab-admin');
+    if (btnTabAdmin) {
+        btnTabAdmin.style.display = (user.role === 'admin') ? 'inline-block' : 'none';
+    }
+
+    // Cargar datos financieros del tenant
+    cargarTiposCambio();
+    cargarDatos();
+
+    // Si es administrador, precargar datos de gestión
+    if (user.role === 'admin') {
+        cargarDatosAdmin();
+    }
+}
+
+/**
+ * Maneja el envío del formulario de login.
+ */
+async function iniciarSesion(e) {
+    e.preventDefault();
+    const usernameInput = document.getElementById('login-username');
+    const passwordInput = document.getElementById('login-password');
+    const loginError = document.getElementById('login-error');
+    const btnSubmit = document.getElementById('btn-login-submit');
+
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+
+    if (!username || !password) return;
+
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = '⏳ Verificando credenciales...';
+    if (loginError) loginError.style.display = 'none';
+
+    try {
+        const res = await fetch('/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.access_token) {
+            usernameInput.value = '';
+            passwordInput.value = '';
+            establecerSesionActiva(data.user, data.access_token);
+        } else {
+            loginError.textContent = data.detail || 'Usuario o contraseña incorrectos.';
+            loginError.style.display = 'block';
+        }
+    } catch (err) {
+        loginError.textContent = 'Error de conexión con el servidor.';
+        loginError.style.display = 'block';
+    } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = 'Ingresar a la Plataforma';
+    }
+}
+
+/**
+ * Cierre de sesión voluntario por parte del usuario.
+ */
+function logoutUsuario() {
+    if (confirm("¿Deseas cerrar tu sesión actual?")) {
+        cerrarSesionLimpia();
+    }
+}
+
+/**
+ * Purga completa de sesión y aislamiento total de memoria:
+ * 1. Elimina tokens de localStorage.
+ * 2. Destruye instancias activas de Chart.js.
+ * 3. Vacía variables de memoria y tablas del DOM.
+ * 4. Muestra la pantalla de login para evitar contaminación visual entre cuentas.
+ */
+function cerrarSesionLimpia(errorMsg = '') {
+    // 1. Eliminar persistencia local
+    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('user_info');
+    usuarioActual = null;
+
+    // 2. Destruir instancias de Chart.js
+    if (miGrafica) {
+        miGrafica.destroy();
+        miGrafica = null;
+    }
+    if (graficaDona) {
+        graficaDona.destroy();
+        graficaDona = null;
+    }
+
+    // 3. Limpiar elementos del DOM
+    const tMov = document.getElementById('tabla-movimientos');
+    if (tMov) tMov.innerHTML = '';
+
+    const tInv = document.getElementById('tabla-inversiones');
+    if (tInv) tInv.innerHTML = '';
+
+    const tApt = document.getElementById('contenedor-apartados');
+    if (tApt) tApt.innerHTML = '';
+
+    const lMes = document.getElementById('lista-resumen-mensual');
+    if (lMes) lMes.innerHTML = '';
+
+    const tAdm = document.getElementById('tabla-usuarios-admin');
+    if (tAdm) tAdm.innerHTML = '';
+
+    // Restablecer etiquetas numéricas a cero
+    document.querySelectorAll('[id^="lbl-dash-"], [id^="lbl-inv-"], #lbl-balance, #lbl-ingresos, #lbl-gastos, #lbl-apartados-total-acum').forEach(el => {
+        el.textContent = '$0.00';
+    });
+
+    // Ocultar botón de admin y restablecer pestaña por defecto
+    const btnTabAdmin = document.getElementById('btn-tab-admin');
+    if (btnTabAdmin) btnTabAdmin.style.display = 'none';
+    cambiarPestana('tab-dashboard');
+
+    // 4. Mostrar pantalla de login
+    mostrarVistaLogin(errorMsg);
+}
+
+// =============================================================================
+// 4. GESTIÓN DEL TEMA VISUAL (MODO OSCURO / CLARO)
+// =============================================================================
+
 const btnModo = document.getElementById('btn-modo');
-
-// Instancias globales de Chart.js para permitir su actualización sin parpadeos
-let miGrafica = null;      // Gráfica de barras (Ingresos vs Gastos)
-let graficaDona = null;    // Gráfica de dona (Asignación de Activos / Asset Allocation)
-
-// =============================================================================
-// 2. GESTIÓN DEL TEMA VISUAL (MODO OSCURO / CLARO)
-// =============================================================================
-
-// Recuperar preferencia de tema guardada en localStorage
 const temaGuardado = localStorage.getItem('theme');
 if (temaGuardado === 'dark') {
     document.documentElement.setAttribute('data-theme', 'dark');
-    btnModo.textContent = '☀️ Modo Claro';
+    if (btnModo) btnModo.textContent = '☀️ Modo Claro';
 }
 
-// Alternar entre modo oscuro y modo claro al hacer clic en el botón
-btnModo.addEventListener('click', () => {
-    const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
-    if (esOscuro) {
-        document.documentElement.removeAttribute('data-theme');
-        localStorage.setItem('theme', 'light');
-        btnModo.textContent = '🌙 Modo Oscuro';
-    } else {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        localStorage.setItem('theme', 'dark');
-        btnModo.textContent = '☀️ Modo Claro';
-    }
-    // Sincronizar colores de las gráficas al nuevo contraste
-    if (miGrafica) {
-        actualizarColoresGrafica();
-    }
-    if (graficaDona) {
-        actualizarColoresDona();
-    }
-});
+if (btnModo) {
+    btnModo.addEventListener('click', () => {
+        const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (esOscuro) {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('theme', 'light');
+            btnModo.textContent = '🌙 Modo Oscuro';
+        } else {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
+            btnModo.textContent = '☀️ Modo Claro';
+        }
+        if (miGrafica) actualizarColoresGrafica();
+        if (graficaDona) actualizarColoresDona();
+    });
+}
 
-/**
- * Actualiza los colores de texto y cuadrículas de la gráfica de barras para
- * garantizar legibilidad según el tema activo.
- */
 function actualizarColoresGrafica() {
     if (!miGrafica) return;
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -87,9 +291,6 @@ function actualizarColoresGrafica() {
     miGrafica.update();
 }
 
-/**
- * Actualiza los colores de texto y bordes de la gráfica de dona (Asset Allocation).
- */
 function actualizarColoresDona() {
     if (!graficaDona) return;
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -102,29 +303,28 @@ function actualizarColoresDona() {
 }
 
 // =============================================================================
-// 3. CARGA GENERAL DE DATOS (DASHBOARD, MOVIMIENTOS Y RESÚMENES)
+// 5. CARGA DE DATOS FINANCIEROS DEL TENANT ACTIVO
 // =============================================================================
 
-/**
- * Orquestador principal de recarga de datos:
- * 1. Consulta el resumen financiero consolidado en la divisa base actual.
- * 2. Consulta y renderiza el resumen mensual histórico y la gráfica de barras.
- * 3. Actualiza la tabla cronológica de movimientos.
- * 4. Refresca los sobres de ahorro y metas.
- * 5. Refresca el portafolio bursátil de inversiones.
- */
+function obtenerFechaLocalISO() {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+const inputFecha = document.getElementById('fecha');
+if (inputFecha) inputFecha.value = obtenerFechaLocalISO();
+
 async function cargarDatos() {
     try {
-        // -------------------------------------------------------------
-        // 1. Resumen General Consolidado
-        // -------------------------------------------------------------
-        const resResumen = await fetch(`/api/resumen?moneda_base=${encodeURIComponent(monedaGlobal)}`);
+        const fmtMoneda = (val) => Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        // 1. Resumen Consolidado del Tenant
+        const resResumen = await apiFetch(`/api/resumen?moneda_base=${encodeURIComponent(monedaGlobal)}`);
         const dataResumen = await resResumen.json();
         
-        // Formateador de moneda auxiliar
-        const fmtMoneda = (val) => val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-        // Actualizar etiquetas de la Tarjeta Hero del Dashboard
         if (document.getElementById('lbl-dash-patrimonio')) {
             document.getElementById('lbl-dash-patrimonio').textContent = `$${fmtMoneda(dataResumen.patrimonio_neto)} ${monedaGlobal}`;
             document.getElementById('lbl-dash-balance').textContent = `$${fmtMoneda(dataResumen.balance)}`;
@@ -134,86 +334,78 @@ async function cargarDatos() {
             document.getElementById('lbl-dash-gastos').textContent = `$${fmtMoneda(dataResumen.gastos)}`;
         }
 
-        // Pestaña de Apartados (píldora con el total acumulado en reserva)
         if (document.getElementById('lbl-apartados-total-acum')) {
             document.getElementById('lbl-apartados-total-acum').textContent = `$${fmtMoneda(dataResumen.apartados)}`;
         }
 
-        // Pestaña de Movimientos (tarjetas de balance de caja)
         if (document.getElementById('lbl-balance')) {
-            document.getElementById('lbl-balance').textContent = `$${dataResumen.balance.toFixed(2)}`;
-            document.getElementById('lbl-ingresos').textContent = `$${dataResumen.ingresos.toFixed(2)}`;
-            document.getElementById('lbl-gastos').textContent = `$${dataResumen.gastos.toFixed(2)}`;
+            document.getElementById('lbl-balance').textContent = `$${Number(dataResumen.balance).toFixed(2)}`;
+            document.getElementById('lbl-ingresos').textContent = `$${Number(dataResumen.ingresos).toFixed(2)}`;
+            document.getElementById('lbl-gastos').textContent = `$${Number(dataResumen.gastos).toFixed(2)}`;
         }
 
-        // -------------------------------------------------------------
-        // 2. Resumen Mensual (Tarjetas y Gráfica)
-        // -------------------------------------------------------------
-        const resMensual = await fetch('/api/resumen-mensual');
+        // 2. Resumen Mensual Histórico
+        const resMensual = await apiFetch('/api/resumen-mensual');
         const dataMensual = await resMensual.json();
         
         const contenedorMensual = document.getElementById('lista-resumen-mensual');
-        contenedorMensual.innerHTML = '';
-
-        if (dataMensual.length === 0) {
-            contenedorMensual.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Sin registros mensuales aún.</p>';
-        } else {
-            dataMensual.forEach(m => {
-                const div = document.createElement('div');
-                div.className = 'monthly-card';
-                div.innerHTML = `
-                    <div><strong>${m.mes}</strong></div>
-                    <div class="monthly-info">
-                        <span style="color: #2ecc71;">+${m.ingresos.toFixed(2)}</span>
-                        <span style="color: #e74c3c;">-${m.gastos.toFixed(2)}</span>
-                    </div>
-                `;
-                contenedorMensual.appendChild(div);
-            });
+        if (contenedorMensual) {
+            contenedorMensual.innerHTML = '';
+            if (dataMensual.length === 0) {
+                contenedorMensual.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Sin registros mensuales aún.</p>';
+            } else {
+                dataMensual.forEach(m => {
+                    const div = document.createElement('div');
+                    div.className = 'monthly-card';
+                    div.innerHTML = `
+                        <div><strong>${m.mes}</strong></div>
+                        <div class="monthly-info">
+                            <span style="color: #2ecc71;">+${Number(m.ingresos).toFixed(2)}</span>
+                            <span style="color: #e74c3c;">-${Number(m.gastos).toFixed(2)}</span>
+                        </div>
+                    `;
+                    contenedorMensual.appendChild(div);
+                });
+            }
         }
 
-        // Invertir copia del array para mostrar la gráfica en orden cronológico (de más antiguo a más nuevo)
         actualizarGrafica(dataMensual.slice().reverse());
 
-        // -------------------------------------------------------------
         // 3. Tabla Cronológica de Movimientos
-        // -------------------------------------------------------------
-        const resTrans = await fetch('/api/transacciones');
+        const resTrans = await apiFetch('/api/transacciones');
         const dataTrans = await resTrans.json();
         
         const tbody = document.getElementById('tabla-movimientos');
-        tbody.innerHTML = '';
+        if (tbody) {
+            tbody.innerHTML = '';
+            if (dataTrans.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No hay movimientos.</td></tr>';
+            } else {
+                dataTrans.forEach(t => {
+                    const tr = document.createElement('tr');
+                    const descSegura = (t.descripcion || '')
+                        .replace(/\\/g, '\\\\')
+                        .replace(/'/g, "\\'")
+                        .replace(/"/g, '&quot;')
+                        .replace(/\n/g, '\\n')
+                        .replace(/\r/g, '\\r');
 
-        if (dataTrans.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No hay movimientos.</td></tr>';
-        } else {
-            dataTrans.forEach(t => {
-                const tr = document.createElement('tr');
-                // Escape seguro de caracteres especiales para evitar inyecciones en el atributo onclick
-                const descSegura = (t.descripcion || '')
-                    .replace(/\\/g, '\\\\')
-                    .replace(/'/g, "\\'")
-                    .replace(/"/g, '&quot;')
-                    .replace(/\n/g, '\\n')
-                    .replace(/\r/g, '\\r');
-
-                tr.innerHTML = `
-                    <td>${t.fecha}</td>
-                    <td>${t.descripcion || '-'}</td>
-                    <td class="${t.tipo === 'gasto' ? 'text-gasto' : 'text-ingreso'}">${t.tipo.toUpperCase()}</td>
-                    <td>$${t.monto.toFixed(2)}</td>
-                    <td class="col-acciones">
-                        <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarTransaccion(${t.id}, '${t.fecha}', ${t.monto}, '${t.tipo}', '${descSegura}')" title="Editar movimiento">✏️</button>
-                        <button type="button" class="btn-accion btn-eliminar" onclick="eliminarTransaccion(${t.id})" title="Eliminar movimiento">✕</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
+                    tr.innerHTML = `
+                        <td>${t.fecha}</td>
+                        <td>${t.descripcion || '-'}</td>
+                        <td class="${t.tipo === 'gasto' ? 'text-gasto' : 'text-ingreso'}">${t.tipo.toUpperCase()}</td>
+                        <td>$${Number(t.monto).toFixed(2)}</td>
+                        <td class="col-acciones">
+                            <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarTransaccion(${t.id}, '${t.fecha}', ${t.monto}, '${t.tipo}', '${descSegura}')" title="Editar movimiento">✏️</button>
+                            <button type="button" class="btn-accion btn-eliminar" onclick="eliminarTransaccion(${t.id})" title="Eliminar movimiento">✕</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
         }
 
-        // -------------------------------------------------------------
-        // 4. Cargar Sobres y Portafolio de Inversiones
-        // -------------------------------------------------------------
+        // 4. Sobres de Ahorro y Portafolio de Inversiones
         await cargarApartados();
         await cargarInversiones();
 
@@ -222,11 +414,10 @@ async function cargarDatos() {
     }
 }
 
-/**
- * Renderiza o actualiza la gráfica de barras de Ingresos vs Gastos con Chart.js.
- */
 function actualizarGrafica(dataMensual) {
-    const ctx = document.getElementById('graficaFinanzas').getContext('2d');
+    const canvas = document.getElementById('graficaFinanzas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = esOscuro ? '#e0e0e0' : '#333333';
     const gridColor = esOscuro ? '#333333' : '#eee';
@@ -236,13 +427,11 @@ function actualizarGrafica(dataMensual) {
     const gastos = dataMensual.map(m => m.gastos);
 
     if (miGrafica) {
-        // Actualizar datos existentes
         miGrafica.data.labels = meses;
         miGrafica.data.datasets[0].data = ingresos;
         miGrafica.data.datasets[1].data = gastos;
         miGrafica.update();
     } else {
-        // Crear nueva instancia de Chart.js
         miGrafica = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -267,76 +456,66 @@ function actualizarGrafica(dataMensual) {
             options: {
                 responsive: true,
                 scales: {
-                    x: {
-                        ticks: { color: textColor },
-                        grid: { color: gridColor }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        ticks: { color: textColor },
-                        grid: { color: gridColor }
-                    }
+                    x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                    y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: gridColor } }
                 },
                 plugins: {
-                    legend: {
-                        labels: { color: textColor }
-                    }
+                    legend: { labels: { color: textColor } }
                 }
             }
         });
     }
 }
 
-// =============================================================================
-// 4. TRANSACCIONES: REGISTRO Y ELIMINACIÓN
-// =============================================================================
+// Listener de registro de transacciones
+const formTrans = document.getElementById('transaccion-form');
+if (formTrans) {
+    formTrans.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const mensajeDiv = document.getElementById('mensaje');
 
-// Listener para el formulario de registrar nueva transacción
-form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+        const datos = {
+            fecha: document.getElementById('fecha').value,
+            monto: parseFloat(document.getElementById('monto').value),
+            tipo: document.getElementById('tipo').value,
+            descripcion: document.getElementById('descripcion').value,
+            categoria_id: 1
+        };
 
-    const datos = {
-        fecha: document.getElementById('fecha').value,
-        monto: parseFloat(document.getElementById('monto').value),
-        tipo: document.getElementById('tipo').value,
-        descripcion: document.getElementById('descripcion').value,
-        categoria_id: 1
-    };
+        try {
+            const response = await apiFetch('/api/transacciones', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(datos)
+            });
 
-    try {
-        const response = await fetch('/api/transacciones', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(datos)
-        });
-
-        if (response.ok) {
-            mensajeDiv.style.color = '#2ecc71';
-            mensajeDiv.textContent = '¡Movimiento guardado!';
-            form.reset();
-            document.getElementById('fecha').value = obtenerFechaLocalISO();
-            cargarDatos();
-        } else {
-            mensajeDiv.style.color = '#e74c3c';
-            mensajeDiv.textContent = 'Error al guardar.';
+            if (response.ok) {
+                if (mensajeDiv) {
+                    mensajeDiv.style.color = '#2ecc71';
+                    mensajeDiv.textContent = '¡Movimiento guardado!';
+                }
+                formTrans.reset();
+                document.getElementById('fecha').value = obtenerFechaLocalISO();
+                cargarDatos();
+            } else {
+                if (mensajeDiv) {
+                    mensajeDiv.style.color = '#e74c3c';
+                    mensajeDiv.textContent = 'Error al guardar.';
+                }
+            }
+        } catch (error) {
+            if (mensajeDiv) {
+                mensajeDiv.style.color = '#e74c3c';
+                mensajeDiv.textContent = 'Error de conexión.';
+            }
         }
-    } catch (error) {
-        mensajeDiv.style.color = '#e74c3c';
-        mensajeDiv.textContent = 'Error de conexión.';
-    }
-});
+    });
+}
 
-/**
- * Solicita confirmación y elimina un movimiento de caja existente.
- */
 async function eliminarTransaccion(id) {
     if (!confirm("¿Eliminar este movimiento?")) return;
-
     try {
-        const response = await fetch(`/api/transacciones/${id}`, {
-            method: 'DELETE'
-        });
-
+        const response = await apiFetch(`/api/transacciones/${id}`, { method: 'DELETE' });
         if (response.ok) {
             cargarDatos();
         } else {
@@ -348,27 +527,21 @@ async function eliminarTransaccion(id) {
 }
 
 // =============================================================================
-// 5. APARTADOS Y METAS DE AHORRO
+// 6. APARTADOS Y METAS DE AHORRO
 // =============================================================================
 
-/**
- * Muestra u oculta el campo de monto objetivo según si el apartado seleccionado es 'meta' o 'libre'.
- */
 function toggleMetaInput() {
     const tipo = document.getElementById('tipo-apartado').value;
     const metaGroup = document.getElementById('group-meta-monto');
-    metaGroup.style.display = tipo === 'meta' ? 'block' : 'none';
+    if (metaGroup) metaGroup.style.display = tipo === 'meta' ? 'block' : 'none';
 }
 
-/**
- * Consulta y renderiza las tarjetas de sobres de ahorro con barra de progreso.
- */
 async function cargarApartados() {
     try {
-        const res = await fetch('/api/apartados');
+        const res = await apiFetch('/api/apartados');
         const apartados = await res.json();
-        
         const contenedor = document.getElementById('contenedor-apartados');
+        if (!contenedor) return;
         contenedor.innerHTML = '';
 
         if (!apartados || apartados.length === 0) {
@@ -382,9 +555,9 @@ async function cargarApartados() {
             
             let contenidoMeta = '';
             if (item.tipo === 'meta') {
-                const porcentaje = Math.min(item.porcentaje, 100);
+                const porcentaje = Math.min(item.porcentaje || 0, 100);
                 contenidoMeta = `
-                    <p style="margin: 5px 0;"><small>Meta: $${item.meta_monto.toFixed(2)} (${item.porcentaje}%)</small></p>
+                    <p style="margin: 5px 0;"><small>Meta: $${Number(item.meta_monto).toFixed(2)} (${item.porcentaje}%)</small></p>
                     <div class="progress-bar-bg">
                         <div class="progress-bar-fill" style="width: ${porcentaje}%;"></div>
                     </div>
@@ -394,7 +567,7 @@ async function cargarApartados() {
             card.innerHTML = `
                 <button type="button" class="btn-eliminar-apartado" onclick="eliminarApartado(${item.id})" title="Eliminar">×</button>
                 <h3 style="margin: 0 20px 8px 0;">${item.nombre} <small style="font-weight: normal; font-size: 0.8rem;">(${item.tipo})</small></h3>
-                <p style="margin: 5px 0;"><strong>Saldo:</strong> $${item.monto_actual.toFixed(2)}</p>
+                <p style="margin: 5px 0;"><strong>Saldo:</strong> $${Number(item.monto_actual).toFixed(2)}</p>
                 ${contenidoMeta}
                 <div class="acciones-apartado">
                     <input type="number" id="monto-acc-${item.id}" step="0.01" min="0.01" placeholder="Monto">
@@ -402,7 +575,6 @@ async function cargarApartados() {
                     <button type="button" onclick="realizarMovimiento(${item.id}, 'retirar')">-</button>
                 </div>
             `;
-            
             contenedor.appendChild(card);
         });
     } catch (error) {
@@ -410,13 +582,10 @@ async function cargarApartados() {
     }
 }
 
-// Listener para el formulario de creación de nuevo apartado
 const formApartado = document.getElementById('form-apartado');
 if (formApartado) {
     formApartado.addEventListener('submit', async (e) => {
         e.preventDefault();
-        e.stopPropagation();
-
         const nombreInput = document.getElementById('nombre-apartado');
         const tipoInput = document.getElementById('tipo-apartado');
         const metaInput = document.getElementById('meta-monto');
@@ -431,7 +600,7 @@ if (formApartado) {
         }
 
         try {
-            const res = await fetch('/api/apartados', {
+            const res = await apiFetch('/api/apartados', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nombre, tipo, meta_monto })
@@ -446,15 +615,11 @@ if (formApartado) {
                 alert(error.detail || 'Error al crear apartado');
             }
         } catch (err) {
-            console.error("Error de red:", err);
             alert("Error al conectar con el servidor.");
         }
     });
 }
 
-/**
- * Realiza una transferencia (depósito o retiro) entre el balance disponible y un apartado.
- */
 async function realizarMovimiento(id, accion) {
     const input = document.getElementById(`monto-acc-${id}`);
     const monto = parseFloat(input.value);
@@ -464,7 +629,7 @@ async function realizarMovimiento(id, accion) {
         return;
     }
 
-    const res = await fetch(`/api/apartados/${id}/movimiento`, {
+    const res = await apiFetch(`/api/apartados/${id}/movimiento`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ monto, accion })
@@ -478,17 +643,10 @@ async function realizarMovimiento(id, accion) {
     }
 }
 
-/**
- * Elimina un sobre de ahorro previa validación de fondos en el servidor.
- */
 async function eliminarApartado(id) {
     if (!confirm("¿Seguro que deseas eliminar este apartado? Se perderá el registro de este sobre.")) return;
-
     try {
-        const res = await fetch(`/api/apartados/${id}`, {
-            method: 'DELETE'
-        });
-
+        const res = await apiFetch(`/api/apartados/${id}`, { method: 'DELETE' });
         if (res.ok) {
             await cargarDatos();
         } else {
@@ -501,55 +659,37 @@ async function eliminarApartado(id) {
 }
 
 // =============================================================================
-// 6. MÓDULO DE INVERSIONES & ASSET ALLOCATION
+// 7. INVERSIONES & ASSET ALLOCATION
 // =============================================================================
 
-// Estado global de divisa base y tasas de conversión cambiaria
-let monedaGlobal = localStorage.getItem('moneda_global') || 'MXN';
-let tasasCambio = { USD: 1.0, MXN: 18.40, EUR: 0.89 };
-
-/**
- * Consulta las tasas de cambio activas del servidor para refrescar insignias y badges.
- */
 async function cargarTiposCambio() {
     try {
-        const res = await fetch('/api/tipo-cambio');
+        const res = await apiFetch('/api/tipo-cambio');
         if (res.ok) {
             const data = await res.json();
             tasasCambio = data.tasas || tasasCambio;
             actualizarIndicadorTasa();
         }
     } catch (e) {
-        console.warn("No se pudo obtener tipo de cambio en vivo:", e);
+        console.warn("No se pudo obtener tipo de cambio:", e);
     }
 }
 
-/**
- * Actualiza los badges de tipo de cambio y los indicadores de divisa en toda la UI.
- */
 function actualizarIndicadorTasa() {
     const selectGlobal = document.getElementById('select-moneda-global');
     if (selectGlobal) selectGlobal.value = monedaGlobal;
 
     const badgeGlobal = document.getElementById('badge-tasa-global');
-    if (badgeGlobal) {
-        badgeGlobal.textContent = `1 USD ≈ $${(tasasCambio.MXN || 18.40).toFixed(2)} MXN`;
-    }
+    if (badgeGlobal) badgeGlobal.textContent = `1 USD ≈ $${Number(tasasCambio.MXN || 18.40).toFixed(2)} MXN`;
 
     const badgeInv = document.getElementById('badge-tasa-inversiones');
-    if (badgeInv) {
-        badgeInv.textContent = `1 USD ≈ $${(tasasCambio.MXN || 18.40).toFixed(2)} MXN`;
-    }
+    if (badgeInv) badgeInv.textContent = `1 USD ≈ $${Number(tasasCambio.MXN || 18.40).toFixed(2)} MXN`;
 
-    // Actualizar todas las etiquetas visuales de moneda base en la interfaz
     document.querySelectorAll('.lbl-moneda-base').forEach(el => {
         el.textContent = monedaGlobal;
     });
 }
 
-/**
- * Cambia la divisa base de la aplicación (MXN o USD), la persiste y recarga datos.
- */
 function cambiarMonedaGlobal(nuevaMoneda) {
     monedaGlobal = nuevaMoneda;
     localStorage.setItem('moneda_global', nuevaMoneda);
@@ -557,12 +697,9 @@ function cambiarMonedaGlobal(nuevaMoneda) {
     cargarDatos();
 }
 
-/**
- * Carga las posiciones bursátiles, tarjetas de resumen, tabla y gráfica de dona.
- */
 async function cargarInversiones() {
     try {
-        const res = await fetch(`/api/inversiones?moneda_base=${encodeURIComponent(monedaGlobal)}`);
+        const res = await apiFetch(`/api/inversiones?moneda_base=${encodeURIComponent(monedaGlobal)}`);
         if (!res.ok) return;
         const data = await res.json();
         const { resumen, posiciones, tasa_usd_mxn } = data;
@@ -572,9 +709,9 @@ async function cargarInversiones() {
             actualizarIndicadorTasa();
         }
 
-        const fmtMoneda = (val) => val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fmtMoneda = (val) => Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        // 1. Tarjetas de Resumen de Inversiones
+        // Tarjetas de Resumen
         document.getElementById('lbl-inv-invertido').textContent = `$${fmtMoneda(resumen.total_invertido)} ${monedaGlobal}`;
         document.getElementById('lbl-inv-valor').textContent = `$${fmtMoneda(resumen.total_valor_actual)} ${monedaGlobal}`;
         
@@ -593,46 +730,46 @@ async function cargarInversiones() {
             lblDashPnl.className = resumen.total_pnl > 0 ? 'pnl-positivo' : (resumen.total_pnl < 0 ? 'pnl-negativo' : 'pnl-neutro');
         }
 
-        // 2. Tabla de Posiciones Bursátiles
+        // Tabla de Inversiones
         const tbody = document.getElementById('tabla-inversiones');
-        tbody.innerHTML = '';
+        if (tbody) {
+            tbody.innerHTML = '';
+            if (posiciones.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Sin posiciones registradas. ¡Añade tu primer ETF o acción!</td></tr>';
+            } else {
+                posiciones.forEach(pos => {
+                    const tr = document.createElement('tr');
+                    const signoPos = pos.pnl >= 0 ? '+' : '';
+                    const clasePnl = pos.pnl > 0 ? 'pnl-positivo' : (pos.pnl < 0 ? 'pnl-negativo' : 'pnl-neutro');
+                    const signoPosMonto = pos.pnl < 0 ? '-' : (pos.pnl > 0 ? '+' : '');
 
-        if (posiciones.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Sin posiciones registradas. ¡Añade tu primer ETF o acción!</td></tr>';
-        } else {
-            posiciones.forEach(pos => {
-                const tr = document.createElement('tr');
-                const signoPos = pos.pnl >= 0 ? '+' : '';
-                const clasePnl = pos.pnl > 0 ? 'pnl-positivo' : (pos.pnl < 0 ? 'pnl-negativo' : 'pnl-neutro');
-                const signoPosMonto = pos.pnl < 0 ? '-' : (pos.pnl > 0 ? '+' : '');
+                    const badgeMonedaColor = pos.moneda === 'USD' 
+                        ? 'background: rgba(46, 204, 113, 0.15); color: #27ae60;' 
+                        : 'background: rgba(52, 152, 219, 0.15); color: #2980b9;';
 
-                const badgeMonedaColor = pos.moneda === 'USD' 
-                    ? 'background: rgba(46, 204, 113, 0.15); color: #27ae60;' 
-                    : 'background: rgba(52, 152, 219, 0.15); color: #2980b9;';
+                    const subOrig = (pos.moneda !== monedaGlobal)
+                        ? `<br><small style="color: var(--text-muted); font-size: 0.75rem;">($${Number(pos.valor_actual_orig).toFixed(2)} ${pos.moneda})</small>`
+                        : '';
 
-                const subOrig = (pos.moneda !== monedaGlobal)
-                    ? `<br><small style="color: var(--text-muted); font-size: 0.75rem;">($${pos.valor_actual_orig.toFixed(2)} ${pos.moneda})</small>`
-                    : '';
-
-                tr.innerHTML = `
-                    <td><strong>${pos.ticker}</strong></td>
-                    <td><span class="badge-peso" style="${badgeMonedaColor}">${pos.moneda}</span></td>
-                    <td>${pos.cantidad}</td>
-                    <td>$${pos.precio_promedio.toFixed(2)} <small style="color: var(--text-muted);">${pos.moneda}</small></td>
-                    <td>$${pos.precio_actual.toFixed(2)} <small style="color: var(--text-muted);">${pos.moneda}</small></td>
-                    <td><strong>$${fmtMoneda(pos.valor_actual)}</strong> ${subOrig}</td>
-                    <td class="${clasePnl}">${signoPosMonto}$${fmtMoneda(Math.abs(pos.pnl))} (${signoPos}${pos.pnl_porcentaje.toFixed(2)}%)</td>
-                    <td><span class="badge-peso">${pos.peso_porcentaje.toFixed(1)}%</span></td>
-                    <td class="col-acciones">
-                        <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarInversion(${pos.id}, '${pos.ticker}', ${pos.cantidad}, ${pos.precio_promedio}, '${pos.moneda}')" title="Editar unidades y precio de compra">✏️</button>
-                        <button type="button" class="btn-accion btn-eliminar" onclick="eliminarInversion(${pos.id})" title="Eliminar posición">✕</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
+                    tr.innerHTML = `
+                        <td><strong>${pos.ticker}</strong></td>
+                        <td><span class="badge-peso" style="${badgeMonedaColor}">${pos.moneda}</span></td>
+                        <td>${pos.cantidad}</td>
+                        <td>$${Number(pos.precio_promedio).toFixed(2)} <small style="color: var(--text-muted);">${pos.moneda}</small></td>
+                        <td>$${Number(pos.precio_actual).toFixed(2)} <small style="color: var(--text-muted);">${pos.moneda}</small></td>
+                        <td><strong>$${fmtMoneda(pos.valor_actual)}</strong> ${subOrig}</td>
+                        <td class="${clasePnl}">${signoPosMonto}$${fmtMoneda(Math.abs(pos.pnl))} (${signoPos}${pos.pnl_porcentaje.toFixed(2)}%)</td>
+                        <td><span class="badge-peso">${pos.peso_porcentaje.toFixed(1)}%</span></td>
+                        <td class="col-acciones">
+                            <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarInversion(${pos.id}, '${pos.ticker}', ${pos.cantidad}, ${pos.precio_promedio}, '${pos.moneda}')" title="Editar posición">✏️</button>
+                            <button type="button" class="btn-accion btn-eliminar" onclick="eliminarInversion(${pos.id})" title="Eliminar posición">✕</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
         }
 
-        // 3. Gráfica de Dona de Asignación de Activos (Asset Allocation)
         actualizarGraficaDona(posiciones);
 
     } catch (error) {
@@ -640,9 +777,6 @@ async function cargarInversiones() {
     }
 }
 
-/**
- * Renderiza o actualiza la gráfica de dona con los pesos porcentuales de cada ticker.
- */
 function actualizarGraficaDona(posiciones) {
     const canvas = document.getElementById('graficaDonaAllocation');
     if (!canvas) return;
@@ -650,7 +784,6 @@ function actualizarGraficaDona(posiciones) {
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = esOscuro ? '#e0e0e0' : '#333333';
 
-    // Paleta de colores armoniosa para hasta 12 activos
     const paleta = [
         '#3498db', '#9b59b6', '#2ecc71', '#f39c12',
         '#e74c3c', '#1abc9c', '#34495e', '#e67e22',
@@ -683,15 +816,11 @@ function actualizarGraficaDona(posiciones) {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '65%', // Dona estilizada con hueco interior elegante
+                cutout: '65%',
                 plugins: {
                     legend: {
                         position: 'bottom',
-                        labels: {
-                            color: textColor,
-                            boxWidth: 12,
-                            font: { size: 11 }
-                        }
+                        labels: { color: textColor, boxWidth: 12, font: { size: 11 } }
                     },
                     tooltip: {
                         callbacks: {
@@ -699,7 +828,7 @@ function actualizarGraficaDona(posiciones) {
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                 const valor = context.raw || 0;
                                 const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
-                                const valorFmt = valor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                const valorFmt = Number(valor).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                                 return ` ${context.label}: $${valorFmt} ${monedaGlobal} (${pct}%)`;
                             }
                         }
@@ -711,14 +840,9 @@ function actualizarGraficaDona(posiciones) {
 }
 
 // =============================================================================
-// 7. BUSCADOR Y AUTOCOMPLETADO DE TICKERS (YAHOO FINANCE)
+// 8. BUSCADOR Y AUTOCOMPLETADO DE TICKERS
 // =============================================================================
 
-let debounceTimerBuscar = null;
-
-/**
- * Inicializa el autocompletado en el input de búsqueda de tickers con debounce de 220ms.
- */
 function inicializarBuscadorTickers() {
     const input = document.getElementById('inv-ticker');
     const dropdown = document.getElementById('ticker-sugerencias');
@@ -734,10 +858,9 @@ function inicializarBuscadorTickers() {
             return;
         }
 
-        // Debounce para evitar llamadas excesivas al escribir rápidamente
         debounceTimerBuscar = setTimeout(async () => {
             try {
-                const res = await fetch(`/api/inversiones/buscar?q=${encodeURIComponent(val)}`);
+                const res = await apiFetch(`/api/inversiones/buscar?q=${encodeURIComponent(val)}`);
                 if (!res.ok) return;
                 const sugerencias = await res.json();
                 if (input.value.trim().toUpperCase() === val.toUpperCase()) {
@@ -749,7 +872,6 @@ function inicializarBuscadorTickers() {
         }, 220);
     });
 
-    // Cerrar el dropdown de sugerencias al hacer clic fuera del componente
     document.addEventListener('click', (e) => {
         if (!input.contains(e.target) && !dropdown.contains(e.target)) {
             dropdown.style.display = 'none';
@@ -757,9 +879,6 @@ function inicializarBuscadorTickers() {
     });
 }
 
-/**
- * Renderiza la lista flotante de sugerencias encontradas.
- */
 function renderizarSugerenciasTickers(sugerencias, dropdown, input) {
     if (!sugerencias || sugerencias.length === 0) {
         dropdown.style.display = 'none';
@@ -783,7 +902,6 @@ function renderizarSugerenciasTickers(sugerencias, dropdown, input) {
             input.value = item.symbol;
             dropdown.style.display = 'none';
             dropdown.innerHTML = '';
-            // Consultar precio y moneda automáticamente en tiempo real
             buscarCotizacionTicker();
         });
 
@@ -793,9 +911,6 @@ function renderizarSugerenciasTickers(sugerencias, dropdown, input) {
     dropdown.style.display = 'block';
 }
 
-/**
- * Consulta la cotización en vivo del ticker escrito y rellena los campos automáticamente.
- */
 async function buscarCotizacionTicker() {
     const inputTicker = document.getElementById('inv-ticker');
     const ticker = inputTicker.value.trim().toUpperCase();
@@ -811,12 +926,11 @@ async function buscarCotizacionTicker() {
     btn.disabled = true;
 
     try {
-        const res = await fetch(`/api/inversiones/cotizar/${ticker}`);
+        const res = await apiFetch(`/api/inversiones/cotizar/${ticker}`);
         if (res.ok) {
             const data = await res.json();
             inputActual.value = data.precio;
             
-            // Auto-seleccionar la moneda detectada del activo (USD o MXN)
             const selectMoneda = document.getElementById('inv-moneda');
             if (selectMoneda && data.moneda) {
                 selectMoneda.value = data.moneda;
@@ -833,13 +947,10 @@ async function buscarCotizacionTicker() {
     }
 }
 
-// Listener para registrar una nueva posición en el portafolio
 const formInversion = document.getElementById('form-inversion');
 if (formInversion) {
     formInversion.addEventListener('submit', async (e) => {
         e.preventDefault();
-        e.stopPropagation();
-
         const ticker = document.getElementById('inv-ticker').value.trim().toUpperCase();
         const cantidad = parseFloat(document.getElementById('inv-cantidad').value);
         const precio_promedio = parseFloat(document.getElementById('inv-precio-promedio').value);
@@ -853,7 +964,7 @@ if (formInversion) {
         }
 
         try {
-            const res = await fetch('/api/inversiones', {
+            const res = await apiFetch('/api/inversiones', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ticker, cantidad, precio_promedio, precio_actual, moneda })
@@ -862,25 +973,21 @@ if (formInversion) {
             if (res.ok) {
                 formInversion.reset();
                 await cargarInversiones();
-                await cargarDatos(); // Sincronizar patrimonio neto general del Dashboard
+                await cargarDatos();
             } else {
                 const err = await res.json();
                 alert(err.detail || "Error al registrar la inversión.");
             }
         } catch (err) {
-            console.error("Error al registrar inversión:", err);
             alert("Error de red al guardar la inversión.");
         }
     });
 }
 
-/**
- * Elimina una posición bursátil de la cartera previa confirmación.
- */
 async function eliminarInversion(id) {
     if (!confirm("¿Deseas eliminar esta posición de tu portafolio?")) return;
     try {
-        const res = await fetch(`/api/inversiones/${id}`, { method: 'DELETE' });
+        const res = await apiFetch(`/api/inversiones/${id}`, { method: 'DELETE' });
         if (res.ok) {
             await cargarInversiones();
             await cargarDatos();
@@ -892,9 +999,6 @@ async function eliminarInversion(id) {
     }
 }
 
-/**
- * Dispara la sincronización masiva de precios en tiempo real para todas las acciones en cartera.
- */
 async function sincronizarPrecios() {
     const btn = document.getElementById('btn-sync-precios');
     const originalText = btn.textContent;
@@ -902,7 +1006,7 @@ async function sincronizarPrecios() {
     btn.disabled = true;
 
     try {
-        const res = await fetch('/api/inversiones/sincronizar', { method: 'POST' });
+        const res = await apiFetch('/api/inversiones/sincronizar', { method: 'POST' });
         if (res.ok) {
             const data = await res.json();
             await cargarInversiones();
@@ -912,7 +1016,6 @@ async function sincronizarPrecios() {
             alert("Error al sincronizar cotizaciones.");
         }
     } catch (err) {
-        console.error("Error al sincronizar:", err);
         alert("Error de conexión al sincronizar.");
     } finally {
         btn.textContent = originalText;
@@ -921,15 +1024,211 @@ async function sincronizarPrecios() {
 }
 
 // =============================================================================
-// 8. SISTEMA DE PESTAÑAS (TABS)
+// 9. PANEL DE ADMINISTRACIÓN DE USUARIOS (SOLO ADMIN)
 // =============================================================================
 
 /**
- * Configura los botones de pestañas y recupera la última vista activa desde localStorage.
+ * Convierte una fecha/hora (string) a formato relativo legible en español ("hace X tiempo").
  */
+function formatoTiempoRelativo(fechaStr) {
+    if (!fechaStr) return '<span style="color: var(--text-muted);">Nunca</span>';
+    
+    // Normalizar formato fecha si viene de SQLite (ej. YYYY-MM-DD HH:MM:SS)
+    const fecha = new Date(fechaStr.replace(' ', 'T'));
+    const ahora = new Date();
+    const diffSegundos = Math.floor((ahora - fecha) / 1000);
+
+    if (isNaN(diffSegundos) || diffSegundos < 0) {
+        return fechaStr;
+    }
+    if (diffSegundos < 60) {
+        return 'Hace unos instantes';
+    }
+    const diffMinutos = Math.floor(diffSegundos / 60);
+    if (diffMinutos < 60) {
+        return `Hace ${diffMinutos} min`;
+    }
+    const diffHoras = Math.floor(diffMinutos / 60);
+    if (diffHoras < 24) {
+        return `Hace ${diffHoras} ${diffHoras === 1 ? 'hora' : 'horas'}`;
+    }
+    const diffDias = Math.floor(diffHoras / 24);
+    if (diffDias < 30) {
+        return `Hace ${diffDias} ${diffDias === 1 ? 'día' : 'días'}`;
+    }
+    return fechaStr.split(' ')[0];
+}
+
+/**
+ * Carga las métricas globales y la lista de usuarios del panel de administración.
+ */
+async function cargarDatosAdmin() {
+    if (!usuarioActual || usuarioActual.role !== 'admin') return;
+
+    try {
+        // 1. Cargar KPIs
+        const resStats = await apiFetch('/admin/stats');
+        if (resStats.ok) {
+            const stats = await resStats.json();
+            document.getElementById('lbl-kpi-total-users').textContent = stats.total_users;
+            document.getElementById('lbl-kpi-active-today').textContent = stats.active_users_today;
+            document.getElementById('lbl-kpi-active-7d').textContent = stats.active_users_7d;
+            document.getElementById('lbl-kpi-inactive').textContent = stats.inactive_users;
+            document.getElementById('lbl-kpi-disk-total').textContent = stats.total_disk_formatted;
+        }
+
+        // 2. Cargar Directorio de Usuarios
+        const resUsers = await apiFetch('/admin/users');
+        if (resUsers.ok) {
+            const usuarios = await resUsers.json();
+            const tbody = document.getElementById('tabla-usuarios-admin');
+            tbody.innerHTML = '';
+
+            if (usuarios.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Sin usuarios registrados.</td></tr>';
+            } else {
+                usuarios.forEach(u => {
+                    const tr = document.createElement('tr');
+                    const esMismoAdmin = (usuarioActual && usuarioActual.id === u.id);
+                    
+                    const badgeRol = `<span class="badge-role ${u.role === 'admin' ? 'badge-role-admin' : 'badge-role-user'}">${u.role}</span>`;
+                    const badgeEstado = u.is_active 
+                        ? `<span class="badge-status badge-status-active">Activo</span>`
+                        : `<span class="badge-status badge-status-inactive">Inactivo</span>`;
+
+                    const fechaCreacion = (u.created_at || '').split(' ')[0] || '-';
+                    const ultimoAccesoRelativo = formatoTiempoRelativo(u.last_login);
+                    const detalleTitle = u.last_login ? `title="Fecha exacta: ${u.last_login}"` : '';
+
+                    let accionesHtml = '';
+                    if (esMismoAdmin) {
+                        accionesHtml = '<small style="color: var(--text-muted); font-style: italic;">Tu cuenta actual</small>';
+                    } else {
+                        const textoToggle = u.is_active ? 'Suspender' : 'Activar';
+                        const nuevoEstado = !u.is_active;
+                        accionesHtml = `
+                            <button type="button" class="btn-status-toggle" onclick="cambiarEstadoUsuario(${u.id}, ${nuevoEstado})">${textoToggle}</button>
+                            <button type="button" class="btn-delete-user" onclick="eliminarUsuarioTenant(${u.id}, '${u.username}')">Eliminar</button>
+                        `;
+                    }
+
+                    tr.innerHTML = `
+                        <td>${u.id}</td>
+                        <td><strong>${u.username}</strong></td>
+                        <td>${badgeRol}</td>
+                        <td>${badgeEstado}</td>
+                        <td>${fechaCreacion}</td>
+                        <td ${detalleTitle}>${ultimoAccesoRelativo}</td>
+                        <td>${u.login_count}</td>
+                        <td>${u.db_size_formatted || '0 KB'}</td>
+                        <td class="col-acciones">${accionesHtml}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Error al cargar datos administrativos:", error);
+    }
+}
+
+/**
+ * Activa o suspende el acceso de un usuario tenant.
+ */
+async function cambiarEstadoUsuario(userId, nuevoEstado) {
+    try {
+        const res = await apiFetch(`/admin/users/${userId}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_active: nuevoEstado })
+        });
+
+        if (res.ok) {
+            cargarDatosAdmin();
+        } else {
+            const err = await res.json();
+            alert(err.detail || "Error al modificar el estado del usuario.");
+        }
+    } catch (e) {
+        alert("Error de red al actualizar estado.");
+    }
+}
+
+/**
+ * Elimina un usuario tenant y borra su archivo de base de datos físico.
+ */
+async function eliminarUsuarioTenant(userId, username) {
+    const confirmacion = confirm(`¿Estás seguro de eliminar al usuario '${username}'?\n\nADVERTENCIA: Se borrará permanentemente su base de datos y todos sus movimientos financieros.`);
+    if (!confirmacion) return;
+
+    try {
+        const res = await apiFetch(`/admin/users/${userId}`, {
+            method: 'DELETE'
+        });
+
+        if (res.ok) {
+            cargarDatosAdmin();
+        } else {
+            const err = await res.json();
+            alert(err.detail || "No se pudo eliminar el usuario.");
+        }
+    } catch (e) {
+        alert("Error de red al eliminar usuario.");
+    }
+}
+
+function abrirModalCrearUsuario() {
+    const modal = document.getElementById('modal-crear-usuario');
+    if (modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => {
+            const input = document.getElementById('nuevo-user-username');
+            if (input) input.focus();
+        }, 50);
+    }
+}
+
+function cerrarModalCrearUsuario() {
+    const modal = document.getElementById('modal-crear-usuario');
+    if (modal) modal.style.display = 'none';
+    const form = document.getElementById('form-crear-usuario');
+    if (form) form.reset();
+}
+
+async function guardarNuevoUsuario(e) {
+    e.preventDefault();
+    const username = document.getElementById('nuevo-user-username').value.trim();
+    const password = document.getElementById('nuevo-user-password').value;
+    const role = document.getElementById('nuevo-user-role').value;
+
+    if (!username || !password) return;
+
+    try {
+        const res = await apiFetch('/admin/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password, role })
+        });
+
+        if (res.ok) {
+            cerrarModalCrearUsuario();
+            await cargarDatosAdmin();
+            alert(`Usuario '${username}' y su base de datos individual han sido creados con éxito.`);
+        } else {
+            const err = await res.json();
+            alert(err.detail || "Error al crear usuario.");
+        }
+    } catch (error) {
+        alert("Error de conexión al crear usuario.");
+    }
+}
+
+// =============================================================================
+// 10. SISTEMA DE PESTAÑAS (TABS)
+// =============================================================================
+
 function inicializarTabs() {
     const tabBtns = document.querySelectorAll('.tab-btn');
-
     tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const targetTab = btn.getAttribute('data-tab');
@@ -937,32 +1236,29 @@ function inicializarTabs() {
         });
     });
 
-    // Cargar pestaña guardada o la inicial por defecto (Dashboard)
     const pestanaGuardada = localStorage.getItem('active_tab') || 'tab-dashboard';
     cambiarPestana(pestanaGuardada);
 }
 
-/**
- * Alterna la visibilidad entre secciones y redimensiona las gráficas de Chart.js
- * para evitar deformaciones cuando sus contenedores pasan de display:none a display:block.
- */
 function cambiarPestana(tabId) {
     const targetContent = document.getElementById(tabId);
     if (!targetContent) return;
 
-    // Actualizar estados visuales de los botones
     document.querySelectorAll('.tab-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-tab') === tabId);
     });
 
-    // Alternar paneles de contenido
     document.querySelectorAll('.tab-content').forEach(c => {
         c.classList.toggle('active', c.id === tabId);
     });
 
     localStorage.setItem('active_tab', tabId);
 
-    // Ajustar tamaño de gráficas de Chart.js cuando su contenedor se vuelve visible
+    // Si entra al panel de administración, recargar métricas frescas
+    if (tabId === 'tab-admin') {
+        cargarDatosAdmin();
+    }
+
     setTimeout(() => {
         if (miGrafica) miGrafica.resize();
         if (graficaDona) graficaDona.resize();
@@ -970,12 +1266,9 @@ function cambiarPestana(tabId) {
 }
 
 // =============================================================================
-// 9. MODALES DE EDICIÓN: INVERSIONES Y MOVIMIENTOS
+// 11. MODALES DE EDICIÓN: INVERSIONES Y MOVIMIENTOS
 // =============================================================================
 
-/**
- * Abre el modal para editar unidades y costo promedio de un activo bursátil.
- */
 function abrirModalEditarInversion(id, ticker, cantidad, precio_promedio, moneda) {
     const inputId = document.getElementById('modal-edit-id');
     const lblTicker = document.getElementById('modal-edit-ticker');
@@ -1001,19 +1294,11 @@ function abrirModalEditarInversion(id, ticker, cantidad, precio_promedio, moneda
     }
 }
 
-/**
- * Cierra el modal de edición de inversión.
- */
 function cerrarModalEditarInversion() {
     const modal = document.getElementById('modal-editar-inversion');
-    if (modal) {
-        modal.style.display = 'none';
-    }
+    if (modal) modal.style.display = 'none';
 }
 
-/**
- * Guarda los cambios realizados en una posición bursátil.
- */
 async function guardarEdicionInversion(e) {
     if (e) {
         e.preventDefault();
@@ -1030,7 +1315,7 @@ async function guardarEdicionInversion(e) {
     }
 
     try {
-        const res = await fetch(`/api/inversiones/${id}`, {
+        const res = await apiFetch(`/api/inversiones/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ cantidad, precio_promedio })
@@ -1045,14 +1330,10 @@ async function guardarEdicionInversion(e) {
             alert(err.detail || "Error al actualizar la posición.");
         }
     } catch (err) {
-        console.error("Error al actualizar posición:", err);
         alert("Error de red al intentar guardar los cambios.");
     }
 }
 
-/**
- * Abre el modal para editar una transacción existente de flujo de efectivo.
- */
 function abrirModalEditarTransaccion(id, fecha, monto, tipo, descripcion) {
     const modal = document.getElementById('modal-editar-transaccion');
     if (!modal) return;
@@ -1073,19 +1354,11 @@ function abrirModalEditarTransaccion(id, fecha, monto, tipo, descripcion) {
     }, 50);
 }
 
-/**
- * Cierra el modal de edición de transacciones.
- */
 function cerrarModalEditarTransaccion() {
     const modal = document.getElementById('modal-editar-transaccion');
-    if (modal) {
-        modal.style.display = 'none';
-    }
+    if (modal) modal.style.display = 'none';
 }
 
-/**
- * Envía la actualización de la transacción al backend.
- */
 async function guardarEdicionTransaccion(e) {
     if (e) {
         e.preventDefault();
@@ -1104,7 +1377,7 @@ async function guardarEdicionTransaccion(e) {
     }
 
     try {
-        const res = await fetch(`/api/transacciones/${id}`, {
+        const res = await apiFetch(`/api/transacciones/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fecha, tipo, monto, descripcion })
@@ -1118,35 +1391,52 @@ async function guardarEdicionTransaccion(e) {
             alert(err.detail || "Error al actualizar el movimiento.");
         }
     } catch (err) {
-        console.error("Error al actualizar el movimiento:", err);
         alert("Error de red al intentar guardar los cambios.");
     }
 }
 
-// Accesibilidad: Cerrar cualquier modal activo al presionar la tecla Escape
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         cerrarModalEditarInversion();
         cerrarModalEditarTransaccion();
+        cerrarModalCrearUsuario();
     }
 });
 
 // =============================================================================
-// 10. EXPORTACIÓN A EXCEL
+// 12. EXPORTACIÓN A EXCEL
 // =============================================================================
 
-/**
- * Dispara la descarga del libro contable en Excel (.xlsx) respetando la divisa base activa.
- */
 function exportarExcel() {
-    const url = `/api/exportar-excel?moneda_base=${encodeURIComponent(monedaGlobal)}`;
-    window.location.href = url;
+    const token = localStorage.getItem('jwt_token');
+    const url = `/api/exportar-excel?moneda_base=${encodeURIComponent(monedaGlobal)}&token=${encodeURIComponent(token || '')}`;
+    
+    // Descarga directa autorizada
+    apiFetch(`/api/exportar-excel?moneda_base=${encodeURIComponent(monedaGlobal)}`)
+        .then(res => {
+            if (!res.ok) throw new Error("Error en la exportación");
+            return res.blob();
+        })
+        .then(blob => {
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `reporte_financiero_${usuarioActual ? usuarioActual.username : 'tenant'}_${monedaGlobal}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+        })
+        .catch(err => {
+            alert("No se pudo generar la exportación a Excel.");
+        });
 }
 
 // =============================================================================
-// 11. EXPOSICIÓN GLOBAL DE FUNCIONES AL OBJETO WINDOW
-// Permite que los atributos onclick del HTML invoquen estas funciones de forma segura.
+// 13. EXPOSICIÓN GLOBAL DE FUNCIONES EN WINDOW
 // =============================================================================
+window.iniciarSesion = iniciarSesion;
+window.logoutUsuario = logoutUsuario;
 window.exportarExcel = exportarExcel;
 window.toggleMetaInput = toggleMetaInput;
 window.realizarMovimiento = realizarMovimiento;
@@ -1163,12 +1453,18 @@ window.cerrarModalEditarInversion = cerrarModalEditarInversion;
 window.guardarEdicionInversion = guardarEdicionInversion;
 window.cambiarPestana = cambiarPestana;
 window.cambiarMonedaGlobal = cambiarMonedaGlobal;
-window.cambiarMonedaInversiones = cambiarMonedaGlobal; // Alias de retrocompatibilidad
+window.cambiarMonedaInversiones = cambiarMonedaGlobal;
+
+// Funciones del Panel de Administración
+window.abrirModalCrearUsuario = abrirModalCrearUsuario;
+window.cerrarModalCrearUsuario = cerrarModalCrearUsuario;
+window.guardarNuevoUsuario = guardarNuevoUsuario;
+window.cambiarEstadoUsuario = cambiarEstadoUsuario;
+window.eliminarUsuarioTenant = eliminarUsuarioTenant;
 
 // =============================================================================
-// 12. ARRANQUE AUTOMÁTICO DE LA APLICACIÓN
+// 14. ARRANQUE DE LA APLICACIÓN
 // =============================================================================
 inicializarTabs();
 inicializarBuscadorTickers();
-cargarTiposCambio();
-cargarDatos();
+verificarSesionInicial();

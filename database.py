@@ -1,60 +1,71 @@
 """
-database.py - Módulo de Gestión y Conexión de Base de Datos SQLite
+database.py - Módulo de Gestión de Esquemas Tenant y Conexiones Dinámicas
 
-Este módulo centraliza:
-1. La conexión a la base de datos local SQLite ('finanzas.db').
-2. La configuración del modo WAL (Write-Ahead Logging) para soportar concurrencia.
-3. La creación e inicialización de esquemas de tablas relacionales.
-4. Las migraciones automáticas idempotentes de columnas y compatibilidad de divisas.
+Este módulo gestiona:
+1. La estructura de directorios aislados ('data/tenants/').
+2. La inicialización y aprovisionamiento de bases de datos individuales de usuarios (tenants).
+3. La conexión dinámica a la base de datos de cada tenant ('user_{id}.db') con WAL mode y timeout.
 """
 
+import os
 import sqlite3
 
-# Nombre del archivo de base de datos SQLite local
-DB_NAME = "finanzas.db"
+# Rutas base para almacenamiento multi-tenant
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+TENANTS_DIR = os.path.join(DATA_DIR, "tenants")
 
-def get_db() -> sqlite3.Connection:
+def ensure_tenant_directories():
+    """Garantiza que existan los directorios 'data' y 'data/tenants'."""
+    os.makedirs(TENANTS_DIR, exist_ok=True)
+
+def get_tenant_path(db_name: str) -> str:
+    """Retorna la ruta absoluta al archivo SQLite del tenant dado su db_name."""
+    ensure_tenant_directories()
+    # Sanitizar el nombre del archivo para evitar Directory Traversal
+    nombre_limpio = os.path.basename(db_name.strip())
+    return os.path.join(TENANTS_DIR, nombre_limpio)
+
+def get_tenant_conn(db_name: str) -> sqlite3.Connection:
     """
-    Crea y retorna una nueva conexión a la base de datos SQLite.
+    Crea y retorna una nueva conexión a la base de datos SQLite específica del tenant.
     
-    Configuraciones clave:
-    - timeout=15.0: Espera hasta 15 segundos si la base de datos está temporalmente
-      bloqueada por una escritura antes de lanzar una excepción sqlite3.OperationalError.
-    - row_factory = sqlite3.Row: Permite acceder a las columnas devueltas tanto por
-      índice posicional (row[0]) como por nombre de columna dict-like (row['monto']).
+    Configuraciones:
+    - timeout=15.0s para evitar bloqueos por concurrencia.
+    - row_factory = sqlite3.Row para acceso tipo diccionario.
     """
-    conn = sqlite3.connect(DB_NAME, timeout=15.0)
+    db_path = get_tenant_path(db_name)
+    conn = sqlite3.connect(db_path, timeout=15.0, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
-def init_db() -> None:
+def init_tenant_db(db_path: str) -> None:
     """
-    Inicializa la base de datos:
-    - Activa el modo WAL (Write-Ahead Logging) para permitir lecturas concurrentes sin bloquear escrituras.
-    - Crea las tablas fundamentales ('categorias', 'transacciones', 'apartados', 'inversiones') si no existen.
-    - Inserta registros de integridad por defecto (categoría 'General').
-    - Ejecuta migraciones de esquema defensivas (ej. soporte multicurrency en inversiones).
+    Inicializa el esquema financiero completo en la base de datos de un tenant:
+    - Activa el modo WAL (Write-Ahead Logging).
+    - Crea las tablas 'categorias', 'transacciones', 'apartados' e 'inversiones'.
+    - Inserta la categoría por defecto 'General'.
+    - Aplica migraciones defensivas (moneda multicurrency y corrección .MX).
     """
-    conn = get_db()
+    ensure_tenant_directories()
+    conn = sqlite3.connect(db_path, timeout=15.0, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Activar modo WAL (Write-Ahead Logging):
-    # Mejora significativamente el rendimiento y evita bloqueos (database is locked) en entornos web con FastAPI.
+    # Activar WAL mode para concurrencia
     cursor.execute("PRAGMA journal_mode=WAL;")
     
     # -------------------------------------------------------------
     # Tabla: categorias
-    # Clasificación de transacciones en tipos de gasto o ingreso.
     # -------------------------------------------------------------
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS categorias (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre TEXT NOT NULL,
-            tipo TEXT NOT NULL -- Tipo de flujo: 'gasto' o 'ingreso'
+            tipo TEXT NOT NULL
         )
     """)
 
-    # Registro de respaldo inicial para mantener integridad referencial en transacciones
     cursor.execute("""
         INSERT OR IGNORE INTO categorias (id, nombre, tipo)
         VALUES (1, 'General', 'gasto')
@@ -62,76 +73,88 @@ def init_db() -> None:
     
     # -------------------------------------------------------------
     # Tabla: transacciones
-    # Registra cada movimiento financiero de flujo de efectivo (ingresos y gastos diarios).
     # -------------------------------------------------------------
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS transacciones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fecha TEXT NOT NULL,                 -- Formato ISO: YYYY-MM-DD
-            monto REAL NOT NULL,                 -- Monto del movimiento (positivo, mayor a 0)
-            tipo TEXT NOT NULL,                  -- 'gasto' o 'ingreso'
-            categoria_id INTEGER,               -- Clave foránea que referencia a 'categorias.id'
-            descripcion TEXT,                    -- Concepto o detalle del movimiento
+            fecha TEXT NOT NULL,
+            monto REAL NOT NULL,
+            tipo TEXT NOT NULL,
+            categoria_id INTEGER,
+            descripcion TEXT,
             FOREIGN KEY (categoria_id) REFERENCES categorias (id)
         )
     """)
     
     # -------------------------------------------------------------
-    # Tabla: apartados
-    # Sistema de sobres virtuales para separar dinero del balance disponible:
-    # - 'libre': Fondos de reserva o emergencias sin techo fijo.
-    # - 'meta': Objetivos específicos de ahorro con un monto objetivo ('meta_monto').
+    # Tabla: apartados (sobres libres y metas)
     # -------------------------------------------------------------
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS apartados (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT NOT NULL UNIQUE,                             -- Nombre único del sobre
-            tipo TEXT CHECK(tipo IN ('libre', 'meta')) NOT NULL,     -- Validación estricta a nivel BD
-            monto_actual REAL NOT NULL DEFAULT 0.0,                  -- Saldo acumulado en el sobre
-            meta_monto REAL DEFAULT NULL,                            -- Objetivo financiero (obligatorio en 'meta')
-            creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP            -- Fecha y hora de creación
+            nombre TEXT NOT NULL UNIQUE,
+            tipo TEXT CHECK(tipo IN ('libre', 'meta')) NOT NULL,
+            monto_actual REAL NOT NULL DEFAULT 0.0,
+            meta_monto REAL DEFAULT NULL,
+            creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
     
     # -------------------------------------------------------------
-    # Tabla: inversiones
-    # Seguimiento de activos bursátiles (ETFs, acciones individuales y fibras).
-    # Incluye soporte multicurrency (USD y MXN) y valuación en tiempo real.
+    # Tabla: inversiones (ETFs, acciones y rendimientos)
     # -------------------------------------------------------------
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS inversiones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ticker TEXT NOT NULL UNIQUE,                             -- Símbolo de cotización único (ej. VOO, AAPL, WALMEX.MX)
-            cantidad REAL NOT NULL,                                  -- Número de títulos o títulos fraccionados
-            precio_promedio REAL NOT NULL,                           -- Costo promedio ponderado de adquisición en su moneda de origen
-            precio_actual REAL NOT NULL,                             -- Última cotización de mercado registrada
-            moneda TEXT NOT NULL DEFAULT 'USD',                      -- Divisa del activo bursátil: 'USD' o 'MXN'
-            actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP       -- Marca temporal de la última actualización de precio
+            ticker TEXT NOT NULL UNIQUE,
+            cantidad REAL NOT NULL,
+            precio_promedio REAL NOT NULL,
+            precio_actual REAL NOT NULL,
+            moneda TEXT NOT NULL DEFAULT 'USD',
+            actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
-    # -------------------------------------------------------------
-    # MIGRACIONES DEFENSIVAS E IDEMPOTENTES
-    # -------------------------------------------------------------
-    # 1. Agregar columna 'moneda' en 'inversiones' si la base de datos proviene de una versión previa.
+    # Migraciones defensivas
     try:
         cursor.execute("ALTER TABLE inversiones ADD COLUMN moneda TEXT NOT NULL DEFAULT 'USD'")
     except sqlite3.OperationalError:
-        # La columna ya existe, se ignora de manera segura.
         pass
 
-    # 2. Corregir automáticamente activos de la Bolsa Mexicana de Valores (.MX)
-    # que por defecto se hayan registrado con USD en versiones anteriores.
     try:
         cursor.execute("UPDATE inversiones SET moneda = 'MXN' WHERE (ticker LIKE '%.MX' OR ticker LIKE '%.mx') AND moneda = 'USD'")
     except sqlite3.OperationalError:
         pass
     
-    # Confirmar cambios y cerrar conexión
     conn.commit()
     conn.close()
 
-if __name__ == "__main__":
-    # Permite ejecutar manualmente 'python database.py' para inicializar o verificar la BD.
-    init_db()
-    print("Base de datos y tablas actualizadas con éxito.")
+def provision_tenant_db(user_id: int) -> str:
+    """
+    Aprovisiona automáticamente la base de datos para un nuevo usuario:
+    1. Genera el nombre del archivo 'user_{user_id}.db'.
+    2. Inicializa el esquema completo.
+    3. Retorna el nombre del archivo 'db_name'.
+    """
+    db_name = f"user_{user_id}.db"
+    db_path = get_tenant_path(db_name)
+    init_tenant_db(db_path)
+    return db_name
+
+# Compatibilidad hacia atrás durante la transición
+def get_db(db_name: str = "user_1.db") -> sqlite3.Connection:
+    """Helper de compatibilidad que retorna conexión al tenant principal o específico."""
+    ensure_tenant_directories()
+    # Si aún existe finanzas.db en la raíz y no en tenants, usa la raíz temporalmente
+    tenant_1 = get_tenant_path("user_1.db")
+    if not os.path.exists(tenant_1) and os.path.exists(os.path.join(BASE_DIR, "finanzas.db")):
+        conn = sqlite3.connect(os.path.join(BASE_DIR, "finanzas.db"), timeout=15.0, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        return conn
+    return get_tenant_conn(db_name)
+
+def init_db():
+    """Inicializa directorios y la base de datos del tenant 1 por defecto."""
+    ensure_tenant_directories()
+    tenant_1 = get_tenant_path("user_1.db")
+    init_tenant_db(tenant_1)

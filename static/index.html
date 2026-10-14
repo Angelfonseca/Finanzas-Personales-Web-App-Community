@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <!--
-    static/index.html - Interfaz de Usuario Principal (SPA)
+    static/index.html - Interfaz de Usuario Principal (SPA Multi-Tenant)
     
-    Estructura visual y semántica de la aplicación de Finanzas Personales:
-    - Encabezado: Marca, acciones globales (Exportar Excel, Respaldo SQLite, Modo Oscuro) y Selector de Moneda Base.
-    - Navegación por pestañas: Resumen (Dashboard), Movimientos (Caja), Metas (Sobres) e Inversiones (Portafolio).
-    - Paneles de visualización con soporte reactivo para Chart.js.
-    - Modales emergentes para edición in situ de movimientos e inversiones.
+    Estructura visual y semántica de la plataforma:
+    - Vista de Autenticación: Pantalla de Login inicial y protección de rutas.
+    - Encabezado: Marca, badge de usuario activo con rol, cerrar sesión, exportar Excel, respaldo SQLite y selector de moneda.
+    - Navegación por pestañas: Resumen (Dashboard), Movimientos (Caja), Metas (Sobres), Inversiones (Portafolio) y Panel de Administración (exclusivo Admin).
+    - Panel de Administración: Tarjetas KPI, tabla de gestión de usuarios con estado relativo y modal de alta de tenants.
+    - Modales emergentes para edición in situ de movimientos, inversiones y creación de usuarios.
 -->
 <html lang="es">
 <head>
@@ -19,22 +20,51 @@
 </head>
 <body>
 
-    <div class="container">
-        <!-- ========================================================== -->
-        <!-- ENCABEZADO: TÍTULO, ACCIONES GLOBALES Y SELECTOR DE DIVISA -->
-        <!-- ========================================================== -->
+    <!-- ========================================================== -->
+    <!-- VISTA 1: PANTALLA DE AUTENTICACIÓN (LOGIN)                 -->
+    <!-- ========================================================== -->
+    <div id="vista-login" class="login-wrapper" style="display: none;">
+        <div class="login-card">
+            <div class="login-brand">
+                <span class="login-icon">💰</span>
+                <h2>Finanzas Personales</h2>
+                <p>Inicia sesión en tu espacio financiero aislado</p>
+            </div>
+            <form id="form-login" onsubmit="iniciarSesion(event)">
+                <div class="form-group">
+                    <label for="login-username">Usuario</label>
+                    <input type="text" id="login-username" placeholder="Tu nombre de usuario" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Contraseña</label>
+                    <input type="password" id="login-password" placeholder="Tu contraseña" required autocomplete="current-password">
+                </div>
+                <button type="submit" id="btn-login-submit" class="btn-primary btn-block">Ingresar a la Plataforma</button>
+                <div id="login-error" class="login-error-msg" style="display: none;"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- VISTA 2: APLICACIÓN PRINCIPAL MULTI-TENANT                -->
+    <!-- ========================================================== -->
+    <div id="vista-app" class="container" style="display: none;">
+        <!-- Encabezado superior con sesión y herramientas -->
         <header class="app-header">
             <div class="header-top-bar">
                 <div class="app-brand">
                     <h1>💰 Finanzas</h1>
                 </div>
                 <div class="header-actions">
-                    <!-- Botón para descargar el reporte contable completo en Excel -->
+                    <!-- Badge del usuario en sesión activa -->
+                    <div class="user-session-badge">
+                        <span>👤 <strong id="lbl-username">usuario</strong> <small id="lbl-user-role" class="badge-role">user</small></span>
+                    </div>
+                    <!-- Acciones globales -->
                     <button type="button" class="btn-export" onclick="exportarExcel()" title="Descargar reporte completo en Excel con gráficas">📊 Exportar Excel</button>
-                    <!-- Enlace directo para descargar copia de seguridad del archivo SQLite -->
-                    <a href="/api/backup" download class="btn-backup" title="Descargar copia de seguridad de la base de datos">💾 Respaldo</a>
-                    <!-- Botón para alternar entre modo oscuro y modo claro -->
+                    <a href="/api/backup" download class="btn-backup" title="Descargar copia de seguridad de tu base de datos individual">💾 Respaldo</a>
                     <button id="btn-modo" class="btn-theme" title="Alternar tema">🌙 Modo Oscuro</button>
+                    <button type="button" class="btn-logout" onclick="logoutUsuario()" title="Cerrar sesión actual">🚪 Salir</button>
                 </div>
             </div>
             <!-- Barra de selección de divisa base y tipo de cambio vigente -->
@@ -50,27 +80,25 @@
             </div>
         </header>
 
-        <!-- ========================================================== -->
-        <!-- NAVEGACIÓN PRINCIPAL: BARRA DE PESTAÑAS (TABS)             -->
-        <!-- ========================================================== -->
+        <!-- Navegación por Pestañas -->
         <nav class="nav-tabs">
             <button type="button" class="tab-btn active" data-tab="tab-dashboard">📊 Resumen</button>
             <button type="button" class="tab-btn" data-tab="tab-movimientos">💳 Movimientos</button>
             <button type="button" class="tab-btn" data-tab="tab-apartados">🎯 Metas</button>
             <button type="button" class="tab-btn" data-tab="tab-inversiones">📈 Inversiones</button>
+            <!-- Pestaña exclusiva para rol admin -->
+            <button type="button" class="tab-btn tab-btn-admin" id="btn-tab-admin" data-tab="tab-admin" style="display: none;">🛡️ Admin</button>
         </nav>
 
-        <!-- ========================================================== -->
-        <!-- PESTAÑA 1: DASHBOARD GENERAL Y PATRIMONIO NETO CONSOLIDADO -->
-        <!-- ========================================================== -->
+        <!-- ============================================== -->
+        <!-- PESTAÑA 1: DASHBOARD GENERAL Y PATRIMONIO NETO -->
+        <!-- ============================================== -->
         <section id="tab-dashboard" class="tab-content active">
-            <!-- Tarjeta Hero: Indicador principal de Patrimonio Neto Total -->
             <div class="hero-networth">
                 <div class="networth-header">
                     <small>PATRIMONIO NETO TOTAL</small>
                     <h2 id="lbl-dash-patrimonio">$0.00</h2>
                 </div>
-                <!-- Desglose de los 3 pilares patrimoniales -->
                 <div class="networth-breakdown">
                     <div class="breakdown-item">
                         <span class="breakdown-dot dot-balance"></span>
@@ -96,7 +124,6 @@
                 </div>
             </div>
 
-            <!-- Tarjetas de métricas rápidas de flujo de efectivo -->
             <div class="cards">
                 <div class="card ingresos">
                     <h3>Ingresos Totales</h3>
@@ -112,7 +139,6 @@
                 </div>
             </div>
 
-            <!-- Gráfica de barras comparativa mensual y listado cronológico -->
             <div class="dashboard-grid">
                 <div class="panel">
                     <h2>📊 Comportamiento Mensual (Ingresos vs Gastos)</h2>
@@ -128,11 +154,10 @@
             </div>
         </section>
 
-        <!-- ========================================================== -->
-        <!-- PESTAÑA 2: MOVIMIENTOS (CONTROL DE INGRESOS Y GASTOS)      -->
-        <!-- ========================================================== -->
+        <!-- ============================================== -->
+        <!-- PESTAÑA 2: MOVIMIENTOS (INGRESOS Y GASTOS)     -->
+        <!-- ============================================== -->
         <section id="tab-movimientos" class="tab-content">
-            <!-- Tarjetas de resumen de caja en divisa base -->
             <div class="cards">
                 <div class="card balance">
                     <h3>Balance Disponible (<span class="lbl-moneda-base">MXN</span>)</h3>
@@ -149,7 +174,6 @@
             </div>
 
             <div class="dashboard-grid">
-                <!-- Formulario para dar de alta un ingreso o gasto -->
                 <div class="panel">
                     <h2>💰 Registrar / Quitar Movimiento</h2>
                     <form id="transaccion-form">
@@ -179,7 +203,6 @@
                     <div id="mensaje"></div>
                 </div>
 
-                <!-- Tabla de todos los movimientos registrados con acciones de edición/borrado -->
                 <div class="panel">
                     <h2>📜 Todos los Movimientos</h2>
                     <div class="table-responsive">
@@ -200,9 +223,9 @@
             </div>
         </section>
 
-        <!-- ========================================================== -->
-        <!-- PESTAÑA 3: SOBRES VIRTUALES Y METAS DE AHORRO (APARTADOS)  -->
-        <!-- ========================================================== -->
+        <!-- ============================================== -->
+        <!-- PESTAÑA 3: APARTADOS Y METAS                   -->
+        <!-- ============================================== -->
         <section id="tab-apartados" class="tab-content">
             <div class="panel">
                 <div class="apartados-header-wrap">
@@ -216,7 +239,6 @@
                     </div>
                 </div>
 
-                <!-- Formulario de creación de apartado / meta -->
                 <form id="form-apartado" class="card-form" style="margin-top: 20px;">
                     <div class="form-group">
                         <label for="nombre-apartado">Nombre del Apartado:</label>
@@ -231,7 +253,6 @@
                         </select>
                     </div>
 
-                    <!-- Campo condicional para metas con objetivo -->
                     <div class="form-group" id="group-meta-monto" style="display: none;">
                         <label for="meta-monto">Monto Objetivo Meta ($):</label>
                         <input type="number" id="meta-monto" step="0.01" min="1" placeholder="Ej. 10000">
@@ -240,19 +261,15 @@
                     <button type="submit">Crear Apartado</button>
                 </form>
 
-                <!-- Cuadrícula dinámica de tarjetas de sobres de ahorro -->
-                <div id="contenedor-apartados" class="grid-apartados">
-                    <!-- Se genera dinámicamente desde app.js -->
-                </div>
+                <div id="contenedor-apartados" class="grid-apartados"></div>
             </div>
         </section>
 
-        <!-- ========================================================== -->
-        <!-- PESTAÑA 4: INVERSIONES & ASSET ALLOCATION (PORTAFOLIO)     -->
-        <!-- ========================================================== -->
+        <!-- ============================================== -->
+        <!-- PESTAÑA 4: INVERSIONES & ASSET ALLOCATION      -->
+        <!-- ============================================== -->
         <section id="tab-inversiones" class="tab-content">
             <div class="panel inversiones-section">
-                <!-- Cabecera del portafolio con badge de tipo de cambio y botón de sincronización -->
                 <div class="inversiones-header">
                     <div>
                         <h2 style="margin: 0;">🚀 Portafolio de Inversiones (ETFs & Acciones)</h2>
@@ -264,7 +281,6 @@
                     </div>
                 </div>
 
-                <!-- Tarjetas de resumen bursátil (Invertido, Valor actual y PnL) -->
                 <div class="cards cards-inversiones">
                     <div class="card inv-card">
                         <h3>Capital Invertido (<span class="lbl-moneda-base">MXN</span>)</h3>
@@ -280,15 +296,12 @@
                     </div>
                 </div>
 
-                <!-- Cuadrícula interna: Formulario + Gráfica de Dona a la izquierda, Tabla a la derecha -->
                 <div class="inversiones-grid">
                     
                     <div class="inversiones-col-lateral">
-                        <!-- Formulario para agregar una nueva posición -->
                         <form id="form-inversion" class="card-form">
                             <h3 style="margin-top: 0; font-size: 1rem; color: var(--text-color);">+ Registrar Posición</h3>
                             
-                            <!-- Búsqueda con autocompletado predictivo de Yahoo Finance -->
                             <div class="form-group">
                                 <label for="inv-ticker">Ticker (ej. VOO, QQQ, WALMEX.MX):</label>
                                 <div class="ticker-autocomplete-container">
@@ -296,12 +309,10 @@
                                         <input type="text" id="inv-ticker" placeholder="Escribe para buscar (ej. VOO)" required autocomplete="off" style="text-transform: uppercase;">
                                         <button type="button" class="btn-search-ticker" onclick="buscarCotizacionTicker()" title="Consultar precio en tiempo real">🔍 Cotizar</button>
                                     </div>
-                                    <!-- Menú flotante de sugerencias -->
                                     <div id="ticker-sugerencias" class="ticker-sugerencias-dropdown" style="display: none;"></div>
                                 </div>
                             </div>
 
-                            <!-- Selector de moneda de origen del activo -->
                             <div class="form-group">
                                 <label for="inv-moneda">Moneda del Activo:</label>
                                 <select id="inv-moneda">
@@ -330,7 +341,6 @@
                             <button type="submit">Guardar Activo</button>
                         </form>
 
-                        <!-- Gráfica de Dona: Asignación de Activos (% Peso de Portafolio) -->
                         <div class="dona-wrapper">
                             <h3 style="text-align: center; font-size: 1rem; margin-bottom: 10px; color: var(--text-color);">🎯 Asignación de Activos (% Peso)</h3>
                             <div class="chart-container-dona">
@@ -339,7 +349,6 @@
                         </div>
                     </div>
 
-                    <!-- Tabla responsiva de posiciones registradas -->
                     <div class="inversiones-col-tabla">
                         <h3 style="margin-top: 0; font-size: 1rem; color: var(--text-color);">📊 Mis Posiciones</h3>
                         <div class="table-responsive">
@@ -368,9 +377,73 @@
             </div>
         </section>
 
-    <!-- ========================================================== -->
-    <!-- MODAL 1: EDITAR INVERSIÓN (TÍTULOS Y COSTO PROMEDIO)       -->
-    <!-- ========================================================== -->
+        <!-- ============================================== -->
+        <!-- PESTAÑA 5: PANEL DE ADMINISTRACIÓN (SOLO ADMIN)-->
+        <!-- ============================================== -->
+        <section id="tab-admin" class="tab-content">
+            <div class="panel">
+                <div class="admin-header-wrap">
+                    <div>
+                        <h2 style="margin: 0;">🛡️ Panel de Administración Multi-Tenant</h2>
+                        <p style="margin: 5px 0 0 0; color: var(--text-muted); font-size: 0.9rem;">
+                            Control de acceso, aislamiento de bases de datos por usuario y auditoría global.
+                        </p>
+                    </div>
+                    <button type="button" class="btn-primary" onclick="abrirModalCrearUsuario()">+ Crear Usuario</button>
+                </div>
+
+                <!-- Tarjetas Rápidas de Métricas (KPIs de Administración) -->
+                <div class="cards cards-admin">
+                    <div class="card card-kpi">
+                        <h3>Total Usuarios</h3>
+                        <p id="lbl-kpi-total-users">0</p>
+                    </div>
+                    <div class="card card-kpi">
+                        <h3>Activos Hoy / 7 Días</h3>
+                        <p><span id="lbl-kpi-active-today">0</span> <small style="font-size: 0.85rem; color: var(--text-muted);">/ <span id="lbl-kpi-active-7d">0</span> (7d)</small></p>
+                    </div>
+                    <div class="card card-kpi">
+                        <h3>Usuarios Inactivos</h3>
+                        <p id="lbl-kpi-inactive" style="color: #e74c3c;">0</p>
+                    </div>
+                    <div class="card card-kpi">
+                        <h3>Almacenamiento Total</h3>
+                        <p id="lbl-kpi-disk-total">0.0 KB</p>
+                    </div>
+                </div>
+
+                <!-- Tabla de Gestión de Usuarios y Tenants -->
+                <div class="admin-table-wrap">
+                    <h3 style="margin-top: 25px; margin-bottom: 12px; font-size: 1.05rem; color: var(--text-color);">👥 Directorio de Usuarios y Tenants</h3>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Usuario</th>
+                                    <th>Rol</th>
+                                    <th>Estado</th>
+                                    <th>Creado</th>
+                                    <th>Último Acceso</th>
+                                    <th>Logins</th>
+                                    <th>Peso BD</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-usuarios-admin">
+                                <tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Cargando directorio...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODAL 1: EDITAR INVERSIÓN                      -->
+    <!-- ============================================== -->
     <div id="modal-editar-inversion" class="modal-overlay" style="display: none;" onclick="if(event.target === this) cerrarModalEditarInversion()">
         <div class="modal-card">
             <div class="modal-header">
@@ -398,9 +471,9 @@
         </div>
     </div>
 
-    <!-- ========================================================== -->
-    <!-- MODAL 2: EDITAR MOVIMIENTO / TRANSACCIÓN                   -->
-    <!-- ========================================================== -->
+    <!-- ============================================== -->
+    <!-- MODAL 2: EDITAR MOVIMIENTO / TRANSACCIÓN       -->
+    <!-- ============================================== -->
     <div id="modal-editar-transaccion" class="modal-overlay" style="display: none;" onclick="if(event.target === this) cerrarModalEditarTransaccion()">
         <div class="modal-card">
             <div class="modal-header">
@@ -437,6 +510,40 @@
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary" onclick="cerrarModalEditarTransaccion()">Cancelar</button>
                     <button type="submit" class="btn-primary">💾 Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODAL 3: CREAR NUEVO USUARIO TENANT (ADMIN)   -->
+    <!-- ============================================== -->
+    <div id="modal-crear-usuario" class="modal-overlay" style="display: none;" onclick="if(event.target === this) cerrarModalCrearUsuario()">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>👤 Crear Nuevo Usuario Tenant</h3>
+                <button type="button" class="btn-modal-close" onclick="cerrarModalCrearUsuario()">&times;</button>
+            </div>
+            <form id="form-crear-usuario" onsubmit="guardarNuevoUsuario(event)">
+                <div class="form-group">
+                    <label for="nuevo-user-username">Nombre de Usuario:</label>
+                    <input type="text" id="nuevo-user-username" required placeholder="Ej. ricardo, contador, analista" autocomplete="off" pattern="^[a-zA-Z0-9_-]+$">
+                </div>
+                <div class="form-group">
+                    <label for="nuevo-user-password">Contraseña:</label>
+                    <input type="password" id="nuevo-user-password" required minlength="4" placeholder="Mínimo 4 caracteres">
+                </div>
+                <div class="form-group">
+                    <label for="nuevo-user-role">Rol de Acceso:</label>
+                    <select id="nuevo-user-role">
+                        <option value="user" selected>Usuario Estándar (Solo su base de datos)</option>
+                        <option value="admin">Administrador (Acceso total y gestión)</option>
+                    </select>
+                    <small style="color: var(--text-muted); font-size: 0.8rem;">Se aprovisionará automáticamente un archivo SQLite independiente para este usuario.</small>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="cerrarModalCrearUsuario()">Cancelar</button>
+                    <button type="submit" class="btn-primary">💾 Crear Usuario</button>
                 </div>
             </form>
         </div>
