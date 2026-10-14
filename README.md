@@ -36,7 +36,7 @@ Una aplicación web moderna, ligera, minimalista y autohospedada para llevar el 
   * **Meta de Ahorro:** Objetivos financieros fijos con seguimiento mediante barras de progreso porcentual.
 * Movimientos de **depósito (+)** y **retiro (-)** que validan el balance disponible y generan registros automáticos de trazabilidad.
 
-### 4. 📈 Módulo de Inversiones & Asset Allocation (Fase 7)
+### 4. 📈 Módulo de Inversiones & Asset Allocation
 * **Seguimiento de Portafolio:** Registro de posiciones en ETFs y acciones (Ticker, cantidad de títulos, precio promedio de compra y divisa).
 * **Búsqueda Predictiva y Autocompletado de Tickers:** Al escribir en el campo de ticker, se despliega un listado en vivo de sugerencias de Yahoo Finance con símbolo, nombre completo, tipo de instrumento y bolsa de cotización.
 * **Soporte Multidivisa Inteligente:**
