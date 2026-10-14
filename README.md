@@ -102,7 +102,7 @@ finanzas-app/
 | Método | Endpoint | Descripción |
 | :--- | :--- | :--- |
 | `GET` | `/api/resumen?moneda_base=MXN` | Resumen general, balance, apartados, inversiones y patrimonio neto en la moneda base |
-| `GET` | `/api/tipo-cambio` | Tipos de cambio en tiempo real (USD, MXN, EUR) |
+| `GET` | `/api/tipo-cambio` | Tipos de cambio en tiempo real (USD y MXN) |
 | `GET` | `/api/resumen-mensual` | Agrupación de ingresos y gastos por mes para gráficos |
 | `GET` | `/api/transacciones` | Lista histórica de transacciones |
 | `POST` | `/api/transacciones` | Registrar una nueva transacción |
