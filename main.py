@@ -20,24 +20,32 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 def leer_raiz():
     return FileResponse("static/index.html")
 
+def ahora_local():
+    """Retorna la fecha y hora actual en la zona horaria de México (CST / UTC-6)."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("America/Mexico_City"))
+    except Exception:
+        return datetime.now()
+
 # --- MODELOS PYDANTIC ---
 
 class Transaccion(BaseModel):
-    fecha: str
-    monto: float
-    tipo: str
-    categoria_id: Optional[int] = None
+    fecha: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    monto: float = Field(..., gt=0)
+    tipo: Literal['gasto', 'ingreso']
+    categoria_id: Optional[int] = 1
     descripcion: Optional[str] = None
 
 class TransaccionUpdate(BaseModel):
-    fecha: Optional[str] = None
+    fecha: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     monto: Optional[float] = Field(None, gt=0)
     tipo: Optional[Literal['gasto', 'ingreso']] = None
     categoria_id: Optional[int] = None
     descripcion: Optional[str] = None
 
 class ApartadoCreate(BaseModel):
-    nombre: str
+    nombre: str = Field(..., min_length=1)
     tipo: Literal['libre', 'meta']
     meta_monto: Optional[float] = None
 
@@ -46,7 +54,7 @@ class MovimientoApartado(BaseModel):
     accion: Literal['depositar', 'retirar']
 
 class InversionCreate(BaseModel):
-    ticker: str
+    ticker: str = Field(..., min_length=1)
     cantidad: float = Field(..., gt=0)
     precio_promedio: float = Field(..., gt=0)
     precio_actual: Optional[float] = None
@@ -91,8 +99,11 @@ def eliminar_transaccion(id_transaccion: int):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM transacciones WHERE id = ?", (id_transaccion,))
+    filas = cursor.rowcount
     conn.commit()
     conn.close()
+    if filas == 0:
+        raise HTTPException(status_code=404, detail="Transacción no encontrada")
     return {"mensaje": "Transacción eliminada"}
 
 @app.put("/api/transacciones/{id_transaccion}")
@@ -281,7 +292,7 @@ def movimiento_apartado(apartado_id: int, mov: MovimientoApartado):
         raise HTTPException(status_code=404, detail="Apartado no encontrado")
         
     nuevo_saldo = apartado['monto_actual']
-    fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+    fecha_hoy = ahora_local().strftime('%Y-%m-%d')
     
     if mov.accion == 'depositar':
         # 1. Calcular el balance real disponible (Ingresos - Gastos totales)
@@ -620,7 +631,7 @@ def get_tipo_cambio():
     return {
         "base": "USD",
         "tasas": tasas,
-        "actualizado_en": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "actualizado_en": ahora_local().strftime("%Y-%m-%d %H:%M:%S")
     }
 
 @app.get("/api/backup")
@@ -628,7 +639,7 @@ def descargar_backup():
     """Permite descargar una copia de seguridad directa del archivo SQLite finanzas.db."""
     if not os.path.exists("finanzas.db"):
         raise HTTPException(status_code=404, detail="Base de datos no encontrada.")
-    fecha_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    fecha_str = ahora_local().strftime("%Y%m%d_%H%M%S")
     return FileResponse(
         "finanzas.db",
         filename=f"finanzas_backup_{fecha_str}.db",

@@ -1,4 +1,12 @@
-document.getElementById('fecha').valueAsDate = new Date();
+function obtenerFechaLocalISO() {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+document.getElementById('fecha').value = obtenerFechaLocalISO();
 
 const form = document.getElementById('transaccion-form');
 const mensajeDiv = document.getElementById('mensaje');
@@ -33,6 +41,7 @@ btnModo.addEventListener('click', () => {
 });
 
 function actualizarColoresGrafica() {
+    if (!miGrafica) return;
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = esOscuro ? '#e0e0e0' : '#333333';
     const gridColor = esOscuro ? '#333333' : '#eee';
@@ -50,6 +59,9 @@ function actualizarColoresDona() {
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = esOscuro ? '#e0e0e0' : '#333333';
     graficaDona.options.plugins.legend.labels.color = textColor;
+    if (graficaDona.data && graficaDona.data.datasets && graficaDona.data.datasets[0]) {
+        graficaDona.data.datasets[0].borderColor = esOscuro ? '#1e1e1e' : '#ffffff';
+    }
     graficaDona.update();
 }
 
@@ -229,7 +241,7 @@ form.addEventListener('submit', async (e) => {
             mensajeDiv.style.color = '#2ecc71';
             mensajeDiv.textContent = '¡Movimiento guardado!';
             form.reset();
-            document.getElementById('fecha').valueAsDate = new Date();
+            document.getElementById('fecha').value = obtenerFechaLocalISO();
             cargarDatos();
         } else {
             mensajeDiv.style.color = '#e74c3c';

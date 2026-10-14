@@ -20,6 +20,12 @@ def init_db():
             tipo TEXT NOT NULL -- 'gasto' o 'ingreso'
         )
     """)
+
+    # Categoría por defecto para integridad referencial
+    cursor.execute("""
+        INSERT OR IGNORE INTO categorias (id, nombre, tipo)
+        VALUES (1, 'General', 'gasto')
+    """)
     
     # Tabla de transacciones
     cursor.execute("""
