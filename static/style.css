@@ -1,3 +1,12 @@
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
 /* Variables de Color por Defecto (Modo Claro) */
 :root {
     --bg-color: #f4f6f9;
@@ -54,19 +63,27 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
     margin-bottom: 20px;
-    padding-bottom: 10px;
+    padding-bottom: 12px;
     border-bottom: 1px solid var(--border-color);
+}
+
+.header-top-bar {
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
 .app-brand h1 {
     margin: 0;
-    font-size: 1.5rem;
+    font-size: 1.45rem;
     font-weight: 700;
     color: var(--text-color);
 }
 
-.header-actions {
+.header-currency-bar {
     display: flex;
     align-items: center;
 }
@@ -75,15 +92,22 @@ body {
     background-color: var(--panel-bg);
     color: var(--text-color);
     border: 1px solid var(--border-color);
-    padding: 8px 15px;
+    padding: 7px 14px;
     border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     box-shadow: var(--card-shadow);
-    transition: background 0.2s;
+    transition: background 0.2s, transform 0.1s;
     width: auto;
     margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+.btn-theme:active {
+    transform: scale(0.96);
 }
 .btn-theme:hover {
     opacity: 0.85;
@@ -92,27 +116,37 @@ body {
 /* Barra de Pestañas (Tabs) */
 .nav-tabs {
     display: flex;
-    gap: 10px;
-    margin-bottom: 25px;
+    gap: 8px;
+    margin-bottom: 22px;
     overflow-x: auto;
-    padding-bottom: 5px;
-    scrollbar-width: thin;
+    padding: 4px 2px 8px 2px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.nav-tabs::-webkit-scrollbar {
+    display: none;
 }
 
 .tab-btn {
     width: auto;
     margin: 0;
-    padding: 10px 18px;
+    padding: 9px 16px;
     background-color: var(--panel-bg);
     color: var(--text-muted);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
-    font-size: 0.95rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease-in-out;
     white-space: nowrap;
     box-shadow: var(--card-shadow);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
 }
 
 .tab-btn:hover {
@@ -196,15 +230,20 @@ h2 {
     text-align: center;
     font-size: 1.2rem;
 }
-.form-group { margin-bottom: 15px; }
-label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; color: var(--text-color); }
+.form-group { margin-bottom: 14px; }
+.form-row-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.88rem; color: var(--text-color); }
 input, select, button {
     width: 100%;
-    padding: 10px;
+    padding: 10px 12px;
     border: 1px solid var(--border-color);
     background-color: var(--panel-bg);
     color: var(--text-color);
-    border-radius: 6px;
+    border-radius: 8px;
     box-sizing: border-box;
     font-size: 1rem;
 }
@@ -215,15 +254,28 @@ button {
     font-weight: bold;
     cursor: pointer;
     margin-top: 10px;
+    padding: 12px;
+    border-radius: 8px;
+    transition: background-color 0.2s, transform 0.1s;
+}
+button:active {
+    transform: scale(0.98);
 }
 button:hover { background-color: #2980b9; }
 .btn-eliminar {
     background-color: #e74c3c;
     color: white;
-    padding: 6px 10px;
+    padding: 6px 12px;
     font-size: 0.8rem;
     width: auto;
     margin: 0;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.btn-eliminar:active {
+    transform: scale(0.95);
 }
 .btn-eliminar:hover { background-color: #c0392b; }
 #mensaje { margin-top: 15px; text-align: center; font-weight: 600; font-size: 0.9rem; }
@@ -310,12 +362,45 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 
 .acciones-apartado {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
 }
 
 .acciones-apartado input {
-  width: 100px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.acciones-apartado button {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  margin: 0;
+  padding: 0;
+  font-size: 1.25rem;
+  font-weight: bold;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.acciones-apartado button:first-of-type {
+  background-color: #2ecc71;
+}
+.acciones-apartado button:first-of-type:hover {
+  background-color: #27ae60;
+}
+
+.acciones-apartado button:last-of-type {
+  background-color: #e74c3c;
+}
+.acciones-apartado button:last-of-type:hover {
+  background-color: #c0392b;
 }
 
 /* --- ESTILOS DE INVERSIONES Y ASSET ALLOCATION (FASE 7) --- */
@@ -370,18 +455,37 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     grid-template-columns: 340px 1fr;
     gap: 25px;
     align-items: start;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.inversiones-col-lateral,
+.inversiones-col-tabla {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
 }
 
 @media (max-width: 950px) {
     .inversiones-grid {
         grid-template-columns: 1fr;
+        gap: 20px;
     }
 }
 
 .input-group-search {
     display: flex;
     gap: 8px;
-    align-items: center;
+    align-items: stretch;
+    width: 100%;
+    max-width: 100%;
+}
+
+.input-group-search input {
+    flex: 1 1 0%;
+    min-width: 0;
+    width: auto !important;
 }
 
 .btn-search-ticker {
@@ -389,10 +493,11 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     margin: 0;
     background-color: #16a085;
     color: white;
-    padding: 10px 12px;
+    padding: 10px 14px;
     font-size: 0.85rem;
     white-space: nowrap;
     border-radius: 6px;
+    flex-shrink: 0;
 }
 
 .btn-search-ticker:hover {
@@ -405,15 +510,24 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     padding: 15px;
     border-radius: 8px;
     border: 1px solid var(--border-color);
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .chart-container-dona {
     position: relative;
     width: 100%;
+    max-width: 100%;
+    height: 230px;
     max-height: 250px;
     display: flex;
     justify-content: center;
     align-items: center;
+}
+
+.chart-container-dona canvas {
+    max-width: 100% !important;
 }
 
 .pnl-positivo {
@@ -570,6 +684,18 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     white-space: nowrap;
 }
 
+#badge-tasa-inversiones {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-weight: 600;
+    white-space: nowrap;
+    display: inline-block;
+}
+
 /* --- AUTOCOMPLETADO DE TICKERS --- */
 .ticker-autocomplete-container {
     position: relative;
@@ -645,141 +771,438 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 /* ========================================================== */
 
 @media (max-width: 768px) {
-    .container {
-        width: 100%;
-        padding: 12px 14px;
+    body {
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
     }
 
+    .container {
+        width: 100%;
+        padding: 10px 12px;
+        padding-left: max(12px, env(safe-area-inset-left));
+        padding-right: max(12px, env(safe-area-inset-right));
+    }
+
+    /* Header adaptable */
     .app-header {
-        flex-direction: row;
+        flex-direction: column;
+        align-items: stretch;
         gap: 10px;
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+    }
+
+    .header-top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
     }
 
     .app-brand h1 {
         font-size: 1.25rem;
     }
 
-    .btn-theme {
+    .header-currency-bar {
+        width: 100%;
+    }
+
+    .moneda-global-wrap {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-sizing: border-box;
         padding: 6px 10px;
-        font-size: 0.8rem;
+        gap: 6px;
     }
 
-    /* Tabs con scroll táctil fluido */
-    .nav-tabs {
-        gap: 8px;
-        padding-bottom: 8px;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .tab-btn {
-        padding: 8px 14px;
-        font-size: 0.85rem;
-        flex-shrink: 0;
-    }
-
-    /* Tarjetas convertidas a grid de 2 o 1 columna para que no se aplasten */
-    .cards, .cards-inversiones {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 12px;
-        margin-bottom: 18px;
-    }
-
-    .card {
-        padding: 14px;
-    }
-
-    .card h3 {
+    .moneda-global-label {
         font-size: 0.75rem;
     }
 
-    .card p {
-        font-size: 1.15rem;
+    .select-moneda {
+        padding: 4px 6px;
+        font-size: 0.8rem;
     }
 
-    /* Tarjeta hero patrimonio neto */
+    .badge-tasa {
+        font-size: 0.72rem;
+    }
+
+    /* Tabs pegajosas en la parte superior para navegación táctil instantánea */
+    .nav-tabs {
+        position: sticky;
+        top: 0;
+        z-index: 95;
+        background-color: var(--bg-color);
+        padding: 8px 12px 10px 12px;
+        margin-left: -12px;
+        margin-right: -12px;
+        gap: 6px;
+        border-bottom: 1px solid var(--border-color);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+    }
+
+    .tab-btn {
+        padding: 7px 13px;
+        font-size: 0.82rem;
+        border-radius: 16px;
+    }
+
+    /* Tarjetas Hero de Patrimonio Neto */
     .hero-networth {
-        padding: 18px 20px;
+        padding: 16px;
         border-radius: 12px;
+        margin-bottom: 14px;
+    }
+
+    .networth-header small {
+        font-size: 0.7rem;
+        letter-spacing: 1px;
     }
 
     .networth-header h2 {
-        font-size: 1.8rem;
-        margin: 5px 0 15px 0;
+        font-size: 1.75rem;
+        margin: 4px 0 12px 0;
     }
 
     .networth-breakdown {
-        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-top: 10px;
+    }
+
+    .breakdown-item {
+        display: flex;
+        align-items: center;
         gap: 10px;
+        padding: 7px 10px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.02);
+        border: 1px solid var(--border-color);
+    }
+
+    [data-theme="dark"] .breakdown-item {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .breakdown-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+    }
+
+    .breakdown-info small {
+        font-size: 0.78rem;
+    }
+
+    .breakdown-info strong {
+        font-size: 0.95rem;
+    }
+
+    /* Cuadrícula balanceada de métricas en 2 columnas (nunca tarjetas gigantes apiladas) */
+    .cards, .cards-inversiones {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-bottom: 14px;
+    }
+
+    .cards > .card:nth-child(3),
+    .cards-inversiones > .card:nth-child(3) {
+        grid-column: span 2;
+    }
+
+    .cards > .card.balance:first-child {
+        grid-column: span 2;
+    }
+
+    .card {
+        padding: 10px 10px;
+        border-radius: 10px;
+        min-width: 0;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+
+    .card h3 {
+        font-size: 0.68rem;
+        margin-bottom: 4px;
+        word-break: break-word;
+        white-space: normal;
+    }
+
+    .card p {
+        font-size: 1.02rem;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .cards-inversiones .inv-card {
+        padding: 10px 8px;
+        min-width: 0;
+        box-sizing: border-box;
+    }
+
+    .cards-inversiones .inv-card p {
+        font-size: 0.98rem;
+    }
+
+    .pnl-badge {
+        display: inline-block;
+        font-size: 0.78rem;
+        margin-top: 2px;
+    }
+
+    /* Paneles de contenido */
+    .panel {
+        padding: 12px;
+        border-radius: 12px;
+        margin-bottom: 14px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    h2 {
+        font-size: 1.05rem;
+        margin-bottom: 12px;
     }
 
     /* Grids a una sola columna */
     .dashboard-grid {
         grid-template-columns: 1fr;
-        gap: 15px;
+        gap: 14px;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
     }
 
     .inversiones-grid {
         grid-template-columns: 1fr;
-        gap: 20px;
+        gap: 14px;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
     }
 
-    .panel {
-        padding: 16px;
-        margin-bottom: 18px;
+    .inversiones-col-lateral,
+    .inversiones-col-tabla {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
 
-    /* Cabecera de Inversiones en pantallas pequeñas */
+    #form-inversion {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .input-group-search {
+        display: flex;
+        gap: 6px;
+        align-items: stretch;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .input-group-search input {
+        flex: 1 1 0%;
+        min-width: 0;
+        width: auto !important;
+        box-sizing: border-box;
+    }
+
+    .btn-search-ticker {
+        padding: 8px 12px;
+        font-size: 0.82rem;
+        flex-shrink: 0;
+        box-sizing: border-box;
+    }
+
+    /* Gráficas */
+    .chart-container {
+        height: 210px;
+        max-height: 220px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .chart-container-dona {
+        height: 190px;
+        max-height: 200px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .chart-container-dona canvas {
+        max-width: 100% !important;
+    }
+
+    .dona-wrapper {
+        margin-top: 14px;
+        padding: 10px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+
+    /* Acciones en Apartados */
+    .grid-apartados {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .card-apartado {
+        padding: 14px;
+        border-radius: 10px;
+    }
+
+    .acciones-apartado {
+        display: flex;
+        gap: 6px;
+        margin-top: 10px;
+        align-items: center;
+    }
+
+    .acciones-apartado input {
+        flex: 1;
+        min-width: 0;
+        margin: 0;
+        padding: 8px 10px;
+        font-size: 16px;
+    }
+
+    .acciones-apartado button {
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        margin: 0;
+        padding: 0;
+        font-size: 1.3rem;
+        font-weight: bold;
+        border-radius: 8px;
+    }
+
+    /* Cabecera de Inversiones */
     .inversiones-header {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
+        align-items: stretch;
+        gap: 10px;
     }
 
     .inversiones-header-actions {
         width: 100%;
+        display: flex;
         flex-direction: column;
-        align-items: stretch;
+        gap: 8px;
     }
 
-    .moneda-selector-box {
-        justify-content: space-between;
+    #badge-tasa-inversiones {
         width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+        display: block;
+        padding: 6px 10px;
     }
 
     .btn-sync {
         width: 100%;
         text-align: center;
+        padding: 10px;
+        font-size: 0.9rem;
     }
 
-    /* Tablas con scroll horizontal cómodo */
+    /* Tablas financieras con Primera Columna Fija (Sticky Ticker) */
     .table-responsive {
+        position: relative;
+        overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-        margin-top: 8px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        box-shadow: inset -8px 0 8px -8px rgba(0, 0, 0, 0.15);
+    }
+
+    #tabla-inversiones th:first-child,
+    #tabla-inversiones td:first-child,
+    #tabla-movimientos th:first-child,
+    #tabla-movimientos td:first-child {
+        position: sticky;
+        left: 0;
+        background-color: var(--panel-bg);
+        z-index: 3;
+        border-right: 2px solid var(--border-color);
+        box-shadow: 2px 0 5px rgba(0, 0, 0, 0.06);
+    }
+
+    #tabla-inversiones th:first-child,
+    #tabla-movimientos th:first-child {
+        background-color: var(--th-bg);
+        z-index: 4;
     }
 
     th, td {
-        padding: 8px 6px;
-        font-size: 0.8rem;
+        padding: 8px 8px;
+        font-size: 0.78rem;
         white-space: nowrap;
     }
 
-    /* Inputs para evitar autozoom en móviles */
+    tbody tr:nth-child(even) {
+        background-color: rgba(0, 0, 0, 0.015);
+    }
+
+    [data-theme="dark"] tbody tr:nth-child(even) {
+        background-color: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Autocompletado de Tickers */
+    .ticker-sugerencias-dropdown {
+        max-height: 180px;
+    }
+
+    .sugerencia-item {
+        padding: 10px 12px;
+        min-height: 44px;
+        box-sizing: border-box;
+    }
+
+    /* Tamaño de inputs táctiles sin autozoom en iOS/Android */
     input, select, button {
         font-size: 16px;
     }
 }
 
-@media (max-width: 480px) {
-    .cards, .cards-inversiones {
-        grid-template-columns: 1fr;
+@media (max-width: 400px) {
+    .container {
+        padding: 8px 10px;
     }
 
-    .grid-apartados {
-        grid-template-columns: 1fr;
+    .app-brand h1 {
+        font-size: 1.15rem;
+    }
+
+    .tab-btn {
+        padding: 6px 10px;
+        font-size: 0.76rem;
     }
 
     .networth-header h2 {
-        font-size: 1.5rem;
+        font-size: 1.55rem;
+    }
+
+    .card h3 {
+        font-size: 0.65rem;
+    }
+
+    .card p {
+        font-size: 0.98rem;
     }
 }

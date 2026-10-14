@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mis Finanzas Personales</title>
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -11,11 +11,15 @@
 
     <div class="container">
         <!-- Barra Superior: Título, Moneda Global y Modo Oscuro -->
+        <!-- Barra Superior: Título, Moneda Global y Modo Oscuro -->
         <header class="app-header">
-            <div class="app-brand">
-                <h1>💰 Finanzas Personales</h1>
+            <div class="header-top-bar">
+                <div class="app-brand">
+                    <h1>💰 Finanzas</h1>
+                </div>
+                <button id="btn-modo" class="btn-theme" title="Alternar tema">🌙 Modo Oscuro</button>
             </div>
-            <div class="header-actions">
+            <div class="header-currency-bar">
                 <div class="moneda-global-wrap">
                     <label for="select-moneda-global" class="moneda-global-label">Moneda Base:</label>
                     <select id="select-moneda-global" class="select-moneda" onchange="cambiarMonedaGlobal(this.value)">
@@ -24,16 +28,15 @@
                     </select>
                     <span id="badge-tasa-global" class="badge-tasa">1 USD ≈ $18.40 MXN</span>
                 </div>
-                <button id="btn-modo" class="btn-theme">🌙 Modo Oscuro</button>
             </div>
         </header>
 
         <!-- Navegación por Pestañas -->
         <nav class="nav-tabs">
-            <button type="button" class="tab-btn active" data-tab="tab-dashboard">📊 Resumen General</button>
+            <button type="button" class="tab-btn active" data-tab="tab-dashboard">📊 Resumen</button>
             <button type="button" class="tab-btn" data-tab="tab-movimientos">💳 Movimientos</button>
-            <button type="button" class="tab-btn" data-tab="tab-apartados">🎯 Apartados y Metas</button>
-            <button type="button" class="tab-btn" data-tab="tab-inversiones">📈 Inversiones & ETFs</button>
+            <button type="button" class="tab-btn" data-tab="tab-apartados">🎯 Metas</button>
+            <button type="button" class="tab-btn" data-tab="tab-inversiones">📈 Inversiones</button>
         </nav>
 
         <!-- ============================================== -->
@@ -128,20 +131,22 @@
                 <div class="panel">
                     <h2>💰 Registrar / Quitar Movimiento</h2>
                     <form id="transaccion-form">
-                        <div class="form-group">
-                            <label for="fecha">Fecha:</label>
-                            <input type="date" id="fecha" required>
+                        <div class="form-row-2col">
+                            <div class="form-group">
+                                <label for="fecha">Fecha:</label>
+                                <input type="date" id="fecha" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="tipo">Tipo:</label>
+                                <select id="tipo">
+                                    <option value="gasto">Gasto</option>
+                                    <option value="ingreso">Ingreso</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label for="monto">Monto ($):</label>
                             <input type="number" step="0.01" id="monto" placeholder="0.00" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="tipo">Tipo:</label>
-                            <select id="tipo">
-                                <option value="gasto">Gasto</option>
-                                <option value="ingreso">Ingreso</option>
-                            </select>
                         </div>
                         <div class="form-group">
                             <label for="descripcion">Descripción:</label>
@@ -230,7 +235,7 @@
                         <p style="margin: 5px 0 0 0; color: var(--text-muted); font-size: 0.9rem;">Monitoreo de rendimientos, cotizaciones en vivo y distribución de activos.</p>
                     </div>
                     <div class="inversiones-header-actions">
-                        <span id="badge-tasa-inversiones" class="badge-tasa" style="font-size: 0.85rem; padding: 6px 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px;">1 USD ≈ $18.40 MXN</span>
+                        <span id="badge-tasa-inversiones" class="badge-tasa">1 USD ≈ $18.40 MXN</span>
                         <button type="button" id="btn-sync-precios" class="btn-sync" onclick="sincronizarPrecios()">🔄 Actualizar Cotizaciones</button>
                     </div>
                 </div>
@@ -280,14 +285,15 @@
                                 <small style="color: var(--text-muted); font-size: 0.78rem;">Si compras en USD se multiplica por el tipo de cambio; si es en MXN se suma directo.</small>
                             </div>
 
-                            <div class="form-group">
-                                <label for="inv-cantidad">Cantidad (Títulos):</label>
-                                <input type="number" step="0.0001" min="0.0001" id="inv-cantidad" placeholder="1.0" required>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="inv-precio-promedio">Precio Promedio de Compra:</label>
-                                <input type="number" step="0.01" min="0.01" id="inv-precio-promedio" placeholder="0.00" required>
+                            <div class="form-row-2col">
+                                <div class="form-group">
+                                    <label for="inv-cantidad">Cantidad:</label>
+                                    <input type="number" step="0.0001" min="0.0001" id="inv-cantidad" placeholder="1.0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="inv-precio-promedio">Precio Compra:</label>
+                                    <input type="number" step="0.01" min="0.01" id="inv-precio-promedio" placeholder="0.00" required>
+                                </div>
                             </div>
 
                             <div class="form-group">
