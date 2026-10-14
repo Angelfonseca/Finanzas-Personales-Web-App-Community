@@ -607,8 +607,7 @@ if (formApartado) {
             });
 
             if (res.ok) {
-                formApartado.reset();
-                toggleMetaInput();
+                cerrarModalCrearApartado();
                 await cargarDatos();
             } else {
                 const error = await res.json();
@@ -618,6 +617,25 @@ if (formApartado) {
             alert("Error al conectar con el servidor.");
         }
     });
+}
+
+function abrirModalCrearApartado() {
+    const modal = document.getElementById('modal-crear-apartado');
+    if (modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => {
+            const input = document.getElementById('nombre-apartado');
+            if (input) input.focus();
+        }, 50);
+    }
+}
+
+function cerrarModalCrearApartado() {
+    const modal = document.getElementById('modal-crear-apartado');
+    if (modal) modal.style.display = 'none';
+    const form = document.getElementById('form-apartado');
+    if (form) form.reset();
+    toggleMetaInput();
 }
 
 async function realizarMovimiento(id, accion) {
@@ -1540,6 +1558,8 @@ window.addEventListener('keydown', (e) => {
         cerrarModalEditarInversion();
         cerrarModalEditarTransaccion();
         cerrarModalCrearUsuario();
+        cerrarModalEditarUsuario();
+        cerrarModalCrearApartado();
     }
 });
 
@@ -1581,6 +1601,8 @@ window.exportarExcel = exportarExcel;
 window.toggleMetaInput = toggleMetaInput;
 window.realizarMovimiento = realizarMovimiento;
 window.eliminarApartado = eliminarApartado;
+window.abrirModalCrearApartado = abrirModalCrearApartado;
+window.cerrarModalCrearApartado = cerrarModalCrearApartado;
 window.eliminarTransaccion = eliminarTransaccion;
 window.abrirModalEditarTransaccion = abrirModalEditarTransaccion;
 window.cerrarModalEditarTransaccion = cerrarModalEditarTransaccion;
@@ -1595,10 +1617,14 @@ window.cambiarPestana = cambiarPestana;
 window.cambiarMonedaGlobal = cambiarMonedaGlobal;
 window.cambiarMonedaInversiones = cambiarMonedaGlobal;
 
-// Funciones del Panel de Administración
+// Funciones del Panel de Administración y Perfil
 window.abrirModalCrearUsuario = abrirModalCrearUsuario;
 window.cerrarModalCrearUsuario = cerrarModalCrearUsuario;
 window.guardarNuevoUsuario = guardarNuevoUsuario;
+window.abrirModalEditarUsuario = abrirModalEditarUsuario;
+window.cerrarModalEditarUsuario = cerrarModalEditarUsuario;
+window.abrirModalEditarMiPerfil = abrirModalEditarMiPerfil;
+window.guardarEdicionUsuario = guardarEdicionUsuario;
 window.cambiarEstadoUsuario = cambiarEstadoUsuario;
 window.eliminarUsuarioTenant = eliminarUsuarioTenant;
 

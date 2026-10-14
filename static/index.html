@@ -230,38 +230,19 @@
             <div class="panel">
                 <div class="apartados-header-wrap">
                     <div>
-                        <h2 style="text-align: left; margin-bottom: 5px;">🎯 Sobres de Ahorro y Metas</h2>
+                        <h2 style="text-align: left; margin: 0 0 5px 0;">🎯 Sobres de Ahorro y Metas</h2>
                         <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">Organiza tu dinero para objetivos específicos y fondos de emergencia.</p>
                     </div>
-                    <div class="apartado-total-pill">
-                        <small>Total Ahorrado: </small>
-                        <strong id="lbl-apartados-total-acum">$0.00</strong>
+                    <div class="apartados-header-actions">
+                        <div class="apartado-total-pill">
+                            <small>Total Ahorrado: </small>
+                            <strong id="lbl-apartados-total-acum">$0.00</strong>
+                        </div>
+                        <button type="button" class="btn-primary" onclick="abrirModalCrearApartado()">+ Crear Apartado</button>
                     </div>
                 </div>
 
-                <form id="form-apartado" class="card-form" style="margin-top: 20px;">
-                    <div class="form-group">
-                        <label for="nombre-apartado">Nombre del Apartado:</label>
-                        <input type="text" id="nombre-apartado" placeholder="Ej. Fondo de Emergencia, Vacaciones" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="tipo-apartado">Tipo:</label>
-                        <select id="tipo-apartado" onchange="toggleMetaInput()">
-                            <option value="libre">Sobre Libre (Sin límite)</option>
-                            <option value="meta">Meta de Ahorro (Con objetivo fijo)</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group" id="group-meta-monto" style="display: none;">
-                        <label for="meta-monto">Monto Objetivo Meta ($):</label>
-                        <input type="number" id="meta-monto" step="0.01" min="1" placeholder="Ej. 10000">
-                    </div>
-
-                    <button type="submit">Crear Apartado</button>
-                </form>
-
-                <div id="contenedor-apartados" class="grid-apartados"></div>
+                <div id="contenedor-apartados" class="grid-apartados" style="margin-top: 20px;"></div>
             </div>
         </section>
 
@@ -583,6 +564,42 @@
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary" onclick="cerrarModalEditarUsuario()">Cancelar</button>
                     <button type="submit" class="btn-primary">💾 Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODAL 5: CREAR NUEVO APARTADO / META           -->
+    <!-- ============================================== -->
+    <div id="modal-crear-apartado" class="modal-overlay" style="display: none;" onclick="if(event.target === this) cerrarModalCrearApartado()">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>🎯 Crear Nuevo Apartado / Meta</h3>
+                <button type="button" class="btn-modal-close" onclick="cerrarModalCrearApartado()">&times;</button>
+            </div>
+            <form id="form-apartado">
+                <div class="form-group">
+                    <label for="nombre-apartado">Nombre del Apartado:</label>
+                    <input type="text" id="nombre-apartado" placeholder="Ej. Fondo de Emergencia, Vacaciones" required autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label for="tipo-apartado">Tipo de Sobre:</label>
+                    <select id="tipo-apartado" onchange="toggleMetaInput()">
+                        <option value="libre">Sobre Libre (Sin límite)</option>
+                        <option value="meta">Meta de Ahorro (Con objetivo fijo)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="group-meta-monto" style="display: none;">
+                    <label for="meta-monto">Monto Objetivo Meta ($):</label>
+                    <input type="number" id="meta-monto" step="0.01" min="1" placeholder="Ej. 10000">
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="cerrarModalCrearApartado()">Cancelar</button>
+                    <button type="submit" class="btn-primary">💾 Crear Apartado</button>
                 </div>
             </form>
         </div>
