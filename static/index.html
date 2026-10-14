@@ -10,82 +10,123 @@
 <body>
 
     <div class="container">
-        <!-- Botón de Modo Oscuro / Claro -->
-        <div class="header-top">
-            <button id="btn-modo" class="btn-theme">🌙 Modo Oscuro</button>
-        </div>
+        <!-- Barra Superior: Título, Moneda Global y Modo Oscuro -->
+        <header class="app-header">
+            <div class="app-brand">
+                <h1>💰 Finanzas Personales</h1>
+            </div>
+            <div class="header-actions">
+                <div class="moneda-global-wrap">
+                    <label for="select-moneda-global" class="moneda-global-label">Moneda Base:</label>
+                    <select id="select-moneda-global" class="select-moneda" onchange="cambiarMonedaGlobal(this.value)">
+                        <option value="MXN" selected>🇲🇽 MXN ($)</option>
+                        <option value="USD">🇺🇸 USD ($)</option>
+                    </select>
+                    <span id="badge-tasa-global" class="badge-tasa">1 USD ≈ $18.40 MXN</span>
+                </div>
+                <button id="btn-modo" class="btn-theme">🌙 Modo Oscuro</button>
+            </div>
+        </header>
 
-        <!-- Tarjetas de Resumen General -->
-        <div class="cards">
-            <div class="card balance">
-                <h3>Balance Total</h3>
-                <p id="lbl-balance">$0.00</p>
-            </div>
-            <div class="card ingresos">
-                <h3>Ingresos Totales</h3>
-                <p id="lbl-ingresos">$0.00</p>
-            </div>
-            <div class="card gastos">
-                <h3>Gastos Totales</h3>
-                <p id="lbl-gastos">$0.00</p>
-            </div>
-        </div>
+        <!-- Navegación por Pestañas -->
+        <nav class="nav-tabs">
+            <button type="button" class="tab-btn active" data-tab="tab-dashboard">📊 Resumen General</button>
+            <button type="button" class="tab-btn" data-tab="tab-movimientos">💳 Movimientos</button>
+            <button type="button" class="tab-btn" data-tab="tab-apartados">🎯 Apartados y Metas</button>
+            <button type="button" class="tab-btn" data-tab="tab-inversiones">📈 Inversiones & ETFs</button>
+        </nav>
 
-        <!-- Grid de Dos Columnas -->
-        <div class="dashboard-grid">
-            
-            <!-- Columna Izquierda: Gráfica, Resumen Mensual y Apartados -->
-            <div class="columna-izquierda">
+        <!-- ============================================== -->
+        <!-- PESTAÑA 1: DASHBOARD GENERAL Y PATRIMONIO NETO -->
+        <!-- ============================================== -->
+        <section id="tab-dashboard" class="tab-content active">
+            <!-- Tarjeta Hero de Patrimonio Neto -->
+            <div class="hero-networth">
+                <div class="networth-header">
+                    <small>PATRIMONIO NETO TOTAL</small>
+                    <h2 id="lbl-dash-patrimonio">$0.00</h2>
+                </div>
+                <div class="networth-breakdown">
+                    <div class="breakdown-item">
+                        <span class="breakdown-dot dot-balance"></span>
+                        <div class="breakdown-info">
+                            <small>Balance Efectivo</small>
+                            <strong id="lbl-dash-balance">$0.00</strong>
+                        </div>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-dot dot-apartados"></span>
+                        <div class="breakdown-info">
+                            <small>En Apartados / Metas</small>
+                            <strong id="lbl-dash-apartados">$0.00</strong>
+                        </div>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-dot dot-inversiones"></span>
+                        <div class="breakdown-info">
+                            <small>Portafolio de Inversión</small>
+                            <strong id="lbl-dash-inversiones">$0.00</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tarjetas Rápidas de Flujo Mensual -->
+            <div class="cards">
+                <div class="card ingresos">
+                    <h3>Ingresos Totales</h3>
+                    <p id="lbl-dash-ingresos">$0.00</p>
+                </div>
+                <div class="card gastos">
+                    <h3>Gastos Totales</h3>
+                    <p id="lbl-dash-gastos">$0.00</p>
+                </div>
+                <div class="card balance">
+                    <h3>Rendimiento Inversiones</h3>
+                    <p id="lbl-dash-pnl">$0.00</p>
+                </div>
+            </div>
+
+            <!-- Grid de Métricas y Gráfica -->
+            <div class="dashboard-grid">
                 <div class="panel">
-                    <h2>📊 Comportamiento Mensual</h2>
+                    <h2>📊 Comportamiento Mensual (Ingresos vs Gastos)</h2>
                     <div class="chart-container">
                         <canvas id="graficaFinanzas"></canvas>
                     </div>
                 </div>
 
                 <div class="panel">
-                    <h2>📅 Desglose Mensual</h2>
+                    <h2>📅 Historial por Mes</h2>
                     <div id="lista-resumen-mensual"></div>
                 </div>
+            </div>
+        </section>
 
-                <!-- SECCIÓN DE APARTADOS Y METAS (AHORA EN COLUMNA IZQUIERDA) -->
-                <div class="panel apartados-section">
-                    <h2>🎯 Apartados y Metas de Ahorro</h2>
-
-                    <!-- Formulario de creación -->
-                    <form id="form-apartado" class="card-form">
-                        <div class="form-group">
-                            <label for="nombre-apartado">Nombre:</label>
-                            <input type="text" id="nombre-apartado" placeholder="Ej. Fondo Emergencia, Vacaciones" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="tipo-apartado">Tipo:</label>
-                            <select id="tipo-apartado" onchange="toggleMetaInput()">
-                                <option value="libre">Sobre Libre</option>
-                                <option value="meta">Meta de Ahorro</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group" id="group-meta-monto" style="display: none;">
-                            <label for="meta-monto">Monto Meta ($):</label>
-                            <input type="number" id="meta-monto" step="0.01" min="1" placeholder="Ej. 5000">
-                        </div>
-
-                        <button type="submit">Crear Apartado</button>
-                    </form>
-
-                    <!-- Grilla de tarjetas -->
-                    <div id="contenedor-apartados" class="grid-apartados">
-                        <!-- Se puebla dinámicamente -->
-                    </div>
+        <!-- ============================================== -->
+        <!-- PESTAÑA 2: MOVIMIENTOS (INGRESOS Y GASTOS)     -->
+        <!-- ============================================== -->
+        <section id="tab-movimientos" class="tab-content">
+            <!-- Tarjetas de Resumen de Caja -->
+            <div class="cards">
+                <div class="card balance">
+                    <h3>Balance Disponible</h3>
+                    <p id="lbl-balance">$0.00</p>
+                </div>
+                <div class="card ingresos">
+                    <h3>Ingresos Totales</h3>
+                    <p id="lbl-ingresos">$0.00</p>
+                </div>
+                <div class="card gastos">
+                    <h3>Gastos Totales</h3>
+                    <p id="lbl-gastos">$0.00</p>
                 </div>
             </div>
 
-            <!-- Columna Derecha: Formulario y Tabla -->
-            <div class="columna-derecha">
+            <div class="dashboard-grid">
+                <!-- Formulario de Registro -->
                 <div class="panel">
-                    <h2>💰 Registrar / Quitar Movimientos</h2>
+                    <h2>💰 Registrar / Quitar Movimiento</h2>
                     <form id="transaccion-form">
                         <div class="form-group">
                             <label for="fecha">Fecha:</label>
@@ -111,6 +152,7 @@
                     <div id="mensaje"></div>
                 </div>
 
+                <!-- Tabla de Movimientos -->
                 <div class="panel">
                     <h2>📜 Todos los Movimientos</h2>
                     <div class="table-responsive">
@@ -129,8 +171,170 @@
                     </div>
                 </div>
             </div>
+        </section>
 
-        </div>
+        <!-- ============================================== -->
+        <!-- PESTAÑA 3: APARTADOS Y METAS                   -->
+        <!-- ============================================== -->
+        <section id="tab-apartados" class="tab-content">
+            <div class="panel">
+                <div class="apartados-header-wrap">
+                    <div>
+                        <h2 style="text-align: left; margin-bottom: 5px;">🎯 Sobres de Ahorro y Metas</h2>
+                        <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">Organiza tu dinero para objetivos específicos y fondos de emergencia.</p>
+                    </div>
+                    <div class="apartado-total-pill">
+                        <small>Total Ahorrado: </small>
+                        <strong id="lbl-apartados-total-acum">$0.00</strong>
+                    </div>
+                </div>
+
+                <!-- Formulario de creación de apartado -->
+                <form id="form-apartado" class="card-form" style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label for="nombre-apartado">Nombre del Apartado:</label>
+                        <input type="text" id="nombre-apartado" placeholder="Ej. Fondo de Emergencia, Vacaciones" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tipo-apartado">Tipo:</label>
+                        <select id="tipo-apartado" onchange="toggleMetaInput()">
+                            <option value="libre">Sobre Libre (Sin límite)</option>
+                            <option value="meta">Meta de Ahorro (Con objetivo fijo)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="group-meta-monto" style="display: none;">
+                        <label for="meta-monto">Monto Objetivo Meta ($):</label>
+                        <input type="number" id="meta-monto" step="0.01" min="1" placeholder="Ej. 10000">
+                    </div>
+
+                    <button type="submit">Crear Apartado</button>
+                </form>
+
+                <!-- Grilla de tarjetas de apartados -->
+                <div id="contenedor-apartados" class="grid-apartados">
+                    <!-- Se puebla dinámicamente con app.js -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- PESTAÑA 4: INVERSIONES & ASSET ALLOCATION      -->
+        <!-- ============================================== -->
+        <section id="tab-inversiones" class="tab-content">
+            <div class="panel inversiones-section">
+                <div class="inversiones-header">
+                    <div>
+                        <h2 style="margin: 0;">🚀 Portafolio de Inversiones (ETFs & Acciones)</h2>
+                        <p style="margin: 5px 0 0 0; color: var(--text-muted); font-size: 0.9rem;">Monitoreo de rendimientos, cotizaciones en vivo y distribución de activos.</p>
+                    </div>
+                    <div class="inversiones-header-actions">
+                        <span id="badge-tasa-inversiones" class="badge-tasa" style="font-size: 0.85rem; padding: 6px 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px;">1 USD ≈ $18.40 MXN</span>
+                        <button type="button" id="btn-sync-precios" class="btn-sync" onclick="sincronizarPrecios()">🔄 Actualizar Cotizaciones</button>
+                    </div>
+                </div>
+
+                <!-- Tarjetas de Resumen del Portafolio en Moneda Base -->
+                <div class="cards cards-inversiones">
+                    <div class="card inv-card">
+                        <h3>Capital Invertido (<span class="lbl-moneda-base">MXN</span>)</h3>
+                        <p id="lbl-inv-invertido">$0.00</p>
+                    </div>
+                    <div class="card inv-card">
+                        <h3>Valor de Mercado (<span class="lbl-moneda-base">MXN</span>)</h3>
+                        <p id="lbl-inv-valor">$0.00</p>
+                    </div>
+                    <div class="card inv-card">
+                        <h3>Ganancia / Pérdida (<span class="lbl-moneda-base">MXN</span>)</h3>
+                        <p id="lbl-inv-pnl">$0.00 <span id="lbl-inv-pnl-pct" class="pnl-badge">(0.00%)</span></p>
+                    </div>
+                </div>
+
+                <!-- Grid interno: Formulario + Dona / Tabla de Posiciones -->
+                <div class="inversiones-grid">
+                    
+                    <div class="inversiones-col-lateral">
+                        <!-- Formulario de añadir inversión -->
+                        <form id="form-inversion" class="card-form">
+                            <h3 style="margin-top: 0; font-size: 1rem; color: var(--text-color);">+ Registrar Posición</h3>
+                            
+                            <div class="form-group">
+                                <label for="inv-ticker">Ticker (ej. VOO, QQQ, WALMEX.MX):</label>
+                                <div class="ticker-autocomplete-container">
+                                    <div class="input-group-search">
+                                        <input type="text" id="inv-ticker" placeholder="Escribe para buscar (ej. VOO)" required autocomplete="off" style="text-transform: uppercase;">
+                                        <button type="button" class="btn-search-ticker" onclick="buscarCotizacionTicker()" title="Consultar precio en tiempo real">🔍 Cotizar</button>
+                                    </div>
+                                    <!-- Dropdown de sugerencias de tickers -->
+                                    <div id="ticker-sugerencias" class="ticker-sugerencias-dropdown" style="display: none;"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="inv-moneda">Moneda del Activo:</label>
+                                <select id="inv-moneda">
+                                    <option value="USD">USD (Dólares - Se convierte a MXN)</option>
+                                    <option value="MXN">MXN (Pesos Mexicanos - Sin multiplicar)</option>
+                                </select>
+                                <small style="color: var(--text-muted); font-size: 0.78rem;">Si compras en USD se multiplica por el tipo de cambio; si es en MXN se suma directo.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="inv-cantidad">Cantidad (Títulos):</label>
+                                <input type="number" step="0.0001" min="0.0001" id="inv-cantidad" placeholder="1.0" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="inv-precio-promedio">Precio Promedio de Compra:</label>
+                                <input type="number" step="0.01" min="0.01" id="inv-precio-promedio" placeholder="0.00" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="inv-precio-actual">Precio Actual <small style="color: var(--text-muted);">(Opcional, en su moneda)</small>:</label>
+                                <input type="number" step="0.01" min="0.01" id="inv-precio-actual" placeholder="Se obtiene automático">
+                            </div>
+
+                            <button type="submit">Guardar Activo</button>
+                        </form>
+
+                        <!-- Gráfica de Dona: Asset Allocation -->
+                        <div class="dona-wrapper">
+                            <h3 style="text-align: center; font-size: 1rem; margin-bottom: 10px; color: var(--text-color);">🎯 Asignación de Activos (% Peso)</h3>
+                            <div class="chart-container-dona">
+                                <canvas id="graficaDonaAllocation"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="inversiones-col-tabla">
+                        <h3 style="margin-top: 0; font-size: 1rem; color: var(--text-color);">📊 Mis Posiciones</h3>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Ticker</th>
+                                        <th>Moneda</th>
+                                        <th>Títulos</th>
+                                        <th>P. Promedio</th>
+                                        <th>P. Actual</th>
+                                        <th>Valor Total (<span class="lbl-moneda-base">MXN</span>)</th>
+                                        <th>PnL (<span class="lbl-moneda-base">MXN</span> / %)</th>
+                                        <th>Peso %</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-inversiones">
+                                    <tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Sin posiciones de inversión registradas.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
     </div>
 
     <script src="/static/app.js"></script>

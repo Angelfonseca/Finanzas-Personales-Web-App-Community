@@ -49,12 +49,28 @@ body {
     }
 }
 
-/* Botón de Modo Oscuro */
-.header-top {
+/* Header Principal */
+.app-header {
     display: flex;
-    justify-content: flex-end;
-    margin-bottom: 15px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
 }
+
+.app-brand h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+}
+
 .btn-theme {
     background-color: var(--panel-bg);
     color: var(--text-color);
@@ -67,9 +83,65 @@ body {
     box-shadow: var(--card-shadow);
     transition: background 0.2s;
     width: auto;
+    margin: 0;
 }
 .btn-theme:hover {
-    opacity: 0.8;
+    opacity: 0.85;
+}
+
+/* Barra de Pestañas (Tabs) */
+.nav-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+    scrollbar-width: thin;
+}
+
+.tab-btn {
+    width: auto;
+    margin: 0;
+    padding: 10px 18px;
+    background-color: var(--panel-bg);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    white-space: nowrap;
+    box-shadow: var(--card-shadow);
+}
+
+.tab-btn:hover {
+    color: var(--text-color);
+    background-color: var(--panel-bg);
+    border-color: #3498db;
+    transform: translateY(-1px);
+}
+
+.tab-btn.active {
+    background-color: #3498db;
+    color: #ffffff;
+    border-color: #3498db;
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.35);
+}
+
+/* Control de Visibilidad de Pestañas */
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.25s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Tarjetas superiores */
@@ -244,4 +316,470 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 
 .acciones-apartado input {
   width: 100px;
+}
+
+/* --- ESTILOS DE INVERSIONES Y ASSET ALLOCATION (FASE 7) --- */
+.inversiones-section {
+    margin-top: 15px;
+}
+
+.inversiones-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.inversiones-header h2 {
+    margin: 0;
+    text-align: left;
+}
+
+.btn-sync {
+    background-color: #8e44ad;
+    color: white;
+    width: auto;
+    margin: 0;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(142, 68, 173, 0.3);
+    transition: background 0.2s, transform 0.1s;
+}
+
+.btn-sync:hover {
+    background-color: #732d91;
+    transform: translateY(-1px);
+}
+
+.cards-inversiones .inv-card {
+    border: 1px solid var(--border-color);
+}
+
+.pnl-badge {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.inversiones-grid {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 25px;
+    align-items: start;
+}
+
+@media (max-width: 950px) {
+    .inversiones-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.input-group-search {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-search-ticker {
+    width: auto;
+    margin: 0;
+    background-color: #16a085;
+    color: white;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    border-radius: 6px;
+}
+
+.btn-search-ticker:hover {
+    background-color: #138d75;
+}
+
+.dona-wrapper {
+    margin-top: 20px;
+    background: var(--bg-color);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.chart-container-dona {
+    position: relative;
+    width: 100%;
+    max-height: 250px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.pnl-positivo {
+    color: #2ecc71 !important;
+    font-weight: bold;
+}
+
+.pnl-negativo {
+    color: #e74c3c !important;
+    font-weight: bold;
+}
+
+.pnl-neutro {
+    color: var(--text-muted) !important;
+}
+
+.badge-peso {
+    background-color: rgba(52, 152, 219, 0.15);
+    color: #3498db;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 0.8rem;
+    display: inline-block;
+}
+
+/* --- TARJETA HERO: PATRIMONIO NETO CONSOLIDADO --- */
+.hero-networth {
+    background: linear-gradient(135deg, var(--panel-bg) 0%, rgba(52, 152, 219, 0.08) 100%);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 25px 30px;
+    margin-bottom: 25px;
+    box-shadow: var(--card-shadow);
+}
+
+.networth-header small {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 1.5px;
+}
+
+.networth-header h2 {
+    margin: 8px 0 20px 0;
+    font-size: 2.3rem;
+    font-weight: 800;
+    color: #2ecc71;
+    text-align: left;
+}
+
+.networth-breakdown {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+}
+
+.breakdown-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.breakdown-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.dot-balance { background-color: #3498db; }
+.dot-apartados { background-color: #f39c12; }
+.dot-inversiones { background-color: #9b59b6; }
+
+.breakdown-info small {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.breakdown-info strong {
+    font-size: 1.15rem;
+    color: var(--text-color);
+}
+
+/* Cabecera de Apartados */
+.apartados-header-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.apartado-total-pill {
+    background-color: rgba(243, 156, 18, 0.12);
+    border: 1px solid rgba(243, 156, 18, 0.3);
+    padding: 8px 16px;
+    border-radius: 20px;
+    color: var(--text-color);
+}
+
+.apartado-total-pill strong {
+    color: #f39c12;
+    font-size: 1.1rem;
+    margin-left: 5px;
+}
+
+/* --- SELECTOR DE MONEDA GLOBAL --- */
+.moneda-global-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    padding: 4px 10px;
+    border-radius: 8px;
+    box-shadow: var(--card-shadow);
+}
+
+.moneda-global-label {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.inversiones-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.select-moneda {
+    width: auto;
+    padding: 5px 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--panel-bg);
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.badge-tasa {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* --- AUTOCOMPLETADO DE TICKERS --- */
+.ticker-autocomplete-container {
+    position: relative;
+    width: 100%;
+}
+
+.ticker-sugerencias-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    max-height: 240px;
+    overflow-y: auto;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+}
+
+.sugerencia-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--table-border);
+    transition: background 0.15s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sugerencia-item:last-child {
+    border-bottom: none;
+}
+
+.sugerencia-item:hover,
+.sugerencia-item.activa {
+    background-color: rgba(52, 152, 219, 0.12);
+}
+
+.sugerencia-info {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+}
+
+.sugerencia-simbolo {
+    font-weight: 800;
+    color: #3498db;
+    font-size: 0.95rem;
+}
+
+.sugerencia-nombre {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sugerencia-badge {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(142, 68, 173, 0.15);
+    color: #8e44ad;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+/* ========================================================== */
+/* --- OPTIMIZACIÓN RESPONSIVA (MÓVILES, TABLETS & DESKTOP) -- */
+/* ========================================================== */
+
+@media (max-width: 768px) {
+    .container {
+        width: 100%;
+        padding: 12px 14px;
+    }
+
+    .app-header {
+        flex-direction: row;
+        gap: 10px;
+    }
+
+    .app-brand h1 {
+        font-size: 1.25rem;
+    }
+
+    .btn-theme {
+        padding: 6px 10px;
+        font-size: 0.8rem;
+    }
+
+    /* Tabs con scroll táctil fluido */
+    .nav-tabs {
+        gap: 8px;
+        padding-bottom: 8px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .tab-btn {
+        padding: 8px 14px;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+    }
+
+    /* Tarjetas convertidas a grid de 2 o 1 columna para que no se aplasten */
+    .cards, .cards-inversiones {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .card {
+        padding: 14px;
+    }
+
+    .card h3 {
+        font-size: 0.75rem;
+    }
+
+    .card p {
+        font-size: 1.15rem;
+    }
+
+    /* Tarjeta hero patrimonio neto */
+    .hero-networth {
+        padding: 18px 20px;
+        border-radius: 12px;
+    }
+
+    .networth-header h2 {
+        font-size: 1.8rem;
+        margin: 5px 0 15px 0;
+    }
+
+    .networth-breakdown {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    /* Grids a una sola columna */
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .inversiones-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .panel {
+        padding: 16px;
+        margin-bottom: 18px;
+    }
+
+    /* Cabecera de Inversiones en pantallas pequeñas */
+    .inversiones-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .inversiones-header-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .moneda-selector-box {
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .btn-sync {
+        width: 100%;
+        text-align: center;
+    }
+
+    /* Tablas con scroll horizontal cómodo */
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+        margin-top: 8px;
+    }
+
+    th, td {
+        padding: 8px 6px;
+        font-size: 0.8rem;
+        white-space: nowrap;
+    }
+
+    /* Inputs para evitar autozoom en móviles */
+    input, select, button {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .cards, .cards-inversiones {
+        grid-template-columns: 1fr;
+    }
+
+    .grid-apartados {
+        grid-template-columns: 1fr;
+    }
+
+    .networth-header h2 {
+        font-size: 1.5rem;
+    }
 }

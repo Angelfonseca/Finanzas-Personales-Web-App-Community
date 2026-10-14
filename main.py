@@ -3,6 +3,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
+import json
+import urllib.request
+import urllib.parse
 import sqlite3
 from datetime import datetime
 from database import init_db
@@ -32,6 +35,19 @@ class ApartadoCreate(BaseModel):
 class MovimientoApartado(BaseModel):
     monto: float = Field(..., gt=0)
     accion: Literal['depositar', 'retirar']
+
+class InversionCreate(BaseModel):
+    ticker: str
+    cantidad: float = Field(..., gt=0)
+    precio_promedio: float = Field(..., gt=0)
+    precio_actual: Optional[float] = None
+    moneda: Optional[str] = "USD"
+
+class InversionUpdate(BaseModel):
+    cantidad: Optional[float] = Field(None, gt=0)
+    precio_promedio: Optional[float] = Field(None, gt=0)
+    precio_actual: Optional[float] = Field(None, gt=0)
+    moneda: Optional[str] = None
 
 # --- HELPER CONEXIÓN ---
 
@@ -71,7 +87,7 @@ def eliminar_transaccion(id_transaccion: int):
     return {"mensaje": "Transacción eliminada"}
 
 @app.get("/api/resumen")
-def obtener_resumen():
+def obtener_resumen(moneda_base: str = "MXN"):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT SUM(monto) as total FROM transacciones WHERE tipo='ingreso'")
@@ -80,11 +96,43 @@ def obtener_resumen():
     cursor.execute("SELECT SUM(monto) as total FROM transacciones WHERE tipo='gasto'")
     gastos = cursor.fetchone()["total"] or 0.0
     
+    cursor.execute("SELECT SUM(monto_actual) as total FROM apartados")
+    apartados = cursor.fetchone()["total"] or 0.0
+
+    filas_inv = cursor.execute("SELECT cantidad, precio_actual, moneda FROM inversiones").fetchall()
     conn.close()
+
+    tasas = obtener_tasas_cambio()
+    tasa_usd_mxn = tasas.get("MXN", 18.40)
+
+    inversiones_total = 0.0
+    for inv in filas_inv:
+        cant = float(inv["cantidad"])
+        p_act = float(inv["precio_actual"])
+        m_act = (inv["moneda"] or "USD").upper()
+        val = cant * p_act
+        
+        # Si el activo está en USD y la moneda base es MXN, se multiplica por el tipo de cambio
+        # Si el activo ya está en MXN, NO se multiplica (factor 1.0)
+        if m_act == "USD" and moneda_base.upper() == "MXN":
+            val *= tasa_usd_mxn
+        elif m_act == "MXN" and moneda_base.upper() == "USD":
+            val /= tasa_usd_mxn if tasa_usd_mxn > 0 else 1.0
+
+        inversiones_total += val
+
+    balance = ingresos - gastos
+    patrimonio = balance + apartados + inversiones_total
+
     return {
-        "ingresos": ingresos,
-        "gastos": gastos,
-        "balance": ingresos - gastos
+        "moneda_base": moneda_base.upper(),
+        "tasa_usd_mxn": tasa_usd_mxn,
+        "ingresos": round(ingresos, 2),
+        "gastos": round(gastos, 2),
+        "balance": round(balance, 2),
+        "apartados": round(apartados, 2),
+        "inversiones": round(inversiones_total, 2),
+        "patrimonio_neto": round(patrimonio, 2)
     }
 
 @app.get("/api/resumen-mensual")
@@ -226,7 +274,285 @@ def movimiento_apartado(apartado_id: int, mov: MovimientoApartado):
     
     return {"status": "ok", "nuevo_saldo": nuevo_saldo}
 
-    cursor.execute("UPDATE apartados SET monto_actual = ? WHERE id = ?", (nuevo_monto, apartado_id))
+
+# --- MÓDULO DE INVERSIONES Y ASSET ALLOCATION (FASE 7) ---
+
+def consultar_precio_y_moneda_mercado(ticker: str):
+    """Consulta la cotización actual y divisa de un ticker en Yahoo Finance API."""
+    ticker_clean = ticker.strip().upper()
+    urls = [
+        f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker_clean}?interval=1d&range=1d",
+        f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker_clean}?interval=1d&range=1d"
+    ]
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+
+    for url in urls:
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=5) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode())
+                    result = data.get("chart", {}).get("result", [])
+                    if result:
+                        meta = result[0].get("meta", {})
+                        precio = meta.get("regularMarketPrice")
+                        moneda = (meta.get("currency") or ("MXN" if ticker_clean.endswith(".MX") else "USD")).upper()
+                        if precio is not None:
+                            return round(float(precio), 2), moneda
+        except Exception:
+            continue
+    moneda_def = "MXN" if ticker_clean.endswith(".MX") else "USD"
+    return None, moneda_def
+
+def consultar_precio_mercado(ticker: str) -> Optional[float]:
+    """Consulta únicamente el precio numérico."""
+    precio, _ = consultar_precio_y_moneda_mercado(ticker)
+    return precio
+
+@app.get("/api/inversiones")
+def listar_inversiones(moneda_base: str = "MXN"):
+    conn = get_db()
+    cursor = conn.cursor()
+    filas = cursor.execute("SELECT * FROM inversiones ORDER BY id DESC").fetchall()
+    conn.close()
+
+    tasas = obtener_tasas_cambio()
+    tasa_usd_mxn = tasas.get("MXN", 18.40)
+    moneda_base_upper = moneda_base.upper()
+
+    posiciones = []
+    total_invertido = 0.0
+    total_valor_actual = 0.0
+
+    for fila in filas:
+        item = dict(fila)
+        cant = float(item["cantidad"])
+        costo_prom = float(item["precio_promedio"])
+        precio_act = float(item["precio_actual"])
+        moneda_activo = (item.get("moneda") or "USD").upper()
+
+        # Determinar factor de conversión hacia la moneda base seleccionada
+        # Si la acción está en USD y la moneda base es MXN -> se multiplica por el tipo de cambio
+        # Si la acción ya está en MXN y la moneda base es MXN -> factor 1.0 (NO se multiplica)
+        if moneda_activo == "USD" and moneda_base_upper == "MXN":
+            factor = tasa_usd_mxn
+        elif moneda_activo == "MXN" and moneda_base_upper == "USD":
+            factor = (1.0 / tasa_usd_mxn) if tasa_usd_mxn > 0 else 1.0
+        else:
+            factor = 1.0
+
+        # Montos en su divisa original
+        cap_invertido_orig = round(cant * costo_prom, 2)
+        val_act_orig = round(cant * precio_act, 2)
+
+        # Montos convertidos a la moneda base unificada
+        cap_invertido_base = round(cap_invertido_orig * factor, 2)
+        val_act_base = round(val_act_orig * factor, 2)
+        pnl_base = round(val_act_base - cap_invertido_base, 2)
+        pnl_pct = round(((val_act_orig - cap_invertido_orig) / cap_invertido_orig) * 100, 2) if cap_invertido_orig > 0 else 0.0
+
+        total_invertido += cap_invertido_base
+        total_valor_actual += val_act_base
+
+        item["moneda"] = moneda_activo
+        item["factor_conversion"] = factor
+        item["capital_invertido_orig"] = cap_invertido_orig
+        item["valor_actual_orig"] = val_act_orig
+        item["capital_invertido"] = cap_invertido_base
+        item["valor_actual"] = val_act_base
+        item["pnl"] = pnl_base
+        item["pnl_porcentaje"] = pnl_pct
+        posiciones.append(item)
+
+    total_pnl = round(total_valor_actual - total_invertido, 2)
+    total_pnl_pct = round((total_pnl / total_invertido) * 100, 2) if total_invertido > 0 else 0.0
+
+    # Asset allocation: cálculo de peso % de cada activo sobre el portafolio total
+    for pos in posiciones:
+        pos["peso_porcentaje"] = round((pos["valor_actual"] / total_valor_actual) * 100, 2) if total_valor_actual > 0 else 0.0
+
+    return {
+        "moneda_base": moneda_base_upper,
+        "tasa_usd_mxn": tasa_usd_mxn,
+        "resumen": {
+            "total_invertido": round(total_invertido, 2),
+            "total_valor_actual": round(total_valor_actual, 2),
+            "total_pnl": total_pnl,
+            "total_pnl_porcentaje": total_pnl_pct
+        },
+        "posiciones": posiciones
+    }
+
+@app.post("/api/inversiones", status_code=status.HTTP_201_CREATED)
+def crear_inversion(item: InversionCreate):
+    ticker = item.ticker.strip().upper()
+    precio_actual = item.precio_actual
+    moneda = (item.moneda or "USD").strip().upper()
+    
+    # Si no se envía precio actual, intentamos obtenerlo en vivo o usamos el precio promedio
+    if precio_actual is None or precio_actual <= 0:
+        precio_mercado, moneda_mercado = consultar_precio_y_moneda_mercado(ticker)
+        precio_actual = precio_mercado if precio_mercado else item.precio_promedio
+        if not item.moneda:
+            moneda = moneda_mercado
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO inversiones (ticker, cantidad, precio_promedio, precio_actual, moneda) VALUES (?, ?, ?, ?, ?)",
+            (ticker, item.cantidad, item.precio_promedio, precio_actual, moneda)
+        )
+        conn.commit()
+        nuevo_id = cursor.lastrowid
+        conn.close()
+        return {"id": nuevo_id, "mensaje": f"Inversión {ticker} ({moneda}) agregada con éxito."}
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise HTTPException(status_code=400, detail=f"Ya tienes una posición con el ticker {ticker}. Puedes editarla.")
+
+@app.put("/api/inversiones/{inversion_id}")
+def actualizar_inversion(inversion_id: int, item: InversionUpdate):
+    conn = get_db()
+    cursor = conn.cursor()
+    inv = cursor.execute("SELECT * FROM inversiones WHERE id = ?", (inversion_id,)).fetchone()
+    if not inv:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Inversión no encontrada")
+
+    nueva_cant = item.cantidad if item.cantidad is not None else inv["cantidad"]
+    nuevo_prom = item.precio_promedio if item.precio_promedio is not None else inv["precio_promedio"]
+    nuevo_act = item.precio_actual if item.precio_actual is not None else inv["precio_actual"]
+    nueva_moneda = item.moneda.upper() if item.moneda else (inv["moneda"] or "USD")
+
+    cursor.execute(
+        "UPDATE inversiones SET cantidad = ?, precio_promedio = ?, precio_actual = ?, moneda = ?, actualizado_en = CURRENT_TIMESTAMP WHERE id = ?",
+        (nueva_cant, nuevo_prom, nuevo_act, nueva_moneda, inversion_id)
+    )
     conn.commit()
     conn.close()
-    return {"id": apartado_id, "nuevo_monto": nuevo_monto, "mensaje": "Movimiento realizado con éxito."}
+    return {"mensaje": "Inversión actualizada con éxito."}
+
+@app.delete("/api/inversiones/{inversion_id}")
+def eliminar_inversion(inversion_id: int):
+    conn = get_db()
+    cursor = conn.cursor()
+    inv = cursor.execute("SELECT * FROM inversiones WHERE id = ?", (inversion_id,)).fetchone()
+    if not inv:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Inversión no encontrada")
+
+    cursor.execute("DELETE FROM inversiones WHERE id = ?", (inversion_id,))
+    conn.commit()
+    conn.close()
+    return {"mensaje": "Inversión eliminada."}
+
+@app.post("/api/inversiones/sincronizar")
+def sincronizar_precios():
+    conn = get_db()
+    cursor = conn.cursor()
+    filas = cursor.execute("SELECT id, ticker FROM inversiones").fetchall()
+    actualizados = []
+    no_actualizados = []
+
+    for fila in filas:
+        t = fila["ticker"]
+        precio, moneda = consultar_precio_y_moneda_mercado(t)
+        if precio is not None:
+            moneda_actualizada = moneda or ("MXN" if t.endswith(".MX") else "USD")
+            cursor.execute(
+                "UPDATE inversiones SET precio_actual = ?, moneda = ?, actualizado_en = CURRENT_TIMESTAMP WHERE id = ?",
+                (precio, moneda_actualizada, fila["id"])
+            )
+            actualizados.append({"ticker": t, "precio": precio, "moneda": moneda_actualizada})
+        else:
+            no_actualizados.append(t)
+
+    conn.commit()
+    conn.close()
+    return {
+        "actualizados": actualizados,
+        "no_actualizados": no_actualizados,
+        "mensaje": f"Se sincronizaron {len(actualizados)} de {len(filas)} posiciones."
+    }
+
+@app.get("/api/inversiones/cotizar/{ticker}")
+def cotizar_ticker(ticker: str):
+    precio, moneda = consultar_precio_y_moneda_mercado(ticker)
+    if precio is None:
+        raise HTTPException(status_code=404, detail=f"No se pudo consultar la cotización para {ticker.upper()}")
+    return {"ticker": ticker.upper(), "precio": precio, "moneda": moneda}
+
+def buscar_tickers_mercado(query: str):
+    """Busca tickers y activos sugeridos en Yahoo Finance API."""
+    q = urllib.parse.quote(query.strip())
+    url = f"https://query1.finance.yahoo.com/v1/finance/search?q={q}&quotesCount=8&newsCount=0"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=4) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode())
+                quotes = data.get("quotes", [])
+                resultados = []
+                for item in quotes:
+                    simbolo = item.get("symbol")
+                    if not simbolo:
+                        continue
+                    nombre = item.get("shortname") or item.get("longname") or simbolo
+                    tipo = item.get("quoteType") or item.get("typeDisp") or "ACTIVO"
+                    bolsa = item.get("exchDisp") or item.get("exchange") or ""
+                    resultados.append({
+                        "symbol": simbolo,
+                        "nombre": nombre,
+                        "tipo": tipo,
+                        "bolsa": bolsa
+                    })
+                return resultados
+    except Exception:
+        pass
+    return []
+
+@app.get("/api/inversiones/buscar")
+def api_buscar_ticker(q: str = ""):
+    if not q or len(q.strip()) < 1:
+        return []
+    return buscar_tickers_mercado(q)
+
+def obtener_tasas_cambio():
+    """Consulta tipos de cambio de referencia contra USD."""
+    # Valores base por defecto
+    tasas = {
+        "USD": 1.0,
+        "MXN": 18.40,
+        "EUR": 0.89
+    }
+    try:
+        # USD a MXN
+        precio_mxn = consultar_precio_mercado("USDMXN=X")
+        if precio_mxn and precio_mxn > 0:
+            tasas["MXN"] = round(precio_mxn, 4)
+            
+        # EUR/USD (1 EUR = X USD -> 1 USD = 1/X EUR)
+        precio_eur = consultar_precio_mercado("EURUSD=X")
+        if precio_eur and precio_eur > 0:
+            tasas["EUR"] = round(1.0 / precio_eur, 4)
+    except Exception:
+        pass
+    return tasas
+
+@app.get("/api/tipo-cambio")
+def get_tipo_cambio():
+    tasas = obtener_tasas_cambio()
+    return {
+        "base": "USD",
+        "tasas": tasas,
+        "actualizado_en": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+
+

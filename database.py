@@ -45,6 +45,31 @@ def init_db():
         )
     """)
     
+    # Tabla de inversiones (Fase 7: ETFs, Tickers y Portafolio)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS inversiones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticker TEXT NOT NULL UNIQUE,
+            cantidad REAL NOT NULL,
+            precio_promedio REAL NOT NULL,
+            precio_actual REAL NOT NULL,
+            moneda TEXT NOT NULL DEFAULT 'USD',
+            actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Migración segura: agregar columna 'moneda' si la tabla ya existía sin ella
+    try:
+        cursor.execute("ALTER TABLE inversiones ADD COLUMN moneda TEXT NOT NULL DEFAULT 'USD'")
+    except sqlite3.OperationalError:
+        pass
+
+    # Corregir tickers de la Bolsa Mexicana (.MX) que por defecto se asignaron a USD
+    try:
+        cursor.execute("UPDATE inversiones SET moneda = 'MXN' WHERE (ticker LIKE '%.MX' OR ticker LIKE '%.mx') AND moneda = 'USD'")
+    except sqlite3.OperationalError:
+        pass
+    
     conn.commit()
     conn.close()
 
