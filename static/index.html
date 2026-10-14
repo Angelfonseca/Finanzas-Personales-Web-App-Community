@@ -15,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mis Finanzas Personales</title>
     <!-- Hojas de estilo y biblioteca de gráficos Chart.js -->
-    <link rel="stylesheet" href="/static/style.css?v=2.3">
+    <link rel="stylesheet" href="/static/style.css?v=2.4">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -63,7 +63,7 @@
                     <!-- Acciones globales -->
                     <div class="header-actions">
                         <button type="button" class="btn-export" onclick="exportarExcel()" title="Descargar reporte completo en Excel con gráficas">📊 Exportar Excel</button>
-                        <a href="/api/backup" download class="btn-backup" title="Descargar copia de seguridad de tu base de datos individual">💾 Respaldo</a>
+                        <button type="button" class="btn-backup" onclick="descargarBackup()" title="Descargar copia de seguridad de tu base de datos individual">💾 Respaldo</button>
                         <button id="btn-modo" class="btn-theme" title="Alternar tema">🌙 Modo Oscuro</button>
                         <button type="button" class="btn-logout" onclick="logoutUsuario()" title="Cerrar sesión actual">🚪 Salir</button>
                     </div>
@@ -194,7 +194,7 @@
                         </div>
                         <div class="form-group">
                             <label for="monto">Monto ($):</label>
-                            <input type="number" step="0.01" id="monto" placeholder="0.00" required>
+                            <input type="number" step="0.01" min="0.01" id="monto" placeholder="0.00" required>
                         </div>
                         <div class="form-group">
                             <label for="descripcion">Descripción:</label>
@@ -514,7 +514,7 @@
             <form id="form-crear-usuario" onsubmit="guardarNuevoUsuario(event)">
                 <div class="form-group">
                     <label for="nuevo-user-username">Nombre de Usuario:</label>
-                    <input type="text" id="nuevo-user-username" required placeholder="Ej. ricardo, contador, analista" autocomplete="off" pattern="^[a-zA-Z0-9_-]+$">
+                    <input type="text" id="nuevo-user-username" required minlength="3" maxlength="50" placeholder="Ej. ricardo, contador, analista" autocomplete="off" pattern="^[a-zA-Z0-9_-]+$">
                 </div>
                 <div class="form-group">
                     <label for="nuevo-user-password">Contraseña:</label>
@@ -612,6 +612,6 @@
     </div>
 
     <!-- Script de lógica de la aplicación -->
-    <script src="/static/app.js?v=2.3"></script>
+    <script src="/static/app.js?v=2.4"></script>
 </body>
 </html>

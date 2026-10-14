@@ -9,7 +9,7 @@ Este módulo implementa:
 5. Exportación de reportes a Excel (.xlsx) y respaldos físicos de base de datos por tenant.
 """
 
-from fastapi import FastAPI, HTTPException, status, Depends, Request
+from fastapi import FastAPI, HTTPException, status, Depends, Request, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
@@ -20,6 +20,7 @@ import urllib.parse
 import sqlite3
 import os
 import time
+import tempfile
 from datetime import datetime
 
 # Módulos de infraestructura interna
@@ -75,16 +76,16 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=1, description="Contraseña en texto plano")
 
 class UserCreateRequest(BaseModel):
-    username: str = Field(..., min_length=3, pattern=r"^[a-zA-Z0-9_-]+$", description="Nombre de usuario alfanumérico")
-    password: str = Field(..., min_length=4, description="Contraseña de acceso")
+    username: str = Field(..., min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_-]+$", description="Nombre de usuario alfanumérico")
+    password: str = Field(..., min_length=4, max_length=72, description="Contraseña de acceso")
     role: Literal['admin', 'user'] = Field('user', description="Rol del usuario: 'admin' o 'user'")
 
 class UserStatusRequest(BaseModel):
     is_active: bool = Field(..., description="Estado activo (True) o suspendido (False)")
 
 class UserUpdateRequest(BaseModel):
-    username: Optional[str] = Field(None, min_length=3, pattern=r"^[a-zA-Z0-9_-]+$", description="Nuevo nombre de usuario")
-    password: Optional[str] = Field(None, min_length=4, description="Nueva contraseña (dejar en blanco para no cambiar)")
+    username: Optional[str] = Field(None, min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_-]+$", description="Nuevo nombre de usuario")
+    password: Optional[str] = Field(None, min_length=4, max_length=72, description="Nueva contraseña (dejar en blanco para no cambiar)")
     role: Optional[Literal['admin', 'user']] = Field(None, description="Rol del usuario: 'admin' o 'user'")
 
 # =============================================================================
@@ -93,39 +94,39 @@ class UserUpdateRequest(BaseModel):
 
 class Transaccion(BaseModel):
     fecha: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", description="Fecha en formato ISO YYYY-MM-DD")
-    monto: float = Field(..., gt=0, description="Monto mayor a 0")
+    monto: float = Field(..., gt=0, le=1e12, description="Monto mayor a 0")
     tipo: Literal['gasto', 'ingreso'] = Field(..., description="Tipo de movimiento")
     categoria_id: Optional[int] = Field(1, description="ID de categoría")
-    descripcion: Optional[str] = Field(None, description="Concepto o detalle")
+    descripcion: Optional[str] = Field(None, max_length=255, description="Concepto o detalle")
 
 class TransaccionUpdate(BaseModel):
     fecha: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
-    monto: Optional[float] = Field(None, gt=0)
+    monto: Optional[float] = Field(None, gt=0, le=1e12)
     tipo: Optional[Literal['gasto', 'ingreso']] = None
     categoria_id: Optional[int] = None
-    descripcion: Optional[str] = None
+    descripcion: Optional[str] = Field(None, max_length=255)
 
 class ApartadoCreate(BaseModel):
-    nombre: str = Field(..., min_length=1)
+    nombre: str = Field(..., min_length=1, max_length=100)
     tipo: Literal['libre', 'meta']
-    meta_monto: Optional[float] = None
+    meta_monto: Optional[float] = Field(None, gt=0, le=1e12)
 
 class MovimientoApartado(BaseModel):
-    monto: float = Field(..., gt=0)
+    monto: float = Field(..., gt=0, le=1e12)
     accion: Literal['depositar', 'retirar']
 
 class InversionCreate(BaseModel):
-    ticker: str = Field(..., min_length=1)
-    cantidad: float = Field(..., gt=0)
-    precio_promedio: float = Field(..., gt=0)
-    precio_actual: Optional[float] = None
-    moneda: Optional[str] = "USD"
+    ticker: str = Field(..., min_length=1, max_length=15, pattern=r"^[A-Z0-9.\-=^]{1,15}$")
+    cantidad: float = Field(..., gt=0, le=1e9)
+    precio_promedio: float = Field(..., gt=0, le=1e12)
+    precio_actual: Optional[float] = Field(None, gt=0, le=1e12)
+    moneda: Optional[Literal['USD', 'MXN', 'EUR']] = "USD"
 
 class InversionUpdate(BaseModel):
-    cantidad: Optional[float] = Field(None, gt=0)
-    precio_promedio: Optional[float] = Field(None, gt=0)
-    precio_actual: Optional[float] = Field(None, gt=0)
-    moneda: Optional[str] = None
+    cantidad: Optional[float] = Field(None, gt=0, le=1e9)
+    precio_promedio: Optional[float] = Field(None, gt=0, le=1e12)
+    precio_actual: Optional[float] = Field(None, gt=0, le=1e12)
+    moneda: Optional[Literal['USD', 'MXN', 'EUR']] = None
 
 # =============================================================================
 # CICLO DE VIDA: INICIALIZACIÓN, SEED Y MIGRACIÓN SIN PÉRDIDAS
@@ -305,6 +306,12 @@ def admin_cambiar_estado(user_id: int, req: UserStatusRequest, admin: Dict[str, 
     user = master_db.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado.")
+
+    if user["id"] == 1 or user["username"].lower() == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede suspender la cuenta del Administrador principal."
+        )
         
     master_db.set_user_status(user_id, 1 if req.is_active else 0)
     estado_str = "activado" if req.is_active else "suspendido"
@@ -542,8 +549,12 @@ def crear_apartado(item: ApartadoCreate, conn: sqlite3.Connection = Depends(get_
         conn.commit()
         nuevo_id = cursor.lastrowid
         return {"id": nuevo_id, "mensaje": "Apartado creado exitosamente"}
-    except Exception:
+    except sqlite3.IntegrityError:
+        conn.rollback()
         raise HTTPException(status_code=400, detail="Ya existe un apartado con ese nombre.")
+    except Exception:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail="Error interno al registrar el apartado.")
 
 @app.get("/api/apartados", summary="Listar apartados del tenant")
 def listar_apartados(conn: sqlite3.Connection = Depends(get_tenant_db)):
@@ -568,11 +579,11 @@ def eliminar_apartado(apartado_id: int, conn: sqlite3.Connection = Depends(get_t
     if not apartado:
         raise HTTPException(status_code=404, detail="Apartado no encontrado")
 
-    if apartado["monto_actual"] > 0:
-        saldo = float(apartado["monto_actual"])
+    saldo_actual = round(float(apartado["monto_actual"] or 0), 2)
+    if saldo_actual > 0:
         raise HTTPException(
             status_code=400,
-            detail=f"No puedes eliminar un apartado con saldo disponible (${saldo:.2f}). Retira los fondos al balance disponible primero."
+            detail=f"No puedes eliminar un apartado con saldo disponible (${saldo_actual:.2f}). Retira los fondos al balance disponible primero."
         )
         
     cursor.execute('DELETE FROM apartados WHERE id = ?', (apartado_id,))
@@ -581,49 +592,60 @@ def eliminar_apartado(apartado_id: int, conn: sqlite3.Connection = Depends(get_t
 
 @app.post("/api/apartados/{apartado_id}/movimiento", summary="Depositar o retirar en un apartado")
 def movimiento_apartado(apartado_id: int, mov: MovimientoApartado, conn: sqlite3.Connection = Depends(get_tenant_db)):
+    # Transacción inmediata para evitar condiciones de carrera en saldos concurrentes
+    conn.execute("BEGIN IMMEDIATE")
     cursor = conn.cursor()
-    apartado = cursor.execute('SELECT * FROM apartados WHERE id = ?', (apartado_id,)).fetchone()
-    if not apartado:
-        raise HTTPException(status_code=404, detail="Apartado no encontrado")
+    try:
+        apartado = cursor.execute('SELECT * FROM apartados WHERE id = ?', (apartado_id,)).fetchone()
+        if not apartado:
+            conn.rollback()
+            raise HTTPException(status_code=404, detail="Apartado no encontrado")
+            
+        monto_actual = round(float(apartado['monto_actual'] or 0), 2)
+        fecha_hoy = ahora_local().strftime('%Y-%m-%d')
         
-    nuevo_saldo = apartado['monto_actual']
-    fecha_hoy = ahora_local().strftime('%Y-%m-%d')
-    
-    if mov.accion == 'depositar':
-        ingresos_row = cursor.execute("SELECT SUM(monto) as total FROM transacciones WHERE tipo='ingreso'").fetchone()
-        gastos_row = cursor.execute("SELECT SUM(monto) as total FROM transacciones WHERE tipo='gasto'").fetchone()
-        
-        total_ingresos = ingresos_row['total'] if ingresos_row and ingresos_row['total'] else 0.0
-        total_gastos = gastos_row['total'] if gastos_row and gastos_row['total'] else 0.0
-        balance_disponible = total_ingresos - total_gastos
-        
-        if mov.monto > balance_disponible:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"No puedes guardar dinero que no tienes. Tu balance disponible es de ${balance_disponible:.2f}"
+        if mov.accion == 'depositar':
+            ingresos_row = cursor.execute("SELECT SUM(monto) as total FROM transacciones WHERE tipo='ingreso'").fetchone()
+            gastos_row = cursor.execute("SELECT SUM(monto) as total FROM transacciones WHERE tipo='gasto'").fetchone()
+            
+            total_ingresos = float(ingresos_row['total']) if (ingresos_row and ingresos_row['total']) else 0.0
+            total_gastos = float(gastos_row['total']) if (gastos_row and gastos_row['total']) else 0.0
+            balance_disponible = round(total_ingresos - total_gastos, 2)
+            
+            if round(mov.monto, 2) > balance_disponible:
+                conn.rollback()
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"No puedes guardar dinero que no tienes. Tu balance disponible es de ${balance_disponible:.2f}"
+                )
+                
+            nuevo_saldo = round(monto_actual + mov.monto, 2)
+            desc = f"Ahorro destinado a: {apartado['nombre']}"
+            cursor.execute(
+                'INSERT INTO transacciones (fecha, monto, tipo, categoria_id, descripcion) VALUES (?, ?, ?, ?, ?)',
+                (fecha_hoy, mov.monto, 'gasto', 1, desc)
             )
             
-        nuevo_saldo += mov.monto
-        desc = f"Ahorro destinado a: {apartado['nombre']}"
-        cursor.execute(
-            'INSERT INTO transacciones (fecha, monto, tipo, categoria_id, descripcion) VALUES (?, ?, ?, ?, ?)',
-            (fecha_hoy, mov.monto, 'gasto', 1, desc)
-        )
+        elif mov.accion == 'retirar':
+            if round(mov.monto, 2) > monto_actual:
+                conn.rollback()
+                raise HTTPException(status_code=400, detail="No puedes retirar más de lo que hay en este apartado")
+            
+            nuevo_saldo = round(monto_actual - mov.monto, 2)
+            desc = f"Retiro de ahorro: {apartado['nombre']}"
+            cursor.execute(
+                'INSERT INTO transacciones (fecha, monto, tipo, categoria_id, descripcion) VALUES (?, ?, ?, ?, ?)',
+                (fecha_hoy, mov.monto, 'ingreso', 1, desc)
+            )
         
-    elif mov.accion == 'retirar':
-        if mov.monto > nuevo_saldo:
-            raise HTTPException(status_code=400, detail="No puedes retirar más de lo que hay en este apartado")
-        
-        nuevo_saldo -= mov.monto
-        desc = f"Retiro de ahorro: {apartado['nombre']}"
-        cursor.execute(
-            'INSERT INTO transacciones (fecha, monto, tipo, categoria_id, descripcion) VALUES (?, ?, ?, ?, ?)',
-            (fecha_hoy, mov.monto, 'ingreso', 1, desc)
-        )
-    
-    cursor.execute('UPDATE apartados SET monto_actual = ? WHERE id = ?', (nuevo_saldo, apartado_id))
-    conn.commit()
-    return {"status": "ok", "nuevo_saldo": nuevo_saldo}
+        cursor.execute('UPDATE apartados SET monto_actual = ? WHERE id = ?', (nuevo_saldo, apartado_id))
+        conn.commit()
+        return {"status": "ok", "nuevo_saldo": nuevo_saldo}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail="Error inesperado al procesar el movimiento del apartado.")
 
 # =============================================================================
 # ENDPOINTS MULTI-TENANT: INVERSIONES & ASSET ALLOCATION
@@ -792,24 +814,27 @@ def sincronizar_precios(conn: sqlite3.Connection = Depends(get_tenant_db)):
     actualizados = []
     no_actualizados = []
 
+    pendientes = []
     for fila in filas:
         t = fila["ticker"]
         precio, moneda = consultar_precio_y_moneda_mercado(t)
         if precio is not None:
             moneda_actualizada = moneda or ("MXN" if t.endswith(".MX") else "USD")
-            cursor.execute(
-                """
-                UPDATE inversiones 
-                SET precio_actual = ?, moneda = ?, actualizado_en = CURRENT_TIMESTAMP 
-                WHERE id = ?
-                """,
-                (precio, moneda_actualizada, fila["id"])
-            )
+            pendientes.append((precio, moneda_actualizada, fila["id"]))
             actualizados.append({"ticker": t, "precio": precio, "moneda": moneda_actualizada})
         else:
             no_actualizados.append(t)
 
-    conn.commit()
+    if pendientes:
+        cursor.executemany(
+            """
+            UPDATE inversiones 
+            SET precio_actual = ?, moneda = ?, actualizado_en = CURRENT_TIMESTAMP 
+            WHERE id = ?
+            """,
+            pendientes
+        )
+        conn.commit()
     return {
         "actualizados": actualizados,
         "no_actualizados": no_actualizados,
@@ -912,17 +937,32 @@ def get_tipo_cambio(_user: Dict[str, Any] = Depends(verify_token)):
 # =============================================================================
 
 @app.get("/api/backup", summary="Descargar respaldo directo de base de datos del tenant")
-def descargar_backup(current_user: Dict[str, Any] = Depends(verify_token)):
-    """Descarga el archivo SQLite propio del usuario autenticado."""
+def descargar_backup(background_tasks: BackgroundTasks, current_user: Dict[str, Any] = Depends(verify_token)):
+    """Descarga una copia consistente en SQLite propio del usuario autenticado incluyendo cambios en WAL."""
     db_name = current_user.get("db_name", "user_1.db")
     db_path = get_tenant_path(db_name)
     if not os.path.exists(db_path):
         raise HTTPException(status_code=404, detail="Base de datos del usuario no encontrada.")
         
     fecha_str = ahora_local().strftime("%Y%m%d_%H%M%S")
-    username_safe = current_user.get("username", "user")
+    username_safe = "".join(c for c in current_user.get("username", "user") if c.isalnum() or c in ("-", "_"))
+    
+    # Crear respaldo consistente usando la API de backup de SQLite (consolida páginas de WAL)
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".db")
+    os.close(tmp_fd)
+    
+    src = get_tenant_conn(db_name)
+    try:
+        dst = sqlite3.connect(tmp_path)
+        src.backup(dst)
+        dst.close()
+    finally:
+        src.close()
+        
+    background_tasks.add_task(os.unlink, tmp_path)
+    
     return FileResponse(
-        db_path,
+        tmp_path,
         filename=f"finanzas_{username_safe}_{fecha_str}.db",
         media_type="application/octet-stream"
     )

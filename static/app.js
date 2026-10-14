@@ -18,8 +18,36 @@ let usuarioActual = null;          // Objeto con metadata del usuario en sesión
 let miGrafica = null;              // Instancia Chart.js de barras (Ingresos vs Gastos)
 let graficaDona = null;            // Instancia Chart.js de dona (Asset Allocation)
 let monedaGlobal = localStorage.getItem('moneda_global') || 'MXN';
+if (!['MXN', 'USD'].includes(monedaGlobal)) monedaGlobal = 'MXN';
 let tasasCambio = { USD: 1.0, MXN: 18.40, EUR: 0.89 };
 let debounceTimerBuscar = null;
+
+// Caches locales para referencias seguras por ID
+let cacheTransacciones = {};
+let cacheInversiones = {};
+let cacheUsuarios = {};
+
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatErrorDetail(detail, fallback = "Ocurrió un error inesperado.") {
+    if (!detail) return fallback;
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) {
+        return detail.map(d => (d && d.msg) ? `${d.msg}` : JSON.stringify(d)).join('\n');
+    }
+    if (typeof detail === 'object') {
+        return detail.msg || detail.message || JSON.stringify(detail);
+    }
+    return String(detail);
+}
 
 // =============================================================================
 // 2. CLIENTE HTTP INTERCEPTOR (apiFetch)
@@ -74,11 +102,15 @@ async function verificarSesionInicial() {
         if (res.ok) {
             const data = await res.json();
             establecerSesionActiva(data.user, token);
-        } else {
+        } else if (res.status === 401 || res.status === 403) {
             cerrarSesionLimpia();
+        } else {
+            console.warn("Respuesta inesperada al verificar sesión inicial:", res.status);
+            mostrarVistaLogin("No se pudo validar la sesión con el servidor.");
         }
     } catch (e) {
-        cerrarSesionLimpia();
+        console.error("Fallo de red al verificar sesión inicial:", e);
+        mostrarVistaLogin("Error de conexión al servidor. Revisa tu red.");
     }
 }
 
@@ -390,21 +422,15 @@ async function cargarDatos() {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No hay movimientos.</td></tr>';
             } else {
                 dataTrans.forEach(t => {
+                    cacheTransacciones[t.id] = t;
                     const tr = document.createElement('tr');
-                    const descSegura = (t.descripcion || '')
-                        .replace(/\\/g, '\\\\')
-                        .replace(/'/g, "\\'")
-                        .replace(/"/g, '&quot;')
-                        .replace(/\n/g, '\\n')
-                        .replace(/\r/g, '\\r');
-
                     tr.innerHTML = `
-                        <td>${t.fecha}</td>
-                        <td>${t.descripcion || '-'}</td>
-                        <td class="${t.tipo === 'gasto' ? 'text-gasto' : 'text-ingreso'}">${t.tipo.toUpperCase()}</td>
+                        <td>${escapeHTML(t.fecha)}</td>
+                        <td>${escapeHTML(t.descripcion || '-')}</td>
+                        <td class="${t.tipo === 'gasto' ? 'text-gasto' : 'text-ingreso'}">${escapeHTML(t.tipo.toUpperCase())}</td>
                         <td>$${Number(t.monto).toFixed(2)}</td>
                         <td class="col-acciones">
-                            <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarTransaccion(${t.id}, '${t.fecha}', ${t.monto}, '${t.tipo}', '${descSegura}')" title="Editar movimiento">✏️</button>
+                            <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarTransaccionPorId(${t.id})" title="Editar movimiento">✏️</button>
                             <button type="button" class="btn-accion btn-eliminar" onclick="eliminarTransaccion(${t.id})" title="Eliminar movimiento">✕</button>
                         </td>
                     `;
@@ -476,19 +502,39 @@ function actualizarGrafica(dataMensual) {
 }
 
 // Listener de registro de transacciones
+let guardandoTransaccion = false;
 const formTrans = document.getElementById('transaccion-form');
 if (formTrans) {
     formTrans.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (guardandoTransaccion) return;
+
         const mensajeDiv = document.getElementById('mensaje');
+        const btnSubmit = formTrans.querySelector('button[type="submit"]');
+        const origText = btnSubmit ? btnSubmit.textContent : '';
+
+        const montoVal = parseFloat(document.getElementById('monto').value);
+        if (isNaN(montoVal) || montoVal <= 0) {
+            if (mensajeDiv) {
+                mensajeDiv.style.color = '#e74c3c';
+                mensajeDiv.textContent = 'Ingresa un monto válido mayor a 0.';
+            }
+            return;
+        }
 
         const datos = {
             fecha: document.getElementById('fecha').value,
-            monto: parseFloat(document.getElementById('monto').value),
+            monto: montoVal,
             tipo: document.getElementById('tipo').value,
-            descripcion: document.getElementById('descripcion').value,
+            descripcion: document.getElementById('descripcion').value.trim(),
             categoria_id: 1
         };
+
+        guardandoTransaccion = true;
+        if (btnSubmit) {
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = '⏳ Guardando...';
+        }
 
         try {
             const response = await apiFetch('/api/transacciones', {
@@ -506,15 +552,26 @@ if (formTrans) {
                 document.getElementById('fecha').value = obtenerFechaLocalISO();
                 cargarDatos();
             } else {
+                let errText = 'Error al guardar.';
+                try {
+                    const err = await response.json();
+                    errText = formatErrorDetail(err.detail, errText);
+                } catch (_) {}
                 if (mensajeDiv) {
                     mensajeDiv.style.color = '#e74c3c';
-                    mensajeDiv.textContent = 'Error al guardar.';
+                    mensajeDiv.textContent = errText;
                 }
             }
         } catch (error) {
             if (mensajeDiv) {
                 mensajeDiv.style.color = '#e74c3c';
                 mensajeDiv.textContent = 'Error de conexión.';
+            }
+        } finally {
+            guardandoTransaccion = false;
+            if (btnSubmit) {
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = origText || '💾 Guardar Transacción';
             }
         }
     });
@@ -574,7 +631,7 @@ async function cargarApartados() {
 
             card.innerHTML = `
                 <button type="button" class="btn-eliminar-apartado" onclick="eliminarApartado(${item.id})" title="Eliminar">×</button>
-                <h3 style="margin: 0 20px 8px 0;">${item.nombre} <small style="font-weight: normal; font-size: 0.8rem;">(${item.tipo})</small></h3>
+                <h3 style="margin: 0 20px 8px 0;">${escapeHTML(item.nombre)} <small style="font-weight: normal; font-size: 0.8rem;">(${escapeHTML(item.tipo)})</small></h3>
                 <p style="margin: 5px 0;"><strong>Saldo:</strong> $${Number(item.monto_actual).toFixed(2)}</p>
                 ${contenidoMeta}
                 <div class="acciones-apartado">
@@ -666,27 +723,47 @@ function cerrarModalCrearApartado() {
     toggleMetaInput();
 }
 
+let procesandoMovimientoApartado = false;
 async function realizarMovimiento(id, accion) {
+    if (procesandoMovimientoApartado) return;
     const input = document.getElementById(`monto-acc-${id}`);
-    const monto = parseFloat(input.value);
+    const monto = parseFloat(input?.value);
 
     if (isNaN(monto) || monto <= 0) {
-        alert('Ingresa un monto válido.');
+        alert("Ingresa un monto válido mayor a 0");
         return;
     }
 
-    const res = await apiFetch(`/api/apartados/${id}/movimiento`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ monto, accion })
-    });
+    procesandoMovimientoApartado = true;
+    const btnContainer = input ? input.parentElement : null;
+    const btns = btnContainer ? btnContainer.querySelectorAll('button') : [];
+    btns.forEach(b => b.disabled = true);
 
-    if (res.ok) {
-        await cargarApartados();
-        cargarDatos();
-    } else {
-        const error = await res.json();
-        alert(error.detail || 'Error en la operación');
+    try {
+        const res = await apiFetch(`/api/apartados/${id}/movimiento`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ monto, accion })
+        });
+
+        if (res.ok) {
+            if (input) input.value = '';
+            await cargarApartados();
+            cargarDatos();
+        } else {
+            let errorMsg = 'Error en la operación';
+            try {
+                const error = await res.json();
+                errorMsg = formatErrorDetail(error.detail, errorMsg);
+            } catch (_) {}
+            alert(errorMsg);
+        }
+    } catch (err) {
+        console.error("Error al realizar movimiento en apartado:", err);
+        alert("Error de conexión al procesar el movimiento.");
+    } finally {
+        procesandoMovimientoApartado = false;
+        btns.forEach(b => b.disabled = false);
     }
 }
 
@@ -819,17 +896,18 @@ async function cargarInversiones() {
                         ? `<br><small style="color: var(--text-muted); font-size: 0.75rem;">($${Number(pos.valor_actual_orig).toFixed(2)} ${pos.moneda})</small>`
                         : '';
 
+                    cacheInversiones[pos.id] = pos;
                     tr.innerHTML = `
-                        <td><strong>${pos.ticker}</strong></td>
-                        <td><span class="badge-peso" style="${badgeMonedaColor}">${pos.moneda}</span></td>
+                        <td><strong>${escapeHTML(pos.ticker)}</strong></td>
+                        <td><span class="badge-peso" style="${badgeMonedaColor}">${escapeHTML(pos.moneda)}</span></td>
                         <td>${pos.cantidad}</td>
-                        <td>$${Number(pos.precio_promedio).toFixed(2)} <small style="color: var(--text-muted);">${pos.moneda}</small></td>
-                        <td>$${Number(pos.precio_actual).toFixed(2)} <small style="color: var(--text-muted);">${pos.moneda}</small></td>
+                        <td>$${Number(pos.precio_promedio).toFixed(2)} <small style="color: var(--text-muted);">${escapeHTML(pos.moneda)}</small></td>
+                        <td>$${Number(pos.precio_actual).toFixed(2)} <small style="color: var(--text-muted);">${escapeHTML(pos.moneda)}</small></td>
                         <td><strong>$${fmtMoneda(pos.valor_actual)}</strong> ${subOrig}</td>
                         <td class="${clasePnl}">${signoPosMonto}$${fmtMoneda(Math.abs(pos.pnl))} (${signoPos}${pos.pnl_porcentaje.toFixed(2)}%)</td>
                         <td><span class="badge-peso">${pos.peso_porcentaje.toFixed(1)}%</span></td>
                         <td class="col-acciones">
-                            <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarInversion(${pos.id}, '${pos.ticker}', ${pos.cantidad}, ${pos.precio_promedio}, '${pos.moneda}')" title="Editar posición">✏️</button>
+                            <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarInversionPorId(${pos.id})" title="Editar posición">✏️</button>
                             <button type="button" class="btn-accion btn-eliminar" onclick="eliminarInversion(${pos.id})" title="Eliminar posición">✕</button>
                         </td>
                     `;
@@ -960,10 +1038,10 @@ function renderizarSugerenciasTickers(sugerencias, dropdown, input) {
         div.className = 'sugerencia-item';
         div.innerHTML = `
             <div class="sugerencia-info">
-                <span class="sugerencia-simbolo">${item.symbol}</span>
-                <span class="sugerencia-nombre" title="${item.nombre}">${item.nombre}</span>
+                <span class="sugerencia-simbolo">${escapeHTML(item.symbol)}</span>
+                <span class="sugerencia-nombre" title="${escapeHTML(item.nombre)}">${escapeHTML(item.nombre)}</span>
             </div>
-            <span class="sugerencia-badge">${item.tipo}</span>
+            <span class="sugerencia-badge">${escapeHTML(item.tipo)}</span>
         `;
 
         div.addEventListener('click', () => {
@@ -1015,10 +1093,13 @@ async function buscarCotizacionTicker() {
     }
 }
 
+let guardandoInversion = false;
 const formInversion = document.getElementById('form-inversion');
 if (formInversion) {
     formInversion.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (guardandoInversion) return;
+
         const ticker = document.getElementById('inv-ticker').value.trim().toUpperCase();
         const cantidad = parseFloat(document.getElementById('inv-cantidad').value);
         const precio_promedio = parseFloat(document.getElementById('inv-precio-promedio').value);
@@ -1026,9 +1107,17 @@ if (formInversion) {
         const precio_actual = actualVal ? parseFloat(actualVal) : null;
         const moneda = document.getElementById('inv-moneda')?.value || 'USD';
 
-        if (!ticker || isNaN(cantidad) || isNaN(precio_promedio)) {
-            alert("Completa los campos obligatorios.");
+        if (!ticker || isNaN(cantidad) || cantidad <= 0 || isNaN(precio_promedio) || precio_promedio <= 0) {
+            alert("Completa los campos obligatorios con valores numéricos válidos mayores a cero.");
             return;
+        }
+
+        guardandoInversion = true;
+        const btnSubmit = formInversion.querySelector('button[type="submit"]');
+        const origText = btnSubmit ? btnSubmit.textContent : '';
+        if (btnSubmit) {
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = '⏳ Registrando...';
         }
 
         try {
@@ -1040,14 +1129,23 @@ if (formInversion) {
 
             if (res.ok) {
                 formInversion.reset();
-                await cargarInversiones();
                 await cargarDatos();
             } else {
-                const err = await res.json();
-                alert(err.detail || "Error al registrar la inversión.");
+                let errText = "Error al registrar la inversión.";
+                try {
+                    const err = await res.json();
+                    errText = formatErrorDetail(err.detail, errText);
+                } catch (_) {}
+                alert(errText);
             }
         } catch (err) {
             alert("Error de red al guardar la inversión.");
+        } finally {
+            guardandoInversion = false;
+            if (btnSubmit) {
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = origText || '📈 Añadir Posición';
+            }
         }
     });
 }
@@ -1168,10 +1266,11 @@ async function cargarDatosAdmin() {
                     const ultimoAccesoRelativo = formatoTiempoRelativo(u.last_login);
                     const detalleTitle = u.last_login ? `title="Fecha exacta: ${u.last_login}"` : '';
 
+                    cacheUsuarios[u.id] = u;
                     const esAdminPrincipal = (u.id === 1 || (u.username && u.username.toLowerCase() === 'admin'));
                     
                     let accionesHtml = `
-                        <button type="button" class="btn-edit-user" onclick="abrirModalEditarUsuario(${u.id}, '${u.username}', '${u.role}')" title="Editar nombre de usuario y contraseña">✏️ Editar</button>
+                        <button type="button" class="btn-edit-user" onclick="abrirModalEditarUsuarioPorId(${u.id})" title="Editar nombre de usuario y contraseña">✏️ Editar</button>
                     `;
 
                     if (!esMismoAdmin) {
@@ -1188,19 +1287,19 @@ async function cargarDatosAdmin() {
                         `;
                     } else {
                         accionesHtml += `
-                            <button type="button" class="btn-delete-user" onclick="eliminarUsuarioTenant(${u.id}, '${u.username}')" title="Eliminar usuario y su base de datos">🗑️ Eliminar</button>
+                            <button type="button" class="btn-delete-user" onclick="eliminarUsuarioTenantPorId(${u.id})" title="Eliminar usuario y su base de datos">🗑️ Eliminar</button>
                         `;
                     }
 
                     tr.innerHTML = `
                         <td>${u.id}</td>
-                        <td><strong>${u.username}</strong></td>
+                        <td><strong>${escapeHTML(u.username)}</strong></td>
                         <td>${badgeRol}</td>
                         <td>${badgeEstado}</td>
                         <td>${fechaCreacion}</td>
                         <td ${detalleTitle}>${ultimoAccesoRelativo}</td>
                         <td>${u.login_count}</td>
-                        <td>${u.db_size_formatted || '0 KB'}</td>
+                        <td>${escapeHTML(u.db_size_formatted || '0 KB')}</td>
                         <td class="col-acciones">${accionesHtml}</td>
                     `;
                     tbody.appendChild(tr);
@@ -1275,13 +1374,24 @@ function cerrarModalCrearUsuario() {
     if (form) form.reset();
 }
 
+let guardandoUsuario = false;
 async function guardarNuevoUsuario(e) {
     e.preventDefault();
+    if (guardandoUsuario) return;
+
     const username = document.getElementById('nuevo-user-username').value.trim();
     const password = document.getElementById('nuevo-user-password').value;
     const role = document.getElementById('nuevo-user-role').value;
 
     if (!username || !password) return;
+
+    guardandoUsuario = true;
+    const btnSubmit = document.querySelector('#form-crear-usuario button[type="submit"]');
+    const origText = btnSubmit ? btnSubmit.textContent : '';
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = '⏳ Creando...';
+    }
 
     try {
         const res = await apiFetch('/admin/users', {
@@ -1295,11 +1405,21 @@ async function guardarNuevoUsuario(e) {
             await cargarDatosAdmin();
             alert(`Usuario '${username}' y su base de datos individual han sido creados con éxito.`);
         } else {
-            const err = await res.json();
-            alert(err.detail || "Error al crear usuario.");
+            let errText = "Error al crear usuario.";
+            try {
+                const err = await res.json();
+                errText = formatErrorDetail(err.detail, errText);
+            } catch (_) {}
+            alert(errText);
         }
     } catch (error) {
-        alert("Error de conexión al crear usuario.");
+        alert("Error de red al intentar crear el usuario.");
+    } finally {
+        guardandoUsuario = false;
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = origText || '💾 Crear Usuario y Base de Datos';
+        }
     }
 }
 
@@ -1622,10 +1742,13 @@ window.addEventListener('keydown', (e) => {
 // =============================================================================
 
 function exportarExcel() {
-    const token = localStorage.getItem('jwt_token');
-    const url = `/api/exportar-excel?moneda_base=${encodeURIComponent(monedaGlobal)}&token=${encodeURIComponent(token || '')}`;
-    
-    // Descarga directa autorizada
+    const btn = document.querySelector('.btn-export');
+    const origText = btn ? btn.textContent : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Exportando...';
+    }
+
     apiFetch(`/api/exportar-excel?moneda_base=${encodeURIComponent(monedaGlobal)}`)
         .then(res => {
             if (!res.ok) throw new Error("Error en la exportación");
@@ -1643,21 +1766,106 @@ function exportarExcel() {
         })
         .catch(err => {
             alert("No se pudo generar la exportación a Excel.");
+        })
+        .finally(() => {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = origText || '📊 Exportar Excel';
+            }
         });
+}
+
+async function descargarBackup() {
+    const btn = document.querySelector('.btn-backup');
+    const origText = btn ? btn.textContent : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Generando...';
+    }
+
+    try {
+        const res = await apiFetch('/api/backup');
+        if (!res.ok) {
+            let errorMsg = "Error al descargar el respaldo.";
+            try {
+                const err = await res.json();
+                errorMsg = formatErrorDetail(err.detail, errorMsg);
+            } catch (_) {}
+            alert(errorMsg);
+            return;
+        }
+
+        const disposition = res.headers.get('Content-Disposition');
+        let filename = `finanzas_${usuarioActual ? usuarioActual.username : 'tenant'}_respaldo.db`;
+        if (disposition && disposition.includes('filename=')) {
+            const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+            if (match && match[1]) {
+                filename = match[1].replace(/['"]/g, '').trim();
+            }
+        }
+
+        const blob = await res.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+        console.error("Error al descargar respaldo:", err);
+        alert("Error de conexión al descargar la base de datos.");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = origText || '💾 Respaldo';
+        }
+    }
 }
 
 // =============================================================================
 // 13. EXPOSICIÓN GLOBAL DE FUNCIONES EN WINDOW
 // =============================================================================
+
+function abrirModalEditarTransaccionPorId(id) {
+    const t = cacheTransacciones[id];
+    if (!t) return;
+    abrirModalEditarTransaccion(t.id, t.fecha, t.monto, t.tipo, t.descripcion);
+}
+
+function abrirModalEditarInversionPorId(id) {
+    const pos = cacheInversiones[id];
+    if (!pos) return;
+    abrirModalEditarInversion(pos.id, pos.ticker, pos.cantidad, pos.precio_promedio, pos.moneda);
+}
+
+function abrirModalEditarUsuarioPorId(id) {
+    const u = cacheUsuarios[id];
+    if (!u) return;
+    abrirModalEditarUsuario(u.id, u.username, u.role);
+}
+
+function eliminarUsuarioTenantPorId(id) {
+    const u = cacheUsuarios[id];
+    if (!u) return;
+    eliminarUsuarioTenant(u.id, u.username);
+}
+
 window.iniciarSesion = iniciarSesion;
 window.logoutUsuario = logoutUsuario;
 window.exportarExcel = exportarExcel;
+window.descargarBackup = descargarBackup;
 window.toggleMetaInput = toggleMetaInput;
 window.realizarMovimiento = realizarMovimiento;
 window.eliminarApartado = eliminarApartado;
 window.abrirModalCrearApartado = abrirModalCrearApartado;
 window.cerrarModalCrearApartado = cerrarModalCrearApartado;
 window.guardarNuevoApartado = guardarNuevoApartado;
+window.abrirModalEditarTransaccionPorId = abrirModalEditarTransaccionPorId;
+window.abrirModalEditarInversionPorId = abrirModalEditarInversionPorId;
+window.abrirModalEditarUsuarioPorId = abrirModalEditarUsuarioPorId;
+window.eliminarUsuarioTenantPorId = eliminarUsuarioTenantPorId;
 window.eliminarTransaccion = eliminarTransaccion;
 window.abrirModalEditarTransaccion = abrirModalEditarTransaccion;
 window.cerrarModalEditarTransaccion = cerrarModalEditarTransaccion;

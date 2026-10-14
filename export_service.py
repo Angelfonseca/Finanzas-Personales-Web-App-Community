@@ -67,18 +67,22 @@ def generar_reporte_excel(moneda_base: str = "MXN", conn: sqlite3.Connection = N
 
     # Sincronizar precios de mercado al momento exacto de la exportación para máxima fidelidad
     filas_inv_raw = cursor.execute("SELECT * FROM inversiones ORDER BY id DESC").fetchall()
+    actualizaciones_mkt = []
     for inv in filas_inv_raw:
         precio_mkt, moneda_mkt = consultar_precio_y_moneda_mercado(inv["ticker"])
         if precio_mkt and precio_mkt > 0:
-            cursor.execute(
-                """
-                UPDATE inversiones 
-                SET precio_actual = ?, moneda = ?, actualizado_en = CURRENT_TIMESTAMP 
-                WHERE id = ?
-                """,
-                (precio_mkt, moneda_mkt, inv["id"])
-            )
-    conn.commit()
+            actualizaciones_mkt.append((precio_mkt, moneda_mkt, inv["id"]))
+
+    if actualizaciones_mkt:
+        cursor.executemany(
+            """
+            UPDATE inversiones 
+            SET precio_actual = ?, moneda = ?, actualizado_en = CURRENT_TIMESTAMP 
+            WHERE id = ?
+            """,
+            actualizaciones_mkt
+        )
+        conn.commit()
 
     # Consultar las tres entidades clave del modelo relacional
     transacciones = cursor.execute("SELECT * FROM transacciones ORDER BY fecha DESC, id DESC").fetchall()

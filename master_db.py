@@ -312,8 +312,8 @@ def seed_default_admin_and_migrate(default_password_hash: str) -> Optional[Dict[
     
     os.makedirs(TENANTS_DIR, exist_ok=True)
     
-    # Migrar archivo existente o inicializar uno nuevo
-    if os.path.exists(root_finanzas_db):
+    # Migrar archivo existente o inicializar uno nuevo (sin sobreescribir datos existentes)
+    if os.path.exists(root_finanzas_db) and not os.path.exists(target_tenant_1):
         shutil.copy2(root_finanzas_db, target_tenant_1)
         # Aplicar migraciones por seguridad
         init_tenant_db(target_tenant_1)

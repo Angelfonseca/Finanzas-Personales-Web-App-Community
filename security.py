@@ -21,8 +21,31 @@ from fastapi.security import OAuth2PasswordBearer
 from database import get_tenant_conn
 import master_db
 
-# Clave secreta para firma de tokens JWT (puede sobreescribirse mediante variable de entorno)
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "finanzas_secret_key_super_segura_2026_jwt_token_sign")
+# Cargar variables de entorno desde .env si existe en el directorio base
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.exists(_env_path):
+    try:
+        with open(_env_path, "r", encoding="utf-8") as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line and not _line.startswith("#") and "=" in _line:
+                    _k, _v = _line.split("=", 1)
+                    os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
+    except Exception:
+        pass
+
+# Clave secreta para firma de tokens JWT (requerida y segura)
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+if not SECRET_KEY:
+    import secrets
+    SECRET_KEY = secrets.token_urlsafe(64)
+    # Intentar persistir en .env si es posible
+    try:
+        with open(_env_path, "a", encoding="utf-8") as _f:
+            _f.write(f"\nJWT_SECRET_KEY={SECRET_KEY}\n")
+    except Exception:
+        pass
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 8
 
@@ -73,7 +96,7 @@ def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
     except (jwt.PyJWTError, Exception):
         return None
 
-async def verify_token(token: Optional[str] = Depends(oauth2_scheme)) -> Dict[str, Any]:
+def verify_token(token: Optional[str] = Depends(oauth2_scheme)) -> Dict[str, Any]:
     """
     Dependencia de seguridad que autentica al usuario:
     1. Verifica la presencia y firma del token Bearer.
@@ -122,7 +145,7 @@ async def verify_token(token: Optional[str] = Depends(oauth2_scheme)) -> Dict[st
         "is_active": user["is_active"]
     }
 
-async def verify_admin(current_user: Dict[str, Any] = Depends(verify_token)) -> Dict[str, Any]:
+def verify_admin(current_user: Dict[str, Any] = Depends(verify_token)) -> Dict[str, Any]:
     """Dependencia que valida que el usuario autenticado posea estrictamente el rol 'admin'."""
     if current_user.get("role") != "admin":
         raise HTTPException(
@@ -135,10 +158,20 @@ def get_tenant_db(current_user: Dict[str, Any] = Depends(verify_token)) -> Gener
     """
     Dependencia FastAPI que resuelve dinámicamente la conexión a la base de datos
     específica del tenant autenticado ('data/tenants/{db_name}').
+    Garantiza rollback automático en caso de error para liberar bloqueos.
     """
     db_name = current_user.get("db_name", "user_1.db")
     conn = get_tenant_conn(db_name)
     try:
         yield conn
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise
     finally:
-        conn.close()
+        try:
+            conn.close()
+        except Exception:
+            pass
