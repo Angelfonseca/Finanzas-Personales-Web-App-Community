@@ -109,7 +109,7 @@ body {
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
 }
 
@@ -117,85 +117,95 @@ body {
     background-color: #217346;
     color: #ffffff;
     border: 1px solid #1a5c38;
-    padding: 7px 12px;
-    border-radius: 8px;
+    height: 32px;
+    padding: 0 11px;
+    border-radius: 6px;
     cursor: pointer;
     font-weight: 600;
-    font-size: 0.85rem;
-    box-shadow: 0 2px 6px rgba(33, 115, 70, 0.25);
-    transition: background 0.2s, transform 0.1s, opacity 0.15s;
+    font-size: 0.8rem;
+    box-shadow: 0 1px 3px rgba(33, 115, 70, 0.2);
+    transition: background 0.15s, transform 0.1s, opacity 0.15s;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 5px;
     white-space: nowrap;
     width: auto;
     margin: 0;
+    line-height: 1;
 }
 .btn-export:hover {
     background-color: #1a5c38;
     color: #ffffff;
 }
 .btn-export:active {
-    transform: scale(0.96);
+    transform: scale(0.97);
 }
 
 .btn-backup {
     background-color: var(--panel-bg);
     color: var(--text-color);
     border: 1px solid var(--border-color);
-    padding: 7px 12px;
-    border-radius: 8px;
+    height: 32px;
+    padding: 0 11px;
+    border-radius: 6px;
     cursor: pointer;
     font-weight: 600;
-    font-size: 0.85rem;
-    box-shadow: var(--card-shadow);
-    transition: background 0.2s, transform 0.1s, opacity 0.15s;
+    font-size: 0.8rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    transition: background 0.15s, transform 0.1s, border-color 0.15s;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 5px;
     white-space: nowrap;
+    width: auto;
+    margin: 0;
+    line-height: 1;
 }
 .btn-backup:hover {
     background-color: var(--border-color);
-    opacity: 0.9;
 }
 .btn-backup:active {
-    transform: scale(0.96);
+    transform: scale(0.97);
 }
 
 .btn-theme {
     background-color: var(--panel-bg);
     color: var(--text-color);
     border: 1px solid var(--border-color);
-    padding: 7px 14px;
-    border-radius: 8px;
+    height: 32px;
+    padding: 0 11px;
+    border-radius: 6px;
     cursor: pointer;
     font-weight: 600;
-    font-size: 0.85rem;
-    box-shadow: var(--card-shadow);
-    transition: background 0.2s, transform 0.1s;
+    font-size: 0.8rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    transition: background 0.15s, transform 0.1s, border-color 0.15s;
     width: auto;
     margin: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 5px;
     white-space: nowrap;
+    line-height: 1;
 }
 .btn-theme:active {
-    transform: scale(0.96);
+    transform: scale(0.97);
 }
 .btn-theme:hover {
-    opacity: 0.85;
+    background-color: var(--border-color);
 }
 
 /* Barra de Pestañas (Tabs) */
 .nav-tabs {
     display: flex;
-    gap: 8px;
-    margin-bottom: 22px;
+    gap: 6px;
+    margin-bottom: 20px;
     overflow-x: auto;
-    padding: 4px 2px 8px 2px;
+    padding: 3px 2px 6px 2px;
     scrollbar-width: none;
     -ms-overflow-style: none;
     -webkit-overflow-scrolling: touch;
@@ -208,21 +218,23 @@ body {
 .tab-btn {
     width: auto;
     margin: 0;
-    padding: 9px 16px;
+    height: 34px;
+    padding: 0 14px;
     background-color: var(--panel-bg);
     color: var(--text-muted);
     border: 1px solid var(--border-color);
-    border-radius: 20px;
-    font-size: 0.9rem;
+    border-radius: 8px;
+    font-size: 0.84rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease-in-out;
+    transition: all 0.15s ease-in-out;
     white-space: nowrap;
-    box-shadow: var(--card-shadow);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     flex-shrink: 0;
+    line-height: 1;
 }
 
 .tab-btn:hover {
@@ -236,7 +248,7 @@ body {
     background-color: #3498db;
     color: #ffffff;
     border-color: #3498db;
-    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.35);
+    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
 }
 
 /* Control de Visibilidad de Pestañas */
@@ -313,42 +325,131 @@ h2 {
     gap: 12px;
 }
 label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.88rem; color: var(--text-color); }
-input, select, button {
+
+input, select {
     width: 100%;
-    padding: 10px 12px;
+    height: 36px;
+    padding: 0 11px;
     border: 1px solid var(--border-color);
     background-color: var(--panel-bg);
     color: var(--text-color);
-    border-radius: 8px;
+    border-radius: 6px;
     box-sizing: border-box;
-    font-size: 1rem;
+    font-size: 0.88rem;
+    font-family: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+input:focus, select:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+}
+
 button {
-    background-color: #3498db;
-    color: white;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
     border: none;
-    font-weight: bold;
+    border-radius: 6px;
     cursor: pointer;
-    margin-top: 10px;
-    padding: 12px;
-    border-radius: 8px;
-    transition: background-color 0.2s, transform 0.1s;
+    background-color: #3498db;
+    color: #ffffff;
+    padding: 0 14px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    line-height: 1;
+    margin: 0;
+    box-sizing: border-box;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+button:hover { 
+    background-color: #2980b9; 
+    box-shadow: 0 2px 6px rgba(41, 128, 185, 0.25);
 }
 button:active {
-    transform: scale(0.98);
+    transform: scale(0.97);
 }
-button:hover { background-color: #2980b9; }
+
+.btn-primary {
+    background-color: #3498db;
+    color: #ffffff;
+    border: 1px solid #2980b9;
+    height: 36px;
+    padding: 0 16px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: auto;
+    margin: 0;
+    box-shadow: 0 1px 3px rgba(52, 152, 219, 0.2);
+    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+.btn-primary:hover {
+    background-color: #2980b9;
+    box-shadow: 0 2px 6px rgba(41, 128, 185, 0.3);
+}
+.btn-primary:active {
+    transform: scale(0.97);
+}
+
+.btn-secondary {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    height: 36px;
+    padding: 0 16px;
+    font-size: 0.86rem;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: auto;
+    margin: 0;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.btn-secondary:hover {
+    background-color: var(--border-color);
+}
+.btn-secondary:active {
+    transform: scale(0.97);
+}
+
+/* Botones submit en formularios principales */
+form > button[type="submit"],
+.card-form button[type="submit"] {
+    width: 100%;
+    height: 38px;
+    margin-top: 10px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border-radius: 6px;
+}
+
 .col-acciones {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     align-items: center;
     justify-content: flex-start;
+    flex-wrap: nowrap;
 }
 
 .btn-accion {
-    padding: 6px 10px;
-    font-size: 0.85rem;
-    border-radius: 6px;
+    padding: 0 8px;
+    height: 26px;
+    font-size: 0.76rem;
+    border-radius: 5px;
     width: auto;
     margin: 0;
     cursor: pointer;
@@ -356,11 +457,13 @@ button:hover { background-color: #2980b9; }
     align-items: center;
     justify-content: center;
     border: none;
+    font-weight: 500;
+    line-height: 1;
     transition: transform 0.1s, opacity 0.15s;
 }
 
 .btn-accion:active {
-    transform: scale(0.92);
+    transform: scale(0.95);
 }
 
 .btn-editar {
@@ -374,20 +477,23 @@ button:hover { background-color: #2980b9; }
 .btn-eliminar {
     background-color: #e74c3c;
     color: white;
-    padding: 6px 10px;
-    font-size: 0.85rem;
+    height: 26px;
+    padding: 0 8px;
+    font-size: 0.76rem;
     width: auto;
     margin: 0;
-    border-radius: 6px;
+    border-radius: 5px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     border: none;
+    font-weight: 500;
+    line-height: 1;
     transition: transform 0.1s, opacity 0.15s;
 }
 .btn-eliminar:active {
-    transform: scale(0.92);
+    transform: scale(0.95);
 }
 .btn-eliminar:hover { background-color: #c0392b; }
 #mensaje { margin-top: 15px; text-align: center; font-weight: 600; font-size: 0.9rem; }
@@ -474,7 +580,7 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 
 .acciones-apartado {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   margin-top: 10px;
   align-items: center;
 }
@@ -483,22 +589,27 @@ th { background-color: var(--th-bg); color: var(--text-color); }
   flex: 1;
   min-width: 0;
   margin: 0;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 0.86rem;
+  border-radius: 6px;
 }
 
 .acciones-apartado button {
-  width: 42px;
-  height: 42px;
-  min-width: 42px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
   margin: 0;
   padding: 0;
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   font-weight: bold;
-  border-radius: 8px;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .acciones-apartado button:first-of-type {
@@ -539,13 +650,17 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     color: white;
     width: auto;
     margin: 0;
-    padding: 8px 16px;
+    height: 32px;
+    padding: 0 12px;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(142, 68, 173, 0.3);
-    transition: background 0.2s, transform 0.1s;
+    box-shadow: 0 1px 4px rgba(142, 68, 173, 0.25);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: background 0.15s, transform 0.1s;
 }
 
 .btn-sync:hover {
@@ -605,11 +720,17 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     margin: 0;
     background-color: #16a085;
     color: white;
-    padding: 10px 14px;
-    font-size: 0.85rem;
+    height: 36px;
+    padding: 0 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
     white-space: nowrap;
     border-radius: 6px;
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
 }
 
 .btn-search-ticker:hover {
@@ -907,7 +1028,23 @@ th { background-color: var(--th-bg); color: var(--text-color); }
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
         width: 100%;
+    }
+
+    .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+
+    .btn-export, .btn-backup, .btn-theme, .btn-logout, .user-session-badge {
+        height: 29px;
+        padding: 0 8px;
+        font-size: 0.75rem;
+        border-radius: 5px;
     }
 
     .app-brand h1 {
@@ -947,18 +1084,19 @@ th { background-color: var(--th-bg); color: var(--text-color); }
         top: 0;
         z-index: 95;
         background-color: var(--bg-color);
-        padding: 8px 12px 10px 12px;
+        padding: 6px 10px 8px 10px;
         margin-left: -12px;
         margin-right: -12px;
-        gap: 6px;
+        gap: 5px;
         border-bottom: 1px solid var(--border-color);
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     }
 
     .tab-btn {
-        padding: 7px 13px;
-        font-size: 0.82rem;
-        border-radius: 16px;
+        height: 30px;
+        padding: 0 11px;
+        font-size: 0.78rem;
+        border-radius: 6px;
     }
 
     /* Tarjetas Hero de Patrimonio Neto */
@@ -1189,19 +1327,21 @@ th { background-color: var(--th-bg); color: var(--text-color); }
         flex: 1;
         min-width: 0;
         margin: 0;
-        padding: 8px 10px;
+        height: 34px;
+        padding: 0 8px;
         font-size: 16px;
+        border-radius: 6px;
     }
 
     .acciones-apartado button {
-        width: 42px;
-        height: 42px;
-        min-width: 42px;
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
         margin: 0;
         padding: 0;
-        font-size: 1.3rem;
+        font-size: 1.1rem;
         font-weight: bold;
-        border-radius: 8px;
+        border-radius: 6px;
     }
 
     /* Cabecera de Inversiones */
@@ -1229,8 +1369,11 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     .btn-sync {
         width: 100%;
         text-align: center;
-        padding: 10px;
-        font-size: 0.9rem;
+        height: 34px;
+        padding: 0 12px;
+        font-size: 0.82rem;
+        border-radius: 6px;
+        justify-content: center;
     }
 
     /* Tablas financieras con Primera Columna Fija (Sticky Ticker) */
@@ -1286,9 +1429,39 @@ th { background-color: var(--th-bg); color: var(--text-color); }
         box-sizing: border-box;
     }
 
-    /* Tamaño de inputs táctiles sin autozoom en iOS/Android */
-    input, select, button {
+    /* Inputs táctiles sin autozoom en iOS/Android (evitar aplicar a botones) */
+    input, select {
         font-size: 16px;
+        height: 38px;
+    }
+    form > button[type="submit"],
+    .card-form button[type="submit"] {
+        height: 38px;
+        font-size: 0.88rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-top-bar {
+        gap: 6px;
+    }
+
+    .header-actions {
+        width: 100%;
+        justify-content: flex-start;
+        gap: 4px;
+    }
+
+    .btn-export, .btn-backup, .btn-theme, .btn-logout, .user-session-badge {
+        height: 28px;
+        padding: 0 7px;
+        font-size: 0.72rem;
+    }
+
+    .tab-btn {
+        height: 28px;
+        padding: 0 8px;
+        font-size: 0.75rem;
     }
 }
 
@@ -1402,8 +1575,11 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 .modal-actions button {
     flex: 1;
     margin-top: 0;
-    padding: 12px;
-    font-size: 0.95rem;
+    height: 38px;
+    padding: 0 16px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border-radius: 6px;
 }
 
 .btn-secondary {
@@ -1463,8 +1639,9 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 
 .btn-block {
     width: 100%;
-    padding: 12px;
-    font-size: 1rem;
+    height: 40px;
+    padding: 0 16px;
+    font-size: 0.92rem;
     font-weight: 600;
     border-radius: 8px;
     margin-top: 15px;
@@ -1489,10 +1666,17 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     align-items: center;
     background-color: var(--panel-bg);
     border: 1px solid var(--border-color);
-    padding: 5px 10px;
-    border-radius: 20px;
-    font-size: 0.82rem;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
     color: var(--text-color);
+    cursor: pointer;
+    transition: border-color 0.15s, background-color 0.15s;
+}
+.user-session-badge:hover {
+    border-color: #3498db;
+    background-color: rgba(52, 152, 219, 0.05);
 }
 
 .badge-role {
@@ -1519,14 +1703,20 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     background-color: transparent;
     color: #e74c3c;
     border: 1px solid rgba(231, 76, 60, 0.4);
-    padding: 7px 11px;
-    border-radius: 8px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 6px;
     cursor: pointer;
     font-weight: 600;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     transition: background 0.15s, transform 0.1s;
     width: auto;
     margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    white-space: nowrap;
 }
 
 .btn-logout:hover {
@@ -1534,7 +1724,7 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 }
 
 .btn-logout:active {
-    transform: scale(0.96);
+    transform: scale(0.97);
 }
 
 /* ========================================================== */
@@ -1604,13 +1794,18 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 .btn-status-toggle {
     background: transparent;
     border: 1px solid var(--border-color);
-    padding: 4px 8px;
-    border-radius: 6px;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 5px;
     cursor: pointer;
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     font-weight: 600;
     color: var(--text-color);
-    margin-right: 5px;
+    margin-right: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s;
 }
 
 .btn-status-toggle:hover {
@@ -1621,11 +1816,16 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     background: transparent;
     border: 1px solid rgba(231, 76, 60, 0.4);
     color: #e74c3c;
-    padding: 4px 8px;
-    border-radius: 6px;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 5px;
     cursor: pointer;
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s;
 }
 
 .btn-delete-user:hover {
@@ -1636,13 +1836,17 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     background: transparent;
     border: 1px solid rgba(52, 152, 219, 0.5);
     color: #3498db;
-    padding: 4px 8px;
-    border-radius: 6px;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 5px;
     cursor: pointer;
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     font-weight: 600;
-    margin-right: 5px;
-    transition: background 0.15s, color 0.15s;
+    margin-right: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s, color 0.15s;
 }
 
 .btn-edit-user:hover {
