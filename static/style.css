@@ -106,6 +106,13 @@ body {
     align-items: center;
 }
 
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .header-actions {
     display: flex;
     align-items: center;
@@ -1075,18 +1082,35 @@ th { background-color: var(--th-bg); color: var(--text-color); }
         width: 100%;
     }
 
-    .header-actions {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        flex-wrap: wrap;
+    .header-controls {
+        display: contents;
     }
 
-    .btn-export, .btn-backup, .btn-theme, .btn-logout, .user-session-badge {
-        height: 29px;
+    .user-session-badge {
+        order: 2;
+        margin-left: auto;
+        height: 30px;
         padding: 0 8px;
         font-size: 0.75rem;
         border-radius: 5px;
+    }
+
+    .header-actions {
+        order: 3;
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+        margin-top: 4px;
+    }
+
+    .btn-export, .btn-backup, .btn-theme, .btn-logout {
+        width: 100%;
+        height: 32px;
+        padding: 0 8px;
+        font-size: 0.75rem;
+        border-radius: 5px;
+        justify-content: center;
     }
 
     .app-brand h1 {
@@ -1508,15 +1532,33 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     }
 
     .header-actions {
+        order: 3;
         width: 100%;
-        justify-content: flex-start;
-        gap: 4px;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-top: 6px;
     }
 
-    .btn-export, .btn-backup, .btn-theme, .btn-logout, .user-session-badge {
-        height: 28px;
-        padding: 0 7px;
-        font-size: 0.72rem;
+    .header-actions .btn-export,
+    .header-actions .btn-backup,
+    .header-actions .btn-theme,
+    .header-actions .btn-logout {
+        width: 100%;
+        height: 34px;
+        padding: 0 8px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        justify-content: center;
+        border-radius: 6px;
+        box-sizing: border-box;
+        white-space: nowrap;
+    }
+
+    .user-session-badge {
+        height: 30px;
+        padding: 0 8px;
+        font-size: 0.75rem;
     }
 
     .tab-btn {

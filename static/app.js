@@ -590,8 +590,12 @@ async function cargarApartados() {
     }
 }
 
+let guardandoApartado = false;
+
 async function guardarNuevoApartado(e) {
     if (e) e.preventDefault();
+    if (guardandoApartado) return;
+
     const nombreInput = document.getElementById('nombre-apartado');
     const tipoInput = document.getElementById('tipo-apartado');
     const metaInput = document.getElementById('meta-monto');
@@ -610,6 +614,13 @@ async function guardarNuevoApartado(e) {
         return;
     }
 
+    guardandoApartado = true;
+    const btnSubmit = document.querySelector('#form-apartado button[type="submit"]');
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = '⏳ Creando...';
+    }
+
     try {
         const res = await apiFetch('/api/apartados', {
             method: 'POST',
@@ -619,19 +630,21 @@ async function guardarNuevoApartado(e) {
 
         if (res.ok) {
             cerrarModalCrearApartado();
-            await cargarDatos();
+            await cargarApartados();
+            cargarDatos();
         } else {
             const error = await res.json();
             alert(error.detail || 'Error al crear apartado');
         }
     } catch (err) {
         alert("Error al conectar con el servidor.");
+    } finally {
+        guardandoApartado = false;
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = '💾 Crear Apartado';
+        }
     }
-}
-
-const formApartado = document.getElementById('form-apartado');
-if (formApartado) {
-    formApartado.addEventListener('submit', guardarNuevoApartado);
 }
 
 function abrirModalCrearApartado() {
@@ -669,6 +682,7 @@ async function realizarMovimiento(id, accion) {
     });
 
     if (res.ok) {
+        await cargarApartados();
         cargarDatos();
     } else {
         const error = await res.json();
@@ -678,16 +692,37 @@ async function realizarMovimiento(id, accion) {
 
 async function eliminarApartado(id) {
     if (!confirm("¿Seguro que deseas eliminar este apartado? Se perderá el registro de este sobre.")) return;
+    
+    // Feedback visual inmediato en la tarjeta
+    const btnEliminar = document.querySelector(`.card-apartado button[onclick*="eliminarApartado(${id})"]`);
+    const card = btnEliminar ? btnEliminar.closest('.card-apartado') : null;
+    if (card) {
+        card.style.opacity = '0.3';
+        card.style.pointerEvents = 'none';
+        card.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+    }
+
     try {
         const res = await apiFetch(`/api/apartados/${id}`, { method: 'DELETE' });
         if (res.ok) {
-            await cargarDatos();
+            if (card) card.remove();
+            await cargarApartados();
+            cargarDatos();
         } else {
+            if (card) {
+                card.style.opacity = '1';
+                card.style.pointerEvents = 'auto';
+            }
             const error = await res.json();
             alert(error.detail || "No se pudo eliminar el apartado.");
         }
     } catch (error) {
+        if (card) {
+            card.style.opacity = '1';
+            card.style.pointerEvents = 'auto';
+        }
         console.error("Error al eliminar:", error);
+        alert("Error de conexión al eliminar el apartado.");
     }
 }
 

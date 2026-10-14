@@ -15,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mis Finanzas Personales</title>
     <!-- Hojas de estilo y biblioteca de gráficos Chart.js -->
-    <link rel="stylesheet" href="/static/style.css?v=2.2">
+    <link rel="stylesheet" href="/static/style.css?v=2.3">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -55,16 +55,18 @@
                 <div class="app-brand">
                     <h1>💰 Finanzas</h1>
                 </div>
-                <div class="header-actions">
+                <div class="header-controls">
                     <!-- Badge del usuario en sesión activa (haz clic para editar perfil) -->
                     <div class="user-session-badge" onclick="abrirModalEditarMiPerfil()" style="cursor: pointer;" title="Haz clic para editar tu nombre de usuario o contraseña">
                         <span>👤 <strong id="lbl-username">usuario</strong> <small id="lbl-user-role" class="badge-role">user</small> <span style="font-size: 0.75rem; opacity: 0.8; margin-left: 3px;">✏️</span></span>
                     </div>
                     <!-- Acciones globales -->
-                    <button type="button" class="btn-export" onclick="exportarExcel()" title="Descargar reporte completo en Excel con gráficas">📊 Exportar Excel</button>
-                    <a href="/api/backup" download class="btn-backup" title="Descargar copia de seguridad de tu base de datos individual">💾 Respaldo</a>
-                    <button id="btn-modo" class="btn-theme" title="Alternar tema">🌙 Modo Oscuro</button>
-                    <button type="button" class="btn-logout" onclick="logoutUsuario()" title="Cerrar sesión actual">🚪 Salir</button>
+                    <div class="header-actions">
+                        <button type="button" class="btn-export" onclick="exportarExcel()" title="Descargar reporte completo en Excel con gráficas">📊 Exportar Excel</button>
+                        <a href="/api/backup" download class="btn-backup" title="Descargar copia de seguridad de tu base de datos individual">💾 Respaldo</a>
+                        <button id="btn-modo" class="btn-theme" title="Alternar tema">🌙 Modo Oscuro</button>
+                        <button type="button" class="btn-logout" onclick="logoutUsuario()" title="Cerrar sesión actual">🚪 Salir</button>
+                    </div>
                 </div>
             </div>
             <!-- Barra de selección de divisa base y tipo de cambio vigente -->
@@ -610,6 +612,6 @@
     </div>
 
     <!-- Script de lógica de la aplicación -->
-    <script src="/static/app.js?v=2.2"></script>
+    <script src="/static/app.js?v=2.3"></script>
 </body>
 </html>
