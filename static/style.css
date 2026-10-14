@@ -426,15 +426,47 @@ button:active {
     transform: scale(0.97);
 }
 
-/* Botones submit en formularios principales */
+/* Botones submit en formularios principales - Diseño compacto como el botón de Admin */
 form > button[type="submit"],
-.card-form button[type="submit"] {
-    width: 100%;
-    height: 38px;
-    margin-top: 10px;
-    font-size: 0.88rem;
+.card-form button[type="submit"],
+.form-actions button[type="submit"] {
+    background-color: #3498db;
+    color: #ffffff;
+    border: 1px solid #2980b9;
+    height: 36px;
+    padding: 0 18px;
+    font-size: 0.86rem;
     font-weight: 600;
     border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: auto;
+    margin-top: 14px;
+    box-shadow: 0 1px 3px rgba(52, 152, 219, 0.2);
+    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+form > button[type="submit"]:hover,
+.card-form button[type="submit"]:hover,
+.form-actions button[type="submit"]:hover {
+    background-color: #2980b9;
+    box-shadow: 0 2px 6px rgba(41, 128, 185, 0.3);
+}
+
+form > button[type="submit"]:active,
+.card-form button[type="submit"]:active,
+.form-actions button[type="submit"]:active {
+    transform: scale(0.97);
+}
+
+.form-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
 }
 
 .col-acciones {
@@ -1377,13 +1409,13 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     }
 
     .btn-sync {
-        width: 100%;
+        width: auto;
+        align-self: flex-start;
         text-align: center;
-        height: 34px;
+        height: 32px;
         padding: 0 12px;
-        font-size: 0.82rem;
+        font-size: 0.8rem;
         border-radius: 6px;
-        justify-content: center;
     }
 
     /* Cabecera de Apartados Móvil */
@@ -1461,9 +1493,12 @@ th { background-color: var(--th-bg); color: var(--text-color); }
         height: 38px;
     }
     form > button[type="submit"],
-    .card-form button[type="submit"] {
-        height: 38px;
-        font-size: 0.88rem;
+    .card-form button[type="submit"],
+    .form-actions button[type="submit"] {
+        width: auto;
+        height: 36px;
+        padding: 0 16px;
+        font-size: 0.85rem;
     }
 }
 
@@ -1488,6 +1523,19 @@ th { background-color: var(--th-bg); color: var(--text-color); }
         height: 28px;
         padding: 0 8px;
         font-size: 0.75rem;
+    }
+
+    .modal-actions {
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .modal-actions button {
+        flex: 1;
+        min-width: 0;
+        height: 34px;
+        font-size: 0.82rem;
+        padding: 0 10px;
     }
 }
 
@@ -1594,16 +1642,20 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 
 .modal-actions {
     display: flex;
+    justify-content: flex-end;
+    align-items: center;
     gap: 10px;
-    margin-top: 22px;
+    margin-top: 20px;
 }
 
 .modal-actions button {
-    flex: 1;
+    flex: initial;
+    width: auto;
+    min-width: 110px;
     margin-top: 0;
-    height: 38px;
+    height: 36px;
     padding: 0 16px;
-    font-size: 0.88rem;
+    font-size: 0.85rem;
     font-weight: 600;
     border-radius: 6px;
 }
