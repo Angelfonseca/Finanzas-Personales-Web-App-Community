@@ -4,3 +4,4 @@ pydantic
 openpyxl
 bcrypt
 pyjwt
+python-multipart

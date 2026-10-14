@@ -9,7 +9,7 @@ Este módulo implementa:
 5. Exportación de reportes a Excel (.xlsx) y respaldos físicos de base de datos por tenant.
 """
 
-from fastapi import FastAPI, HTTPException, status, Depends, Request, BackgroundTasks
+from fastapi import FastAPI, HTTPException, status, Depends, Request, BackgroundTasks, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
@@ -20,6 +20,7 @@ import urllib.parse
 import sqlite3
 import os
 import time
+import shutil
 import tempfile
 from datetime import datetime
 
@@ -966,6 +967,108 @@ def descargar_backup(background_tasks: BackgroundTasks, current_user: Dict[str, 
         filename=f"finanzas_{username_safe}_{fecha_str}.db",
         media_type="application/octet-stream"
     )
+
+@app.post("/api/restore", summary="Restaurar base de datos individual del tenant")
+async def restaurar_backup(
+    file: UploadFile = File(...),
+    current_user: Dict[str, Any] = Depends(verify_token)
+):
+    """
+    Restaura la base de datos SQLite del tenant autenticado (administrador o usuario normal)
+    a partir de un archivo de respaldo .db subido.
+    Aplica controles estrictos de seguridad y validación:
+    1. Límite de tamaño máximo (50 MB).
+    2. Cabecera válida SQLite 3 ('SQLite format 3\\x00').
+    3. PRAGMA integrity_check.
+    4. Verificación y migración del esquema financiero (init_tenant_db).
+    5. Copia de seguridad preventiva (.bak) antes del reemplazo.
+    """
+    filename = file.filename or ""
+    if not (filename.lower().endswith(".db") or filename.lower().endswith(".sqlite") or filename.lower().endswith(".sqlite3")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo seleccionado debe ser una base de datos SQLite válida con extensión .db."
+        )
+
+    MAX_SIZE = 50 * 1024 * 1024
+    content = await file.read()
+    if len(content) > MAX_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo excede el tamaño máximo permitido (50 MB)."
+        )
+        
+    if len(content) < 100 or content[:16] != b"SQLite format 3\x00":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo proporcionado no es una base de datos SQLite válida o está dañado."
+        )
+
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".db")
+    try:
+        with os.fdopen(tmp_fd, "wb") as f_tmp:
+            f_tmp.write(content)
+
+        # 1. Comprobar integridad con PRAGMA integrity_check
+        test_conn = sqlite3.connect(tmp_path, timeout=5.0)
+        try:
+            cursor_test = test_conn.cursor()
+            res_integrity = cursor_test.execute("PRAGMA integrity_check;").fetchone()
+            if not res_integrity or res_integrity[0] != "ok":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="La base de datos presenta errores de integridad interna o corrupción."
+                )
+
+            # 2. Comprobar que contiene el esquema de la aplicación
+            tables_row = cursor_test.execute(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('transacciones', 'apartados', 'inversiones', 'categorias')"
+            ).fetchone()
+            if not tables_row or tables_row[0] < 1:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El archivo no corresponde a un respaldo válido de la aplicación de finanzas."
+                )
+        finally:
+            test_conn.close()
+
+        # 3. Aplicar migraciones defensivas a la BD temporal
+        init_tenant_db(tmp_path)
+
+        # 4. Copia de seguridad automática preventiva de la BD actual
+        db_name = current_user.get("db_name", "user_1.db")
+        target_path = get_tenant_path(db_name)
+        if os.path.exists(target_path):
+            bak_path = target_path + ".bak"
+            try:
+                shutil.copy2(target_path, bak_path)
+            except Exception:
+                pass
+
+        # 5. Reemplazo seguro mediante SQLite backup API
+        src = sqlite3.connect(tmp_path)
+        dst = get_tenant_conn(db_name)
+        try:
+            src.backup(dst)
+        finally:
+            src.close()
+            dst.close()
+
+        # 6. Re-aplicar esquema final en la base destino
+        init_tenant_db(target_path)
+
+        return {
+            "status": "ok",
+            "mensaje": f"Base de datos de '{current_user['username']}' restaurada con éxito.",
+            "archivo": filename
+        }
+
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
 
 @app.get("/api/exportar-excel", summary="Descargar reporte en Excel del tenant")
 def exportar_excel(

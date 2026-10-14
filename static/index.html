@@ -15,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mis Finanzas Personales</title>
     <!-- Hojas de estilo y biblioteca de gráficos Chart.js -->
-    <link rel="stylesheet" href="/static/style.css?v=2.4">
+    <link rel="stylesheet" href="/static/style.css?v=2.5">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -64,6 +64,8 @@
                     <div class="header-actions">
                         <button type="button" class="btn-export" onclick="exportarExcel()" title="Descargar reporte completo en Excel con gráficas">📊 Exportar Excel</button>
                         <button type="button" class="btn-backup" onclick="descargarBackup()" title="Descargar copia de seguridad de tu base de datos individual">💾 Respaldo</button>
+                        <button type="button" class="btn-restore" onclick="solicitarImportarBackup()" title="Restaurar base de datos individual desde una copia de seguridad">📥 Restaurar</button>
+                        <input type="file" id="input-restore-db" accept=".db,.sqlite,.sqlite3" style="display: none;" onchange="procesarArchivoBackup(event)">
                         <button id="btn-modo" class="btn-theme" title="Alternar tema">🌙 Modo Oscuro</button>
                         <button type="button" class="btn-logout" onclick="logoutUsuario()" title="Cerrar sesión actual">🚪 Salir</button>
                     </div>
@@ -612,6 +614,6 @@
     </div>
 
     <!-- Script de lógica de la aplicación -->
-    <script src="/static/app.js?v=2.4"></script>
+    <script src="/static/app.js?v=2.5"></script>
 </body>
 </html>

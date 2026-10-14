@@ -1824,6 +1824,77 @@ async function descargarBackup() {
     }
 }
 
+function solicitarImportarBackup() {
+    const input = document.getElementById('input-restore-db');
+    if (!input) return;
+    const confirmar = confirm(
+        "⚠️ ADVERTENCIA: Restaurar una copia de seguridad reemplazará los datos actuales de tu cuenta con los del archivo seleccionado.\n\n" +
+        "Se creará un respaldo de seguridad automático (.bak) antes de aplicar la restauración.\n\n" +
+        "¿Deseas seleccionar el archivo de respaldo (.db) ahora?"
+    );
+    if (confirmar) {
+        input.value = '';
+        input.click();
+    }
+}
+
+async function procesarArchivoBackup(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.db') && !file.name.toLowerCase().endsWith('.sqlite') && !file.name.toLowerCase().endsWith('.sqlite3')) {
+        alert("El archivo seleccionado debe ser una base de datos SQLite (.db).");
+        return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+        alert("El archivo excede el tamaño máximo permitido (50 MB).");
+        return;
+    }
+
+    const btnRestore = document.querySelector('.btn-restore');
+    const origText = btnRestore ? btnRestore.textContent : '';
+    if (btnRestore) {
+        btnRestore.disabled = true;
+        btnRestore.textContent = '⏳ Restaurando...';
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await apiFetch('/api/restore', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            alert("✅ ¡Base de datos restaurada con éxito!\n\nTus datos han sido actualizados.");
+            await cargarDatos();
+            if (usuarioActual && usuarioActual.role === 'admin') {
+                await cargarDatosAdmin();
+            }
+        } else {
+            let errorMsg = "No se pudo restaurar la base de datos.";
+            try {
+                const err = await res.json();
+                errorMsg = formatErrorDetail(err.detail, errorMsg);
+            } catch (_) {}
+            alert("❌ " + errorMsg);
+        }
+    } catch (err) {
+        console.error("Error al restaurar respaldo:", err);
+        alert("❌ Error al procesar o subir el archivo de respaldo.");
+    } finally {
+        if (btnRestore) {
+            btnRestore.disabled = false;
+            btnRestore.textContent = origText || '📥 Restaurar';
+        }
+        e.target.value = '';
+    }
+}
+
 // =============================================================================
 // 13. EXPOSICIÓN GLOBAL DE FUNCIONES EN WINDOW
 // =============================================================================
@@ -1856,6 +1927,8 @@ window.iniciarSesion = iniciarSesion;
 window.logoutUsuario = logoutUsuario;
 window.exportarExcel = exportarExcel;
 window.descargarBackup = descargarBackup;
+window.solicitarImportarBackup = solicitarImportarBackup;
+window.procesarArchivoBackup = procesarArchivoBackup;
 window.toggleMetaInput = toggleMetaInput;
 window.realizarMovimiento = realizarMovimiento;
 window.eliminarApartado = eliminarApartado;
