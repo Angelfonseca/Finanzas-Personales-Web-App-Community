@@ -978,7 +978,13 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
+function exportarExcel() {
+    const url = `/api/exportar-excel?moneda_base=${encodeURIComponent(monedaGlobal)}`;
+    window.location.href = url;
+}
+
 // EXPONER FUNCIONES PARA EL DOM
+window.exportarExcel = exportarExcel;
 window.toggleMetaInput = toggleMetaInput;
 window.realizarMovimiento = realizarMovimiento;
 window.eliminarTransaccion = eliminarTransaccion;

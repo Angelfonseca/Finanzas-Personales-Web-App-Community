@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, status
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
 import json
@@ -644,6 +644,21 @@ def descargar_backup():
         "finanzas.db",
         filename=f"finanzas_backup_{fecha_str}.db",
         media_type="application/octet-stream"
+    )
+
+@app.get("/api/exportar-excel")
+def exportar_excel(moneda_base: str = "MXN"):
+    """Genera y descarga el reporte financiero completo en Excel (.xlsx) con Asset Allocation."""
+    from export_service import generar_reporte_excel
+    buf = generar_reporte_excel(moneda_base)
+    fecha_str = ahora_local().strftime("%Y%m%d_%H%M%S")
+    nombre_archivo = f"reporte_financiero_{moneda_base.upper()}_{fecha_str}.xlsx"
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{nombre_archivo}"'
+        }
     )
 
 

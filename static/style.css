@@ -72,8 +72,10 @@ body {
 
 .header-top-bar {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .app-brand h1 {
@@ -92,6 +94,33 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-export {
+    background-color: #217346;
+    color: #ffffff;
+    border: 1px solid #1a5c38;
+    padding: 7px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    box-shadow: 0 2px 6px rgba(33, 115, 70, 0.25);
+    transition: background 0.2s, transform 0.1s, opacity 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    width: auto;
+    margin: 0;
+}
+.btn-export:hover {
+    background-color: #1a5c38;
+    color: #ffffff;
+}
+.btn-export:active {
+    transform: scale(0.96);
 }
 
 .btn-backup {

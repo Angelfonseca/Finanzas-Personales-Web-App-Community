@@ -58,18 +58,30 @@ Una aplicación web moderna, ligera, minimalista y autohospedada para llevar el 
 * **Memoria de Estado:** Recuerda la pestaña activa y la divisa seleccionada mediante `localStorage` para preservar tu sesión tras recargar la página.
 * **Modo Oscuro / Claro:** Alternancia fluida de tema con adaptación automática de colores en gráficos y tarjetas.
 
+### 6. 📊 Exportación Profesional a Excel con Gráficas Nativas (.xlsx)
+* **Reporte Financiero Integral en 3 Hojas:**
+  * **Resumen General:** Indicadores patrimoniales clave (Patrimonio neto, balance libre, apartados, valuación de inversiones, PnL global y flujos) y tabla de seguimiento de metas.
+  * **Movimientos:** Historial cronológico con formatos contables, colores de ingresos/gastos y balance total disponible.
+  * **Inversiones & Asset Allocation:** Detalle de posiciones con cotizaciones sincronizadas en vivo al momento de la exportación, rendimientos y porcentajes de asignación.
+* **Gráfica de Pastel Nativa Incrustada (`PieChart`):** Generada mediante `openpyxl`, con visualización automática de porcentajes de peso de cada activo dentro de la misma hoja de cálculo de Excel.
+* **Descarga Adaptable:** Genera el reporte en Pesos Mexicanos (MXN) o Dólares (USD) según la divisa base activa en la interfaz.
+
+### 7. 💾 Copia de Seguridad y Respaldo
+* **Respaldo con 1 Clic:** Botón directo en la barra superior para descargar el archivo de base de datos SQLite (`finanzas.db`) con marca de tiempo, garantizando la seguridad y portabilidad de tus datos sin configuraciones complejas.
+
 ---
 
 ## 📂 Estructura del Proyecto
 
 ```text
 finanzas-app/
-├── main.py              # API REST en FastAPI, cálculos derivativos, tipos de cambio y mercado
+├── main.py              # API REST en FastAPI, cálculos derivativos, tipos de cambio y endpoints
+├── export_service.py    # Servicio generador de reportes Excel (.xlsx) y gráficas nativas con openpyxl
 ├── database.py          # Esquema SQLite (categorías, transacciones, apartados, inversiones)
 ├── finanzas.db          # Base de datos SQLite local
 ├── Dockerfile           # Imagen Docker basada en python:3.11-slim
 ├── docker-compose.yml   # Configuración de Docker Compose con volumen montado y puerto 8001
-├── requirements.txt     # Dependencias del backend (fastapi, uvicorn, pydantic)
+├── requirements.txt     # Dependencias del backend (fastapi, uvicorn, pydantic, openpyxl)
 ├── README.md            # Documentación completa del proyecto
 └── static/
     ├── index.html       # Interfaz visual de usuario con selector global y pestañas
@@ -81,19 +93,38 @@ finanzas-app/
 
 ## 🛠️ Instalación y Despliegue con Docker
 
+> [!IMPORTANT]
+> Se recomienda utilizar la bandera `--build` al iniciar por primera vez o tras actualizar dependencias (`requirements.txt`) para asegurar que Docker compile la imagen con todos los paquetes necesarios.
+
 1. **Clonar el repositorio:**
    ```bash
    git clone <URL_DEL_REPOSITORIO>
    cd finanzas-app
    ```
 
-2. **Iniciar la aplicación con Docker Compose:**
+2. **Construir e iniciar los contenedores:**
    ```bash
-   docker compose up -d
+   docker compose up -d --build
    ```
+   *¿Por qué `--build`?* La opción `--build` compila la imagen Docker local a partir del `Dockerfile` e instala todas las librerías necesarias de `requirements.txt` (FastAPI, Uvicorn, Pydantic, openpyxl). En arranques posteriores donde no hayan cambiado dependencias, puedes usar simplemente `docker compose up -d`.
 
 3. **Abrir en el navegador:**
    Ingresa a `http://localhost:8001` (o a la dirección IP de tu servidor local / Raspberry Pi en la red).
+
+### Comandos Útiles de Docker
+
+* **Ver los logs en tiempo real:**
+  ```bash
+  docker compose logs -f
+  ```
+* **Detener la aplicación:**
+  ```bash
+  docker compose down
+  ```
+* **Reconstruir desde cero (sin caché de capas):**
+  ```bash
+  docker compose build --no-cache && docker compose up -d
+  ```
 
 ---
 
@@ -102,19 +133,22 @@ finanzas-app/
 | Método | Endpoint | Descripción |
 | :--- | :--- | :--- |
 | `GET` | `/api/resumen?moneda_base=MXN` | Resumen general, balance, apartados, inversiones y patrimonio neto en la moneda base |
-| `GET` | `/api/tipo-cambio` | Tipos de cambio en tiempo real (USD y MXN) |
+| `GET` | `/api/tipo-cambio` | Tipos de cambio en tiempo real (USD y MXN) con caché en memoria de 5 min |
 | `GET` | `/api/resumen-mensual` | Agrupación de ingresos y gastos por mes para gráficos |
 | `GET` | `/api/transacciones` | Lista histórica de transacciones |
-| `POST` | `/api/transacciones` | Registrar una nueva transacción |
+| `POST` | `/api/transacciones` | Registrar una nueva transacción con validación de montos positivos y fechas |
+| `PUT` | `/api/transacciones/{id}` | Actualizar cualquier campo de una transacción existente (fecha, monto, tipo, descripción) |
 | `DELETE` | `/api/transacciones/{id}` | Eliminar una transacción existente |
 | `GET` | `/api/apartados` | Lista de sobres y metas con sus porcentajes de avance |
 | `POST` | `/api/apartados` | Crear un nuevo apartado o meta |
-| `POST` | `/api/apartados/{id}/movimiento` | Depositar o retirar fondos de un apartado |
-| `DELETE` | `/api/apartados/{id}` | Eliminar un apartado |
+| `POST` | `/api/apartados/{id}/movimiento` | Depositar o retirar fondos de un apartado (con registro de fecha local) |
+| `DELETE` | `/api/apartados/{id}` | Eliminar un apartado (protegido contra eliminación si tiene saldo disponible) |
 | `GET` | `/api/inversiones?moneda_base=MXN` | Resumen consolidado del portafolio y posiciones con Asset Allocation y conversión |
 | `GET` | `/api/inversiones/buscar?q={query}` | Búsqueda predictiva y autocompletado en vivo de tickers de bolsa |
 | `GET` | `/api/inversiones/cotizar/{ticker}` | Consultar cotización y moneda nativa de un ticker en tiempo real |
 | `POST` | `/api/inversiones` | Registrar una nueva posición de inversión (`ticker, cantidad, precio_promedio, precio_actual, moneda`) |
-| `PUT` | `/api/inversiones/{id}` | Actualizar cantidad, precios o moneda de una posición |
-| `DELETE` | `/api/inversiones/{id}` | Eliminar una posición |
+| `PUT` | `/api/inversiones/{id}` | Actualizar cantidad de títulos, precio promedio o cotización de una posición |
+| `DELETE` | `/api/inversiones/{id}` | Eliminar una posición del portafolio |
 | `POST` | `/api/inversiones/sincronizar` | Actualizar automáticamente las cotizaciones de mercado y divisas en lote |
+| `GET` | `/api/exportar-excel?moneda_base=MXN` | Generar y descargar el reporte financiero completo en Excel (.xlsx) con Asset Allocation |
+| `GET` | `/api/backup` | Descargar una copia de seguridad directa del archivo de base de datos SQLite `finanzas.db` |
