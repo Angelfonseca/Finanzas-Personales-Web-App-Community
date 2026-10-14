@@ -48,9 +48,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """
     Genera un token JWT firmado.
-    Incluye en los claims: sub (user_id), username, role, db_name y timestamp exp.
+    Incluye en los claims: sub (user_id en string), username, role, db_name y timestamp exp.
     """
     to_encode = data.copy()
+    if "sub" in to_encode:
+        to_encode["sub"] = str(to_encode["sub"])
     now_utc = datetime.now(timezone.utc)
     if expires_delta:
         expire = now_utc + expires_delta

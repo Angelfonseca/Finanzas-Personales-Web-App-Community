@@ -135,6 +135,7 @@ Al arrancar por primera vez, el sistema crea automáticamente el usuario Adminis
 | :--- | :--- | :--- | :--- |
 | `POST` | `/auth/login` | Público | Autenticación con credenciales, registro de auditoría y emisión de JWT |
 | `GET` | `/auth/me` | `verify_token` | Retorna los datos del usuario en sesión activa |
+| `PATCH` | `/auth/profile` | `verify_token` | Permite al usuario activo modificar su nombre de usuario o contraseña |
 
 ### Administración (Exclusivo Admin)
 | Método | Endpoint | Seguridad | Descripción |
@@ -142,8 +143,9 @@ Al arrancar por primera vez, el sistema crea automáticamente el usuario Adminis
 | `GET` | `/admin/stats` | `verify_admin` | KPIs globales: total usuarios, activos hoy/7d, inactivos y peso en disco |
 | `GET` | `/admin/users` | `verify_admin` | Lista todos los usuarios con fecha relativa de acceso y tamaño de BD |
 | `POST` | `/admin/users` | `verify_admin` | Crea usuario y aprovisiona automáticamente su base de datos individual |
+| `PATCH` | `/admin/users/{id}` | `verify_admin` | Modifica nombre de usuario, contraseña o rol (renueva JWT si es la propia cuenta) |
 | `PATCH` | `/admin/users/{id}/status` | `verify_admin` | Activa o suspende el acceso de un usuario (protege al admin actual) |
-| `DELETE` | `/admin/users/{id}` | `verify_admin` | Elimina usuario y borra físicamente su base de datos tenant |
+| `DELETE` | `/admin/users/{id}` | `verify_admin` | Elimina usuario y purga su BD tenant (**protegido**: no se puede borrar administradores) |
 
 ### Endpoints Financieros Multi-Tenant (Aislados por Usuario)
 | Método | Endpoint | Seguridad | Descripción |

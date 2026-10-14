@@ -1100,15 +1100,27 @@ async function cargarDatosAdmin() {
                     const ultimoAccesoRelativo = formatoTiempoRelativo(u.last_login);
                     const detalleTitle = u.last_login ? `title="Fecha exacta: ${u.last_login}"` : '';
 
-                    let accionesHtml = '';
-                    if (esMismoAdmin) {
-                        accionesHtml = '<small style="color: var(--text-muted); font-style: italic;">Tu cuenta actual</small>';
-                    } else {
+                    const esAdmin = (u.role === 'admin' || (u.username && u.username.toLowerCase() === 'admin'));
+                    
+                    let accionesHtml = `
+                        <button type="button" class="btn-edit-user" onclick="abrirModalEditarUsuario(${u.id}, '${u.username}', '${u.role}')" title="Editar nombre de usuario y contraseña">✏️ Editar</button>
+                    `;
+
+                    if (!esMismoAdmin) {
                         const textoToggle = u.is_active ? 'Suspender' : 'Activar';
                         const nuevoEstado = !u.is_active;
-                        accionesHtml = `
+                        accionesHtml += `
                             <button type="button" class="btn-status-toggle" onclick="cambiarEstadoUsuario(${u.id}, ${nuevoEstado})">${textoToggle}</button>
-                            <button type="button" class="btn-delete-user" onclick="eliminarUsuarioTenant(${u.id}, '${u.username}')">Eliminar</button>
+                        `;
+                    }
+
+                    if (esAdmin) {
+                        accionesHtml += `
+                            <button type="button" class="btn-delete-user btn-disabled" disabled title="No se puede eliminar la cuenta de un administrador">🚫 Eliminar</button>
+                        `;
+                    } else {
+                        accionesHtml += `
+                            <button type="button" class="btn-delete-user" onclick="eliminarUsuarioTenant(${u.id}, '${u.username}')">🗑️ Eliminar</button>
                         `;
                     }
 
@@ -1220,6 +1232,134 @@ async function guardarNuevoUsuario(e) {
         }
     } catch (error) {
         alert("Error de conexión al crear usuario.");
+    }
+}
+
+/**
+ * Abre el modal de edición de usuario desde el panel de administración.
+ */
+function abrirModalEditarUsuario(id, username, role) {
+    const modal = document.getElementById('modal-editar-usuario');
+    if (!modal) return;
+
+    document.getElementById('lbl-edit-user-title').textContent = username;
+    document.getElementById('edit-user-id').value = id;
+    document.getElementById('edit-user-username').value = username;
+    document.getElementById('edit-user-password').value = '';
+    
+    const roleSelect = document.getElementById('edit-user-role');
+    const roleGroup = document.getElementById('group-edit-user-role');
+    
+    if (roleSelect) {
+        roleSelect.value = role || 'user';
+        // Si es el admin actual editándose a sí mismo, bloquear el cambio de rol para evitar perder privilegios
+        if (usuarioActual && usuarioActual.id === id && role === 'admin') {
+            roleSelect.disabled = true;
+        } else {
+            roleSelect.disabled = false;
+        }
+    }
+    if (roleGroup) {
+        roleGroup.style.display = (usuarioActual && usuarioActual.role === 'admin') ? 'block' : 'none';
+    }
+
+    modal.style.display = 'flex';
+    setTimeout(() => {
+        const input = document.getElementById('edit-user-username');
+        if (input) input.focus();
+    }, 50);
+}
+
+/**
+ * Abre el modal de edición para que el usuario activo edite su propio perfil.
+ */
+function abrirModalEditarMiPerfil() {
+    if (!usuarioActual) return;
+    abrirModalEditarUsuario(usuarioActual.id, usuarioActual.username, usuarioActual.role);
+}
+
+/**
+ * Cierra el modal de edición de usuario.
+ */
+function cerrarModalEditarUsuario() {
+    const modal = document.getElementById('modal-editar-usuario');
+    if (modal) modal.style.display = 'none';
+    const form = document.getElementById('form-editar-usuario');
+    if (form) form.reset();
+}
+
+/**
+ * Envía la actualización de nombre de usuario y/o contraseña al backend.
+ */
+async function guardarEdicionUsuario(e) {
+    e.preventDefault();
+    const userId = document.getElementById('edit-user-id').value;
+    const username = document.getElementById('edit-user-username').value.trim();
+    const password = document.getElementById('edit-user-password').value;
+    const roleSelect = document.getElementById('edit-user-role');
+    const role = roleSelect ? roleSelect.value : undefined;
+
+    if (!username) {
+        alert("El nombre de usuario no puede estar vacío.");
+        return;
+    }
+
+    const payload = { username };
+    if (password && password.trim().length > 0) {
+        if (password.length < 4) {
+            alert("La nueva contraseña debe tener al menos 4 caracteres.");
+            return;
+        }
+        payload.password = password;
+    }
+
+    if (roleSelect && !roleSelect.disabled && role) {
+        payload.role = role;
+    }
+
+    try {
+        const endpoint = (usuarioActual && usuarioActual.role === 'admin') 
+            ? `/admin/users/${userId}` 
+            : `/auth/profile`;
+
+        const res = await apiFetch(endpoint, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            cerrarModalEditarUsuario();
+            
+            // Si el usuario editado es el usuario en sesión activa, actualizar token y UI
+            if (usuarioActual && usuarioActual.id === parseInt(userId, 10)) {
+                if (data.new_token) {
+                    localStorage.setItem('jwt_token', data.new_token);
+                }
+                if (data.user) {
+                    usuarioActual = data.user;
+                    localStorage.setItem('user_info', JSON.stringify(data.user));
+                    const lblUser = document.getElementById('lbl-username');
+                    const lblRole = document.getElementById('lbl-user-role');
+                    if (lblUser) lblUser.textContent = data.user.username;
+                    if (lblRole) {
+                        lblRole.textContent = data.user.role;
+                        lblRole.className = `badge-role ${data.user.role === 'admin' ? 'badge-role-admin' : 'badge-role-user'}`;
+                    }
+                }
+            }
+            
+            if (usuarioActual && usuarioActual.role === 'admin') {
+                await cargarDatosAdmin();
+            }
+            alert(data.mensaje || "Usuario actualizado exitosamente.");
+        } else {
+            const err = await res.json();
+            alert(err.detail || "Error al actualizar el usuario.");
+        }
+    } catch (error) {
+        alert("Error de conexión al guardar cambios.");
     }
 }
 

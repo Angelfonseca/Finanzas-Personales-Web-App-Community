@@ -1631,3 +1631,31 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 .btn-delete-user:hover {
     background-color: rgba(231, 76, 60, 0.15);
 }
+
+.btn-edit-user {
+    background: transparent;
+    border: 1px solid rgba(52, 152, 219, 0.5);
+    color: #3498db;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-right: 5px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.btn-edit-user:hover {
+    background-color: rgba(52, 152, 219, 0.15);
+}
+
+.btn-delete-user.btn-disabled {
+    border-color: rgba(127, 140, 141, 0.3);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.btn-delete-user.btn-disabled:hover {
+    background-color: transparent;
+}

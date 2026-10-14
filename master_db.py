@@ -119,13 +119,72 @@ def set_user_status(user_id: int, is_active: int) -> None:
     conn.commit()
     conn.close()
 
+def update_user(
+    user_id: int, 
+    username: Optional[str] = None, 
+    password_hash: Optional[str] = None, 
+    role: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Actualiza datos de un usuario (nombre de usuario, contraseña hasheada y/o rol).
+    Valida que el nuevo nombre no esté duplicado con otro usuario.
+    """
+    user = get_user_by_id(user_id)
+    if not user:
+        return None
+
+    conn = get_master_conn()
+    cursor = conn.cursor()
+
+    fields = []
+    params = []
+
+    if username is not None:
+        clean_user = username.strip()
+        if len(clean_user) < 3:
+            conn.close()
+            raise ValueError("El nombre de usuario debe tener al menos 3 caracteres.")
+        # Verificar que no exista otro usuario con ese nombre
+        existing = cursor.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND id != ?", (clean_user, user_id)).fetchone()
+        if existing:
+            conn.close()
+            raise ValueError(f"El nombre de usuario '{clean_user}' ya está en uso por otra cuenta.")
+        fields.append("username = ?")
+        params.append(clean_user)
+
+    if password_hash is not None and password_hash.strip():
+        fields.append("password_hash = ?")
+        params.append(password_hash.strip())
+
+    if role is not None and role.strip():
+        fields.append("role = ?")
+        params.append(role.strip())
+
+    if not fields:
+        conn.close()
+        return user
+
+    params.append(user_id)
+    sql = f"UPDATE users SET {', '.join(fields)} WHERE id = ?"
+    cursor.execute(sql, tuple(params))
+    conn.commit()
+
+    updated = cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+    return dict(updated) if updated else None
+
 def delete_user_and_tenant(user_id: int) -> bool:
     """
     Elimina permanentemente a un usuario de la base maestra y borra
     su archivo físico de base de datos tenant (.db, -wal, -shm).
+    Protege las cuentas con rol admin para que no puedan ser borradas.
     """
     user = get_user_by_id(user_id)
     if not user:
+        return False
+        
+    # Regla: No se puede eliminar a un administrador ni la cuenta principal 'admin'
+    if user["role"] == "admin" or user["username"].lower() == "admin":
         return False
         
     db_name = user["db_name"]

@@ -73,6 +73,11 @@ class UserCreateRequest(BaseModel):
 class UserStatusRequest(BaseModel):
     is_active: bool = Field(..., description="Estado activo (True) o suspendido (False)")
 
+class UserUpdateRequest(BaseModel):
+    username: Optional[str] = Field(None, min_length=3, pattern=r"^[a-zA-Z0-9_-]+$", description="Nuevo nombre de usuario")
+    password: Optional[str] = Field(None, min_length=4, description="Nueva contraseña (dejar en blanco para no cambiar)")
+    role: Optional[Literal['admin', 'user']] = Field(None, description="Rol del usuario: 'admin' o 'user'")
+
 # =============================================================================
 # MODELOS PYDANTIC: TRANSACCIONES, APARTADOS E INVERSIONES
 # =============================================================================
@@ -194,6 +199,45 @@ def get_mi_perfil(current_user: Dict[str, Any] = Depends(verify_token)):
     """Retorna la información del usuario en sesión a partir de su JWT."""
     return {"user": current_user}
 
+@app.patch("/auth/profile", summary="Editar perfil del usuario activo")
+@app.patch("/api/auth/profile", summary="Editar perfil del usuario activo (alias API)")
+@app.put("/auth/profile", summary="Editar perfil del usuario activo")
+@app.put("/api/auth/profile", summary="Editar perfil del usuario activo (alias API)")
+def editar_mi_perfil(req: UserUpdateRequest, current_user: Dict[str, Any] = Depends(verify_token)):
+    """
+    Permite al usuario autenticado modificar su propio nombre de usuario y/o contraseña.
+    """
+    user_id = current_user["id"]
+    pwd_hash = hash_password(req.password) if (req.password and req.password.strip()) else None
+
+    try:
+        user_actualizado = master_db.update_user(
+            user_id=user_id,
+            username=req.username,
+            password_hash=pwd_hash,
+            role=None  # No permitir auto-escalar rol
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    nuevo_token = create_access_token({
+        "sub": str(user_actualizado["id"]),
+        "username": user_actualizado["username"],
+        "role": user_actualizado["role"],
+        "db_name": user_actualizado["db_name"]
+    })
+
+    return {
+        "mensaje": "Perfil actualizado exitosamente.",
+        "user": {
+            "id": user_actualizado["id"],
+            "username": user_actualizado["username"],
+            "role": user_actualizado["role"],
+            "db_name": user_actualizado["db_name"]
+        },
+        "new_token": nuevo_token
+    }
+
 # =============================================================================
 # ENDPOINTS: ADMINISTRACIÓN DE USUARIOS (SOLO ADMIN)
 # =============================================================================
@@ -257,12 +301,67 @@ def admin_cambiar_estado(user_id: int, req: UserStatusRequest, admin: Dict[str, 
     estado_str = "activado" if req.is_active else "suspendido"
     return {"mensaje": f"El usuario '{user['username']}' ha sido {estado_str}.", "is_active": req.is_active}
 
+@app.patch("/admin/users/{user_id}", summary="Editar usuario (nombre, contraseña y rol)")
+@app.patch("/api/admin/users/{user_id}", summary="Editar usuario (alias API)")
+@app.put("/admin/users/{user_id}", summary="Editar usuario")
+@app.put("/api/admin/users/{user_id}", summary="Editar usuario (alias API)")
+def admin_editar_usuario(user_id: int, req: UserUpdateRequest, admin: Dict[str, Any] = Depends(verify_admin)):
+    """
+    Permite al administrador modificar el nombre de usuario, contraseña y/o rol de cualquier cuenta.
+    Si se edita la propia cuenta del administrador en sesión, se genera y retorna un nuevo token JWT.
+    """
+    user = master_db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado.")
+
+    # Si se intenta cambiar el rol del admin a 'user' para su propia cuenta
+    if req.role and req.role != user["role"] and user["role"] == "admin":
+        if user_id == admin["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No puedes remover tu propio rol de administrador."
+            )
+
+    pwd_hash = hash_password(req.password) if (req.password and req.password.strip()) else None
+
+    try:
+        user_actualizado = master_db.update_user(
+            user_id=user_id,
+            username=req.username,
+            password_hash=pwd_hash,
+            role=req.role
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    resp = {
+        "mensaje": f"Usuario '{user_actualizado['username']}' actualizado exitosamente.",
+        "user": {
+            "id": user_actualizado["id"],
+            "username": user_actualizado["username"],
+            "role": user_actualizado["role"],
+            "db_name": user_actualizado["db_name"]
+        }
+    }
+
+    # Si se modificó la cuenta activa del admin, renovar su JWT
+    if user_id == admin["id"]:
+        nuevo_token = create_access_token({
+            "sub": str(user_actualizado["id"]),
+            "username": user_actualizado["username"],
+            "role": user_actualizado["role"],
+            "db_name": user_actualizado["db_name"]
+        })
+        resp["new_token"] = nuevo_token
+
+    return resp
+
 @app.delete("/admin/users/{user_id}", summary="Eliminar usuario y su base de datos")
 @app.delete("/api/admin/users/{user_id}", summary="Eliminar usuario y su base de datos (alias API)")
 def admin_eliminar_usuario(user_id: int, admin: Dict[str, Any] = Depends(verify_admin)):
     """
     Elimina permanentemente a un usuario de master_db y borra físicamente su base de datos tenant.
-    Regla de Seguridad: El administrador no puede eliminarse a sí mismo.
+    Regla de Seguridad: No se puede eliminar ningún usuario con rol 'admin' ni la cuenta principal 'admin'.
     """
     if user_id == admin["id"]:
         raise HTTPException(
@@ -273,6 +372,12 @@ def admin_eliminar_usuario(user_id: int, admin: Dict[str, Any] = Depends(verify_
     user = master_db.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado.")
+
+    if user["role"] == "admin" or user["username"].lower() == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede eliminar un usuario con rol de Administrador."
+        )
         
     eliminado = master_db.delete_user_and_tenant(user_id)
     if not eliminado:
