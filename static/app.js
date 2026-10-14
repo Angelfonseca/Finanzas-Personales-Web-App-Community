@@ -1100,7 +1100,7 @@ async function cargarDatosAdmin() {
                     const ultimoAccesoRelativo = formatoTiempoRelativo(u.last_login);
                     const detalleTitle = u.last_login ? `title="Fecha exacta: ${u.last_login}"` : '';
 
-                    const esAdmin = (u.role === 'admin' || (u.username && u.username.toLowerCase() === 'admin'));
+                    const esAdminPrincipal = (u.id === 1 || (u.username && u.username.toLowerCase() === 'admin'));
                     
                     let accionesHtml = `
                         <button type="button" class="btn-edit-user" onclick="abrirModalEditarUsuario(${u.id}, '${u.username}', '${u.role}')" title="Editar nombre de usuario y contraseña">✏️ Editar</button>
@@ -1114,13 +1114,13 @@ async function cargarDatosAdmin() {
                         `;
                     }
 
-                    if (esAdmin) {
+                    if (esAdminPrincipal || esMismoAdmin) {
                         accionesHtml += `
-                            <button type="button" class="btn-delete-user btn-disabled" disabled title="No se puede eliminar la cuenta de un administrador">🚫 Eliminar</button>
+                            <button type="button" class="btn-delete-user btn-disabled" disabled title="No se puede eliminar la cuenta principal de administración">🚫 Eliminar</button>
                         `;
                     } else {
                         accionesHtml += `
-                            <button type="button" class="btn-delete-user" onclick="eliminarUsuarioTenant(${u.id}, '${u.username}')">🗑️ Eliminar</button>
+                            <button type="button" class="btn-delete-user" onclick="eliminarUsuarioTenant(${u.id}, '${u.username}')" title="Eliminar usuario y su base de datos">🗑️ Eliminar</button>
                         `;
                     }
 

@@ -183,8 +183,8 @@ def delete_user_and_tenant(user_id: int) -> bool:
     if not user:
         return False
         
-    # Regla: No se puede eliminar a un administrador ni la cuenta principal 'admin'
-    if user["role"] == "admin" or user["username"].lower() == "admin":
+    # Regla: No se puede eliminar la cuenta principal del sistema (ID 1 o usuario 'admin')
+    if user["id"] == 1 or user["username"].lower() == "admin":
         return False
         
     db_name = user["db_name"]

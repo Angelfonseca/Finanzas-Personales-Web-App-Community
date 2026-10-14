@@ -373,10 +373,10 @@ def admin_eliminar_usuario(user_id: int, admin: Dict[str, Any] = Depends(verify_
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado.")
 
-    if user["role"] == "admin" or user["username"].lower() == "admin":
+    if user["id"] == 1 or user["username"].lower() == "admin":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No se puede eliminar un usuario con rol de Administrador."
+            detail="No se puede eliminar la cuenta principal del Administrador."
         )
         
     eliminado = master_db.delete_user_and_tenant(user_id)
