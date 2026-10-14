@@ -120,12 +120,16 @@ async function cargarDatos() {
         } else {
             dataTrans.forEach(t => {
                 const tr = document.createElement('tr');
+                const descSegura = (t.descripcion || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 tr.innerHTML = `
                     <td>${t.fecha}</td>
                     <td>${t.descripcion || '-'}</td>
                     <td class="${t.tipo === 'gasto' ? 'text-gasto' : 'text-ingreso'}">${t.tipo.toUpperCase()}</td>
                     <td>$${t.monto.toFixed(2)}</td>
-                    <td><button class="btn-eliminar" onclick="eliminarTransaccion(${t.id})">X</button></td>
+                    <td class="col-acciones">
+                        <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarTransaccion(${t.id}, '${t.fecha}', ${t.monto}, '${t.tipo}', '${descSegura}')" title="Editar movimiento">✏️</button>
+                        <button type="button" class="btn-accion btn-eliminar" onclick="eliminarTransaccion(${t.id})" title="Eliminar movimiento">✕</button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -502,8 +506,9 @@ async function cargarInversiones() {
                     <td><strong>$${pos.valor_actual.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> ${subOrig}</td>
                     <td class="${clasePnl}">${signoPosMonto}$${Math.abs(pos.pnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${signoPos}${pos.pnl_porcentaje.toFixed(2)}%)</td>
                     <td><span class="badge-peso">${pos.peso_porcentaje.toFixed(1)}%</span></td>
-                    <td>
-                        <button type="button" class="btn-eliminar" onclick="eliminarInversion(${pos.id})" title="Eliminar posición">X</button>
+                    <td class="col-acciones">
+                        <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarInversion(${pos.id}, '${pos.ticker}', ${pos.cantidad}, ${pos.precio_promedio}, '${pos.moneda}')" title="Editar unidades y precio de compra">✏️</button>
+                        <button type="button" class="btn-accion btn-eliminar" onclick="eliminarInversion(${pos.id})" title="Eliminar posición">✕</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -815,13 +820,162 @@ function cambiarPestana(tabId) {
     }, 60);
 }
 
+// --- MODAL EDITAR INVERSIÓN (UNIDADES Y PRECIO PROMEDIO) ---
+
+function abrirModalEditarInversion(id, ticker, cantidad, precio_promedio, moneda) {
+    const inputId = document.getElementById('modal-edit-id');
+    const lblTicker = document.getElementById('modal-edit-ticker');
+    const inputCant = document.getElementById('modal-edit-cantidad');
+    const inputProm = document.getElementById('modal-edit-precio-promedio');
+    const lblMoneda = document.getElementById('modal-edit-moneda');
+
+    if (inputId) inputId.value = id;
+    if (lblTicker) lblTicker.textContent = ticker;
+    if (inputCant) inputCant.value = cantidad;
+    if (inputProm) inputProm.value = precio_promedio;
+    if (lblMoneda) lblMoneda.textContent = moneda || 'USD';
+
+    const modal = document.getElementById('modal-editar-inversion');
+    if (modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => {
+            if (inputCant) {
+                inputCant.focus();
+                inputCant.select();
+            }
+        }, 50);
+    }
+}
+
+function cerrarModalEditarInversion() {
+    const modal = document.getElementById('modal-editar-inversion');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+async function guardarEdicionInversion(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    const id = document.getElementById('modal-edit-id').value;
+    const cantidad = parseFloat(document.getElementById('modal-edit-cantidad').value);
+    const precio_promedio = parseFloat(document.getElementById('modal-edit-precio-promedio').value);
+
+    if (isNaN(cantidad) || cantidad <= 0 || isNaN(precio_promedio) || precio_promedio <= 0) {
+        alert("Por favor ingresa valores numéricos válidos mayores a cero.");
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/inversiones/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cantidad, precio_promedio })
+        });
+
+        if (res.ok) {
+            cerrarModalEditarInversion();
+            await cargarInversiones();
+            await cargarDatos(); // Sincronizar patrimonio neto general
+        } else {
+            const err = await res.json();
+            alert(err.detail || "Error al actualizar la posición.");
+        }
+    } catch (err) {
+        console.error("Error al actualizar posición:", err);
+        alert("Error de red al intentar guardar los cambios.");
+    }
+}
+
+// --- MODAL EDITAR MOVIMIENTO / TRANSACCIÓN ---
+function abrirModalEditarTransaccion(id, fecha, monto, tipo, descripcion) {
+    const modal = document.getElementById('modal-editar-transaccion');
+    if (!modal) return;
+
+    document.getElementById('modal-edit-trans-id').value = id;
+    document.getElementById('modal-edit-trans-fecha').value = fecha || '';
+    document.getElementById('modal-edit-trans-tipo').value = tipo || 'gasto';
+    document.getElementById('modal-edit-trans-monto').value = (monto !== undefined && monto !== null) ? monto : '';
+    document.getElementById('modal-edit-trans-desc').value = descripcion || '';
+
+    modal.style.display = 'flex';
+    setTimeout(() => {
+        const inputMonto = document.getElementById('modal-edit-trans-monto');
+        if (inputMonto) {
+            inputMonto.focus();
+            inputMonto.select();
+        }
+    }, 50);
+}
+
+function cerrarModalEditarTransaccion() {
+    const modal = document.getElementById('modal-editar-transaccion');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+async function guardarEdicionTransaccion(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    const id = document.getElementById('modal-edit-trans-id').value;
+    const fecha = document.getElementById('modal-edit-trans-fecha').value;
+    const tipo = document.getElementById('modal-edit-trans-tipo').value;
+    const monto = parseFloat(document.getElementById('modal-edit-trans-monto').value);
+    const descripcion = document.getElementById('modal-edit-trans-desc').value.trim();
+
+    if (!fecha || isNaN(monto) || monto <= 0 || !tipo) {
+        alert("Por favor ingresa una fecha, tipo y monto numérico válido mayor a cero.");
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/transacciones/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fecha, tipo, monto, descripcion })
+        });
+
+        if (res.ok) {
+            cerrarModalEditarTransaccion();
+            await cargarDatos();
+        } else {
+            const err = await res.json();
+            alert(err.detail || "Error al actualizar el movimiento.");
+        }
+    } catch (err) {
+        console.error("Error al actualizar el movimiento:", err);
+        alert("Error de red al intentar guardar los cambios.");
+    }
+}
+
+// Cerrar modales al presionar la tecla Escape
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        cerrarModalEditarInversion();
+        cerrarModalEditarTransaccion();
+    }
+});
+
 // EXPONER FUNCIONES PARA EL DOM
 window.toggleMetaInput = toggleMetaInput;
 window.realizarMovimiento = realizarMovimiento;
 window.eliminarTransaccion = eliminarTransaccion;
+window.abrirModalEditarTransaccion = abrirModalEditarTransaccion;
+window.cerrarModalEditarTransaccion = cerrarModalEditarTransaccion;
+window.guardarEdicionTransaccion = guardarEdicionTransaccion;
 window.buscarCotizacionTicker = buscarCotizacionTicker;
 window.sincronizarPrecios = sincronizarPrecios;
 window.eliminarInversion = eliminarInversion;
+window.abrirModalEditarInversion = abrirModalEditarInversion;
+window.cerrarModalEditarInversion = cerrarModalEditarInversion;
+window.guardarEdicionInversion = guardarEdicionInversion;
 window.cambiarPestana = cambiarPestana;
 window.cambiarMonedaGlobal = cambiarMonedaGlobal;
 window.cambiarMonedaInversiones = cambiarMonedaGlobal; // compatibilidad

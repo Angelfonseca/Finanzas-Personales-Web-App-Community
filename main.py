@@ -27,6 +27,13 @@ class Transaccion(BaseModel):
     categoria_id: Optional[int] = None
     descripcion: Optional[str] = None
 
+class TransaccionUpdate(BaseModel):
+    fecha: Optional[str] = None
+    monto: Optional[float] = Field(None, gt=0)
+    tipo: Optional[Literal['gasto', 'ingreso']] = None
+    categoria_id: Optional[int] = None
+    descripcion: Optional[str] = None
+
 class ApartadoCreate(BaseModel):
     nombre: str
     tipo: Literal['libre', 'meta']
@@ -52,7 +59,7 @@ class InversionUpdate(BaseModel):
 # --- HELPER CONEXIÓN ---
 
 def get_db():
-    conn = sqlite3.connect("finanzas.db")
+    conn = sqlite3.connect("finanzas.db", timeout=15.0)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -85,6 +92,33 @@ def eliminar_transaccion(id_transaccion: int):
     conn.commit()
     conn.close()
     return {"mensaje": "Transacción eliminada"}
+
+@app.put("/api/transacciones/{id_transaccion}")
+def actualizar_transaccion(id_transaccion: int, t: TransaccionUpdate):
+    conn = get_db()
+    cursor = conn.cursor()
+    trans = cursor.execute("SELECT * FROM transacciones WHERE id = ?", (id_transaccion,)).fetchone()
+    if not trans:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Transacción no encontrada")
+
+    nueva_fecha = t.fecha if t.fecha is not None else trans["fecha"]
+    nuevo_monto = t.monto if t.monto is not None else trans["monto"]
+    nuevo_tipo = t.tipo if t.tipo is not None else trans["tipo"]
+    nueva_desc = t.descripcion if t.descripcion is not None else trans["descripcion"]
+    nueva_cat = t.categoria_id if t.categoria_id is not None else trans["categoria_id"]
+
+    cursor.execute(
+        """
+        UPDATE transacciones 
+        SET fecha = ?, monto = ?, tipo = ?, categoria_id = ?, descripcion = ?
+        WHERE id = ?
+        """,
+        (nueva_fecha, nuevo_monto, nuevo_tipo, nueva_cat, nueva_desc, id_transaccion)
+    )
+    conn.commit()
+    conn.close()
+    return {"mensaje": "Transacción actualizada con éxito"}
 
 @app.get("/api/resumen")
 def obtener_resumen(moneda_base: str = "MXN"):

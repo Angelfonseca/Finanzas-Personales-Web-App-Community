@@ -3,13 +3,14 @@ import sqlite3
 DB_NAME = "finanzas.db"
 
 def get_db():
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_NAME, timeout=15.0)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
     conn = get_db()
     cursor = conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL;")
     
     # Tabla de categorías
     cursor.execute("""

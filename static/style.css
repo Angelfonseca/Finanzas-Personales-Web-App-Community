@@ -262,20 +262,56 @@ button:active {
     transform: scale(0.98);
 }
 button:hover { background-color: #2980b9; }
+.col-acciones {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.btn-accion {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    width: auto;
+    margin: 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    transition: transform 0.1s, opacity 0.15s;
+}
+
+.btn-accion:active {
+    transform: scale(0.92);
+}
+
+.btn-editar {
+    background-color: #f39c12;
+    color: white;
+}
+.btn-editar:hover {
+    background-color: #d68910;
+}
+
 .btn-eliminar {
     background-color: #e74c3c;
     color: white;
-    padding: 6px 12px;
-    font-size: 0.8rem;
+    padding: 6px 10px;
+    font-size: 0.85rem;
     width: auto;
     margin: 0;
     border-radius: 6px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
+    border: none;
+    transition: transform 0.1s, opacity 0.15s;
 }
 .btn-eliminar:active {
-    transform: scale(0.95);
+    transform: scale(0.92);
 }
 .btn-eliminar:hover { background-color: #c0392b; }
 #mensaje { margin-top: 15px; text-align: center; font-weight: 600; font-size: 0.9rem; }
@@ -1205,4 +1241,101 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     .card p {
         font-size: 0.98rem;
     }
+}
+
+/* ========================================================== */
+/* --- MODAL EDITAR INVERSIÓN (UNIDADES Y PRECIO PROMEDIO) --- */
+/* ========================================================== */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    padding: 16px;
+    box-sizing: border-box;
+    animation: fadeIn 0.18s ease-out;
+}
+
+.modal-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    width: 100%;
+    max-width: 420px;
+    padding: 22px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+    box-sizing: border-box;
+    animation: slideUp 0.18s ease-out;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(15px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: var(--text-color);
+}
+
+.ticker-highlight {
+    color: #3498db;
+    font-weight: 800;
+}
+
+.btn-modal-close {
+    background: transparent;
+    border: none;
+    font-size: 1.6rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    width: auto;
+    margin: 0;
+    line-height: 1;
+}
+
+.btn-modal-close:hover {
+    color: #e74c3c;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 22px;
+}
+
+.modal-actions button {
+    flex: 1;
+    margin-top: 0;
+    padding: 12px;
+    font-size: 0.95rem;
+}
+
+.btn-secondary {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    background-color: var(--border-color);
 }
