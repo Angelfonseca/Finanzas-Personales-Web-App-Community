@@ -15,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mis Finanzas Personales</title>
     <!-- Hojas de estilo y biblioteca de gráficos Chart.js -->
-    <link rel="stylesheet" href="/static/style.css?v=2.5">
+    <link rel="stylesheet" href="/static/style.css?v=2.6">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -46,53 +46,150 @@
     </div>
 
     <!-- ========================================================== -->
-    <!-- VISTA 2: APLICACIÓN PRINCIPAL MULTI-TENANT                -->
+    <!-- VISTA 2: APLICACIÓN PRINCIPAL MULTI-TENANT (MODERNO DASHBOARD) -->
     <!-- ========================================================== -->
-    <div id="vista-app" class="container" style="display: none;">
-        <!-- Encabezado superior con sesión y herramientas -->
-        <header class="app-header">
-            <div class="header-top-bar">
-                <div class="app-brand">
-                    <h1>💰 Finanzas</h1>
-                </div>
-                <div class="header-controls">
-                    <!-- Badge del usuario en sesión activa (haz clic para editar perfil) -->
-                    <div class="user-session-badge" onclick="abrirModalEditarMiPerfil()" style="cursor: pointer;" title="Haz clic para editar tu nombre de usuario o contraseña">
-                        <span>👤 <strong id="lbl-username">usuario</strong> <small id="lbl-user-role" class="badge-role">user</small> <span style="font-size: 0.75rem; opacity: 0.8; margin-left: 3px;">✏️</span></span>
-                    </div>
-                    <!-- Acciones globales -->
-                    <div class="header-actions">
-                        <button type="button" class="btn-export" onclick="exportarExcel()" title="Descargar reporte completo en Excel con gráficas">📊 Exportar Excel</button>
-                        <button type="button" class="btn-backup" onclick="descargarBackup()" title="Descargar copia de seguridad de tu base de datos individual">💾 Respaldo</button>
-                        <button type="button" class="btn-restore" onclick="solicitarImportarBackup()" title="Restaurar base de datos individual desde una copia de seguridad">📥 Restaurar</button>
-                        <input type="file" id="input-restore-db" accept=".db,.sqlite,.sqlite3" style="display: none;" onchange="procesarArchivoBackup(event)">
-                        <button id="btn-modo" class="btn-theme" title="Alternar tema">🌙 Modo Oscuro</button>
-                        <button type="button" class="btn-logout" onclick="logoutUsuario()" title="Cerrar sesión actual">🚪 Salir</button>
-                    </div>
-                </div>
-            </div>
-            <!-- Barra de selección de divisa base y tipo de cambio vigente -->
-            <div class="header-currency-bar">
-                <div class="moneda-global-wrap">
-                    <label for="select-moneda-global" class="moneda-global-label">Moneda Base:</label>
-                    <select id="select-moneda-global" class="select-moneda" onchange="cambiarMonedaGlobal(this.value)">
-                        <option value="MXN" selected>🇲🇽 MXN ($)</option>
-                        <option value="USD">🇺🇸 USD ($)</option>
-                    </select>
-                    <span id="badge-tasa-global" class="badge-tasa">1 USD ≈ $18.40 MXN</span>
-                </div>
-            </div>
-        </header>
+    <div id="vista-app" class="app-layout" style="display: none;">
+        <!-- Fondo oscurecido para versión móvil al abrir el panel lateral -->
+        <div id="sidebar-backdrop" class="sidebar-backdrop" onclick="cerrarSidebarMobile()"></div>
 
-        <!-- Navegación por Pestañas -->
-        <nav class="nav-tabs">
-            <button type="button" class="tab-btn active" data-tab="tab-dashboard">📊 Resumen</button>
-            <button type="button" class="tab-btn" data-tab="tab-movimientos">💳 Movimientos</button>
-            <button type="button" class="tab-btn" data-tab="tab-apartados">🎯 Metas</button>
-            <button type="button" class="tab-btn" data-tab="tab-inversiones">📈 Inversiones</button>
-            <!-- Pestaña exclusiva para rol admin -->
-            <button type="button" class="tab-btn tab-btn-admin" id="btn-tab-admin" data-tab="tab-admin" style="display: none;">🛡️ Admin</button>
-        </nav>
+        <!-- Panel Lateral Desplegable / Colapsable (Sidebar) -->
+        <aside id="app-sidebar" class="app-sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <span class="brand-icon">💰</span>
+                    <span class="brand-title">Finanzas</span>
+                </div>
+                <button type="button" id="btn-sidebar-collapse" class="btn-sidebar-collapse" onclick="toggleSidebar()" title="Colapsar / Expandir panel lateral">
+                    <span class="collapse-icon">◀</span>
+                </button>
+            </div>
+
+            <!-- Navegación vertical por pestañas -->
+            <nav class="sidebar-nav">
+                <button type="button" class="tab-btn active" data-tab="tab-dashboard" title="Resumen General y Patrimonio">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-label">Resumen</span>
+                </button>
+                <button type="button" class="tab-btn" data-tab="tab-movimientos" title="Registro de Movimientos">
+                    <span class="nav-icon">💳</span>
+                    <span class="nav-label">Movimientos</span>
+                </button>
+                <button type="button" class="tab-btn" data-tab="tab-apartados" title="Metas de Ahorro y Sobres">
+                    <span class="nav-icon">🎯</span>
+                    <span class="nav-label">Metas</span>
+                </button>
+                <button type="button" class="tab-btn" data-tab="tab-inversiones" title="Portafolio de Inversiones">
+                    <span class="nav-icon">📈</span>
+                    <span class="nav-label">Inversiones</span>
+                </button>
+                <!-- Pestaña exclusiva para rol admin -->
+                <button type="button" class="tab-btn tab-btn-admin" id="btn-tab-admin" data-tab="tab-admin" style="display: none;" title="Panel de Administración del Sistema">
+                    <span class="nav-icon">🛡️</span>
+                    <span class="nav-label">Admin</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-status-box" title="Base de datos SQLite activa">
+                    <span class="status-indicator-dot"></span>
+                    <span class="status-indicator-text">En línea</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Contenedor Principal: Topbar + Contenido -->
+        <div class="app-main-wrapper">
+            <!-- Barra Superior Fija (Topbar) -->
+            <header class="app-topbar">
+                <div class="topbar-left">
+                    <button type="button" id="btn-mobile-sidebar" class="btn-mobile-hamburger" onclick="toggleSidebar()" title="Abrir menú de navegación" aria-label="Abrir navegación">
+                        <span class="hamburger-line"></span>
+                        <span class="hamburger-line"></span>
+                        <span class="hamburger-line"></span>
+                    </button>
+                    <div class="topbar-title-wrap">
+                        <h2 id="topbar-section-title" class="topbar-section-title">📊 Resumen</h2>
+                    </div>
+                </div>
+
+                <div class="topbar-right">
+                    <!-- Selector de Divisa Global -->
+                    <div class="topbar-currency-wrap">
+                        <label for="select-moneda-global" class="sr-only">Moneda Base</label>
+                        <select id="select-moneda-global" class="select-moneda-topbar" onchange="cambiarMonedaGlobal(this.value)" title="Cambiar moneda base de visualización">
+                            <option value="MXN" selected>🇲🇽 MXN ($)</option>
+                            <option value="USD">🇺🇸 USD ($)</option>
+                        </select>
+                        <span id="badge-tasa-global" class="badge-tasa-topbar">1 USD ≈ $18.40 MXN</span>
+                    </div>
+
+                    <!-- Menú de Usuario en la Esquina Superior Derecha -->
+                    <div id="user-menu-wrapper" class="user-menu-container">
+                        <button type="button" id="btn-user-menu-trigger" class="btn-user-trigger" onclick="toggleUserDropdown(event)" aria-haspopup="true" aria-expanded="false" title="Opciones de usuario">
+                            <span class="user-avatar-badge">👤</span>
+                            <span class="user-trigger-info">
+                                <strong id="lbl-username">usuario</strong>
+                                <small id="lbl-user-role" class="badge-role">user</small>
+                            </span>
+                            <span class="user-dropdown-arrow">▾</span>
+                        </button>
+
+                        <!-- Menú Desplegable Flotante (Dropdown Popover) -->
+                        <div id="user-dropdown-menu" class="user-dropdown-popover" style="display: none;">
+                            <div class="dropdown-header-profile">
+                                <div class="dropdown-avatar-circle">👤</div>
+                                <div class="dropdown-header-info">
+                                    <strong id="dropdown-user-name">usuario</strong>
+                                    <span id="dropdown-user-role" class="dropdown-role-pill">user</span>
+                                </div>
+                            </div>
+
+                            <div class="dropdown-section-divider"></div>
+
+                            <div class="dropdown-action-list">
+                                <button type="button" class="dropdown-action-btn" onclick="abrirModalEditarMiPerfil(); cerrarUserDropdown();">
+                                    <span class="action-icon">✏️</span>
+                                    <span>Mi Perfil</span>
+                                </button>
+                                <button type="button" id="btn-modo" class="dropdown-action-btn btn-theme" onclick="toggleModoOscuro();">
+                                    <span class="action-icon" id="icon-modo-oscuro">🌙</span>
+                                    <span id="lbl-modo-oscuro">Modo Oscuro</span>
+                                </button>
+                            </div>
+
+                            <div class="dropdown-section-divider"></div>
+
+                            <div class="dropdown-action-list">
+                                <button type="button" class="dropdown-action-btn btn-export" onclick="exportarExcel(); cerrarUserDropdown();" title="Descargar reporte completo en Excel con gráficas">
+                                    <span class="action-icon">📊</span>
+                                    <span>Exportar Excel</span>
+                                </button>
+                                <button type="button" class="dropdown-action-btn btn-backup" onclick="descargarBackup(); cerrarUserDropdown();" title="Descargar copia de seguridad de tu base de datos individual">
+                                    <span class="action-icon">💾</span>
+                                    <span>Descargar Respaldo</span>
+                                </button>
+                                <button type="button" class="dropdown-action-btn btn-restore" onclick="solicitarImportarBackup(); cerrarUserDropdown();" title="Restaurar base de datos individual desde una copia de seguridad">
+                                    <span class="action-icon">📥</span>
+                                    <span>Restaurar Base de Datos</span>
+                                </button>
+                                <input type="file" id="input-restore-db" accept=".db,.sqlite,.sqlite3" style="display: none;" onchange="procesarArchivoBackup(event)">
+                            </div>
+
+                            <div class="dropdown-section-divider"></div>
+
+                            <div class="dropdown-action-list">
+                                <button type="button" class="dropdown-action-btn dropdown-btn-logout btn-logout" onclick="logoutUsuario();" title="Cerrar sesión actual">
+                                    <span class="action-icon">🚪</span>
+                                    <span>Cerrar Sesión</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Contenido Principal Dinámico -->
+            <main class="app-main-content">
 
         <!-- ============================================== -->
         <!-- PESTAÑA 1: DASHBOARD GENERAL Y PATRIMONIO NETO -->
@@ -427,7 +524,8 @@
                 </div>
             </div>
         </section>
-
+            </main>
+        </div>
     </div>
 
     <!-- ============================================== -->
@@ -614,6 +712,6 @@
     </div>
 
     <!-- Script de lógica de la aplicación -->
-    <script src="/static/app.js?v=2.5"></script>
+    <script src="/static/app.js?v=2.6"></script>
 </body>
 </html>

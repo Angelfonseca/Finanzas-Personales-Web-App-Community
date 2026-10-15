@@ -147,21 +147,28 @@ function establecerSesionActiva(user, token) {
     const vistaLogin = document.getElementById('vista-login');
     const vistaApp = document.getElementById('vista-app');
     if (vistaLogin) vistaLogin.style.display = 'none';
-    if (vistaApp) vistaApp.style.display = 'block';
+    if (vistaApp) vistaApp.style.display = 'flex';
 
-    // Actualizar badges de usuario en el header
+    // Actualizar badges de usuario en el topbar y dropdown popover
     const lblUser = document.getElementById('lbl-username');
     const lblRole = document.getElementById('lbl-user-role');
+    const dropUser = document.getElementById('dropdown-user-name');
+    const dropRole = document.getElementById('dropdown-user-role');
     if (lblUser) lblUser.textContent = user.username;
+    if (dropUser) dropUser.textContent = user.username;
     if (lblRole) {
         lblRole.textContent = user.role;
         lblRole.className = `badge-role ${user.role === 'admin' ? 'badge-role-admin' : 'badge-role-user'}`;
+    }
+    if (dropRole) {
+        dropRole.textContent = user.role === 'admin' ? 'Administrador' : 'Usuario';
+        dropRole.className = `dropdown-role-pill ${user.role === 'admin' ? 'badge-role-admin' : 'badge-role-user'}`;
     }
 
     // Pestaña de administración: visible estrictamente para rol admin
     const btnTabAdmin = document.getElementById('btn-tab-admin');
     if (btnTabAdmin) {
-        btnTabAdmin.style.display = (user.role === 'admin') ? 'inline-block' : 'none';
+        btnTabAdmin.style.display = (user.role === 'admin') ? 'flex' : 'none';
     }
 
     // Si un usuario no admin tiene guardada la pestaña admin, redirigir al resumen
@@ -293,28 +300,35 @@ function cerrarSesionLimpia(errorMsg = '') {
 // 4. GESTIÓN DEL TEMA VISUAL (MODO OSCURO / CLARO)
 // =============================================================================
 
-const btnModo = document.getElementById('btn-modo');
+function actualizarIconosModoOscuro(esOscuro) {
+    const iconModo = document.getElementById('icon-modo-oscuro');
+    const lblModo = document.getElementById('lbl-modo-oscuro');
+    const btn = document.getElementById('btn-modo');
+    if (iconModo) iconModo.textContent = esOscuro ? '☀️' : '🌙';
+    if (lblModo) lblModo.textContent = esOscuro ? 'Modo Claro' : 'Modo Oscuro';
+    if (btn) btn.setAttribute('title', esOscuro ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro');
+}
+
+function toggleModoOscuro() {
+    const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (esOscuro) {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('theme', 'light');
+        actualizarIconosModoOscuro(false);
+    } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('theme', 'dark');
+        actualizarIconosModoOscuro(true);
+    }
+    if (miGrafica) actualizarColoresGrafica();
+    if (graficaDona) actualizarColoresDona();
+}
+
+// Inicialización de tema guardado
 const temaGuardado = localStorage.getItem('theme');
 if (temaGuardado === 'dark') {
     document.documentElement.setAttribute('data-theme', 'dark');
-    if (btnModo) btnModo.textContent = '☀️ Modo Claro';
-}
-
-if (btnModo) {
-    btnModo.addEventListener('click', () => {
-        const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
-        if (esOscuro) {
-            document.documentElement.removeAttribute('data-theme');
-            localStorage.setItem('theme', 'light');
-            btnModo.textContent = '🌙 Modo Oscuro';
-        } else {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            localStorage.setItem('theme', 'dark');
-            btnModo.textContent = '☀️ Modo Claro';
-        }
-        if (miGrafica) actualizarColoresGrafica();
-        if (graficaDona) actualizarColoresDona();
-    });
+    actualizarIconosModoOscuro(true);
 }
 
 function actualizarColoresGrafica() {
@@ -1530,10 +1544,17 @@ async function guardarEdicionUsuario(e) {
                     localStorage.setItem('user_info', JSON.stringify(data.user));
                     const lblUser = document.getElementById('lbl-username');
                     const lblRole = document.getElementById('lbl-user-role');
+                    const dropUser = document.getElementById('dropdown-user-name');
+                    const dropRole = document.getElementById('dropdown-user-role');
                     if (lblUser) lblUser.textContent = data.user.username;
+                    if (dropUser) dropUser.textContent = data.user.username;
                     if (lblRole) {
                         lblRole.textContent = data.user.role;
                         lblRole.className = `badge-role ${data.user.role === 'admin' ? 'badge-role-admin' : 'badge-role-user'}`;
+                    }
+                    if (dropRole) {
+                        dropRole.textContent = data.user.role === 'admin' ? 'Administrador' : 'Usuario';
+                        dropRole.className = `dropdown-role-pill ${data.user.role === 'admin' ? 'badge-role-admin' : 'badge-role-user'}`;
                     }
                 }
             }
@@ -1584,7 +1605,25 @@ function cambiarPestana(tabId) {
         c.classList.toggle('active', c.id === tabId);
     });
 
+    // Actualizar título dinámico en la barra superior (topbar)
+    const titulosMap = {
+        'tab-dashboard': '📊 Resumen',
+        'tab-movimientos': '💳 Movimientos',
+        'tab-apartados': '🎯 Metas de Ahorro',
+        'tab-inversiones': '📈 Inversiones',
+        'tab-admin': '🛡️ Administración'
+    };
+    const lblTitulo = document.getElementById('topbar-section-title');
+    if (lblTitulo && titulosMap[tabId]) {
+        lblTitulo.textContent = titulosMap[tabId];
+    }
+
     localStorage.setItem('active_tab', tabId);
+
+    // En pantallas móviles, cerrar la barra lateral al seleccionar pestaña
+    if (window.innerWidth <= 768) {
+        cerrarSidebarMobile();
+    }
 
     // Si entra al panel de administración, recargar métricas frescas
     if (tabId === 'tab-admin') {
@@ -1896,6 +1935,107 @@ async function procesarArchivoBackup(e) {
 }
 
 // =============================================================================
+// 12. GESTIÓN DEL PANEL LATERAL (SIDEBAR) Y MENÚ DE USUARIO
+// =============================================================================
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('app-sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    const appLayout = document.getElementById('vista-app');
+    const btnCollapse = document.getElementById('btn-sidebar-collapse');
+    const collapseIcon = btnCollapse ? btnCollapse.querySelector('.collapse-icon') : null;
+    
+    if (window.innerWidth <= 768) {
+        // En móviles se comporta como Drawer Off-Canvas
+        if (!sidebar) return;
+        const isOpen = sidebar.classList.toggle('sidebar-open');
+        if (backdrop) backdrop.classList.toggle('active', isOpen);
+    } else {
+        // En escritorio se colapsa / expande (ancho completo vs solo iconos)
+        if (!sidebar || !appLayout) return;
+        const isCollapsed = sidebar.classList.toggle('sidebar-collapsed');
+        appLayout.classList.toggle('sidebar-collapsed', isCollapsed);
+        if (collapseIcon) {
+            collapseIcon.textContent = isCollapsed ? '▶' : '◀';
+        }
+        localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
+        // Redimensionar gráficas tras la transición del layout
+        setTimeout(() => {
+            if (miGrafica) miGrafica.resize();
+            if (graficaDona) graficaDona.resize();
+        }, 280);
+    }
+}
+
+function cerrarSidebarMobile() {
+    const sidebar = document.getElementById('app-sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (sidebar) sidebar.classList.remove('sidebar-open');
+    if (backdrop) backdrop.classList.remove('active');
+}
+
+function inicializarEstadoSidebar() {
+    if (window.innerWidth > 768) {
+        const collapsedSaved = localStorage.getItem('sidebar_collapsed') === '1';
+        if (collapsedSaved) {
+            const sidebar = document.getElementById('app-sidebar');
+            const appLayout = document.getElementById('vista-app');
+            const btnCollapse = document.getElementById('btn-sidebar-collapse');
+            const collapseIcon = btnCollapse ? btnCollapse.querySelector('.collapse-icon') : null;
+            if (sidebar) sidebar.classList.add('sidebar-collapsed');
+            if (appLayout) appLayout.classList.add('sidebar-collapsed');
+            if (collapseIcon) collapseIcon.textContent = '▶';
+        }
+    }
+}
+
+function toggleUserDropdown(event) {
+    if (event) event.stopPropagation();
+    const menu = document.getElementById('user-dropdown-menu');
+    const trigger = document.getElementById('btn-user-menu-trigger');
+    if (!menu) return;
+    const isHidden = menu.style.display === 'none' || !menu.classList.contains('show');
+    if (isHidden) {
+        menu.style.display = 'block';
+        setTimeout(() => menu.classList.add('show'), 10);
+        if (trigger) trigger.setAttribute('aria-expanded', 'true');
+    } else {
+        cerrarUserDropdown();
+    }
+}
+
+function cerrarUserDropdown() {
+    const menu = document.getElementById('user-dropdown-menu');
+    const trigger = document.getElementById('btn-user-menu-trigger');
+    if (menu) {
+        menu.classList.remove('show');
+        setTimeout(() => {
+            menu.style.display = 'none';
+        }, 150);
+    }
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+}
+
+// Cierre al hacer clic afuera de los menús emergentes
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('user-dropdown-menu');
+    const trigger = document.getElementById('btn-user-menu-trigger');
+    if (menu && menu.style.display !== 'none') {
+        if (!menu.contains(e.target) && (!trigger || !trigger.contains(e.target))) {
+            cerrarUserDropdown();
+        }
+    }
+});
+
+// Cierre al presionar la tecla Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        cerrarUserDropdown();
+        cerrarSidebarMobile();
+    }
+});
+
+// =============================================================================
 // 13. EXPOSICIÓN GLOBAL DE FUNCIONES EN WINDOW
 // =============================================================================
 
@@ -1929,6 +2069,11 @@ window.exportarExcel = exportarExcel;
 window.descargarBackup = descargarBackup;
 window.solicitarImportarBackup = solicitarImportarBackup;
 window.procesarArchivoBackup = procesarArchivoBackup;
+window.toggleSidebar = toggleSidebar;
+window.cerrarSidebarMobile = cerrarSidebarMobile;
+window.toggleUserDropdown = toggleUserDropdown;
+window.cerrarUserDropdown = cerrarUserDropdown;
+window.toggleModoOscuro = toggleModoOscuro;
 window.toggleMetaInput = toggleMetaInput;
 window.realizarMovimiento = realizarMovimiento;
 window.eliminarApartado = eliminarApartado;
@@ -1968,5 +2113,6 @@ window.eliminarUsuarioTenant = eliminarUsuarioTenant;
 // 14. ARRANQUE DE LA APLICACIÓN
 // =============================================================================
 inicializarTabs();
+inicializarEstadoSidebar();
 inicializarBuscadorTickers();
 verificarSesionInicial();
