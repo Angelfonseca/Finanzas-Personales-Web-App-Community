@@ -689,7 +689,8 @@ async function eliminarTransaccion(id) {
         if (response.ok) {
             cargarDatos();
         } else {
-            alert("No se pudo eliminar.");
+            const err = await response.json().catch(() => ({}));
+            alert(err.detail || "No se pudo eliminar el movimiento.");
         }
     } catch (error) {
         console.error("Error al eliminar:", error);

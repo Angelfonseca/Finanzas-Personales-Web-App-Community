@@ -46,9 +46,35 @@ app = FastAPI(
 # Montar recursos estáticos (HTML, CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Control en memoria de intentos fallidos de autenticación (freno anti fuerza bruta)
+_intentos_fallidos_login: Dict[str, List[float]] = {}
+
+def registrar_fallo_login(clave: str):
+    ahora = time.time()
+    intentos = [t for t in _intentos_fallidos_login.get(clave, []) if ahora - t < 300]
+    intentos.append(ahora)
+    _intentos_fallidos_login[clave] = intentos
+
+def verificar_tasa_login(clave: str):
+    ahora = time.time()
+    intentos = [t for t in _intentos_fallidos_login.get(clave, []) if ahora - t < 300]
+    _intentos_fallidos_login[clave] = intentos
+    if len(intentos) >= 5:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados intentos fallidos. Por seguridad, espera 5 minutos antes de volver a intentar."
+        )
+
+def limpiar_fallos_login(clave: str):
+    _intentos_fallidos_login.pop(clave, None)
+
 @app.middleware("http")
-async def add_no_cache_static_header(request: Request, call_next):
+async def add_security_and_cache_headers(request: Request, call_next):
     response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     if request.url.path.startswith("/static/") or request.url.path == "/":
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
@@ -144,7 +170,8 @@ def startup_event():
     """
     ensure_tenant_directories()
     # Clave inicial de respaldo si no hay usuarios en master.db
-    admin_default_hash = hash_password("admin123")
+    admin_default_pass = os.environ.get("DEFAULT_ADMIN_PASSWORD", "admin123")
+    admin_default_hash = hash_password(admin_default_pass)
     migrado = master_db.seed_default_admin_and_migrate(admin_default_hash)
     if migrado:
         print(f"[STARTUP] Base de datos maestra inicializada. Administrador creado: {migrado['username']} (db: {migrado['db_name']})")
@@ -157,23 +184,31 @@ def startup_event():
 
 @app.post("/auth/login", summary="Iniciar sesión")
 @app.post("/api/auth/login", summary="Iniciar sesión (alias API)")
-def login(credentials: LoginRequest):
+def login(credentials: LoginRequest, request: Request):
     """
     Valida las credenciales del usuario:
     1. Comprueba usuario y contraseña con bcrypt en master.db.
-    2. Verifica que la cuenta esté activa (is_active == 1).
-    3. Registra la auditoría: actualiza last_login e incrementa login_count.
-    4. Emite el token JWT firmado con sub, username, role y db_name.
+    2. Aplica control de tasa contra ataques de fuerza bruta.
+    3. Verifica que la cuenta esté activa (is_active == 1).
+    4. Registra la auditoría: actualiza last_login e incrementa login_count.
+    5. Emite el token JWT firmado con sub, username, role y db_name.
     """
+    client_ip = request.client.host if request.client else "unknown"
+    clave_tasa = f"{client_ip}:{credentials.username.strip().lower()}"
+    verificar_tasa_login(clave_tasa)
+
     username = credentials.username.strip()
     user = master_db.get_user_by_username(username)
     
     if not user or not verify_password(credentials.password, user["password_hash"]):
+        registrar_fallo_login(clave_tasa)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario o contraseña incorrectos."
         )
         
+    limpiar_fallos_login(clave_tasa)
+
     if not user["is_active"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -428,11 +463,19 @@ def crear_transaccion(t: Transaccion, conn: sqlite3.Connection = Depends(get_ten
 @app.delete("/api/transacciones/{id_transaccion}", summary="Eliminar movimiento")
 def eliminar_transaccion(id_transaccion: int, conn: sqlite3.Connection = Depends(get_tenant_db)):
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM transacciones WHERE id = ?", (id_transaccion,))
-    filas = cursor.rowcount
-    conn.commit()
-    if filas == 0:
+    trans = cursor.execute("SELECT * FROM transacciones WHERE id = ?", (id_transaccion,)).fetchone()
+    if not trans:
         raise HTTPException(status_code=404, detail="Transacción no encontrada")
+
+    desc = (trans["descripcion"] or "").strip()
+    if desc.startswith("Ahorro destinado a:") or desc.startswith("Retiro de ahorro:"):
+        raise HTTPException(
+            status_code=400,
+            detail="Este movimiento está vinculado a un sobre o meta de ahorro. Para modificarlo o retirar los fondos, utiliza los controles (+) o (-) dentro de la sección Metas / Apartados."
+        )
+
+    cursor.execute("DELETE FROM transacciones WHERE id = ?", (id_transaccion,))
+    conn.commit()
     return {"mensaje": "Transacción eliminada"}
 
 @app.put("/api/transacciones/{id_transaccion}", summary="Editar movimiento")
@@ -441,6 +484,14 @@ def actualizar_transaccion(id_transaccion: int, t: TransaccionUpdate, conn: sqli
     trans = cursor.execute("SELECT * FROM transacciones WHERE id = ?", (id_transaccion,)).fetchone()
     if not trans:
         raise HTTPException(status_code=404, detail="Transacción no encontrada")
+
+    desc = (trans["descripcion"] or "").strip()
+    if desc.startswith("Ahorro destinado a:") or desc.startswith("Retiro de ahorro:"):
+        if (t.monto is not None and round(float(t.monto), 2) != round(float(trans["monto"]), 2)) or (t.tipo is not None and t.tipo != trans["tipo"]):
+            raise HTTPException(
+                status_code=400,
+                detail="No puedes alterar el monto ni el tipo de un movimiento vinculado a un apartado de ahorro. Utiliza la sección Metas / Apartados."
+            )
 
     nueva_fecha = t.fecha if t.fecha is not None else trans["fecha"]
     nuevo_monto = t.monto if t.monto is not None else trans["monto"]
