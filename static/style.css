@@ -395,6 +395,7 @@ body {
     display: flex;
     align-items: center;
     gap: 14px;
+    min-width: 0;
 }
 
 .btn-mobile-hamburger {
@@ -408,6 +409,7 @@ body {
     cursor: pointer;
     padding: 5px;
     border-radius: 6px;
+    flex-shrink: 0;
 }
 .btn-mobile-hamburger:hover {
     background: var(--border-color);
@@ -426,6 +428,10 @@ body {
     font-weight: 700;
     color: var(--text-color);
     letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .topbar-right {
@@ -708,7 +714,7 @@ body {
 .dashboard-grid-movimientos {
     grid-template-columns: 330px 1fr;
 }
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
     .dashboard-grid,
     .dashboard-grid-movimientos { grid-template-columns: 1fr; }
 }
@@ -733,6 +739,12 @@ h2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
+}
+@media (max-width: 520px) {
+    .form-row-2col {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
 }
 label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.88rem; color: var(--text-color); }
 
@@ -1249,13 +1261,13 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 /* Layout Mejorado de Inversiones (Fila Superior 2 Columnas + Tabla Inferior Ancho Completo) */
 .inversiones-top-grid {
     display: grid;
-    grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.25fr);
+    grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.25fr);
     gap: 16px;
     align-items: stretch;
     margin-bottom: 16px;
 }
 
-@media (max-width: 950px) {
+@media (max-width: 1024px) {
     .inversiones-top-grid {
         grid-template-columns: 1fr;
         gap: 14px;
@@ -2190,6 +2202,10 @@ th { background-color: var(--th-bg); color: var(--text-color); }
         grid-column: span 2;
     }
 
+    .cards > .card.balance:first-child ~ .card:nth-child(3) {
+        grid-column: auto;
+    }
+
     .card {
         padding: 10px 10px;
         border-radius: 10px;
@@ -2494,6 +2510,24 @@ th { background-color: var(--th-bg); color: var(--text-color); }
         font-size: 0.76rem;
     }
 
+    .modal-card {
+        padding: 18px 14px;
+        border-radius: 12px;
+    }
+
+    .login-wrapper {
+        padding: 14px;
+    }
+
+    .login-card {
+        padding: 24px 18px;
+        border-radius: 14px;
+    }
+
+    .hero-networth {
+        padding: 12px 14px;
+    }
+
     .modal-actions {
         justify-content: flex-end;
         gap: 8px;
@@ -2522,8 +2556,24 @@ th { background-color: var(--th-bg); color: var(--text-color); }
         font-size: 0.76rem;
     }
 
+    .hero-networth {
+        padding: 10px 12px;
+    }
+
     .networth-header h2 {
-        font-size: 1.55rem;
+        font-size: 1.45rem;
+    }
+
+    .breakdown-info strong {
+        font-size: 0.88rem;
+    }
+
+    .cards, .cards-inversiones {
+        gap: 6px;
+    }
+
+    .card {
+        padding: 8px 8px;
     }
 
     .card h3 {
@@ -2531,7 +2581,7 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     }
 
     .card p {
-        font-size: 0.98rem;
+        font-size: 0.95rem;
     }
 }
 
