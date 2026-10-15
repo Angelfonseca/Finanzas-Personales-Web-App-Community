@@ -13,9 +13,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Mis Finanzas Personales</title>
+    <title>Finora | Finanzas Personales</title>
+    <!-- Favicon SVG Finora -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><path d='M10 22L16 10L22 22H18.5L16 16.8L13.5 22H10Z' fill='white'/><circle cx='16' cy='14' r='2.2' fill='%2310b981'/></svg>">
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Hojas de estilo y biblioteca de gráficos Chart.js -->
-    <link rel="stylesheet" href="/static/style.css?v=3.0">
+    <link rel="stylesheet" href="/static/style.css?v=3.1">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -26,9 +32,21 @@
     <div id="vista-login" class="login-wrapper" style="display: none;">
         <div class="login-card">
             <div class="login-brand">
-                <span class="login-icon">💰</span>
-                <h2>Finanzas Personales</h2>
-                <p>Inicia sesión en tu espacio financiero aislado</p>
+                <div class="login-logo-wrap">
+                    <svg class="finora-logo-svg finora-logo-lg" width="56" height="56" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="32" height="32" rx="10" fill="url(#finora-grad-login)"/>
+                        <path d="M10 22L16 10L22 22H18.5L16 16.8L13.5 22H10Z" fill="white"/>
+                        <circle cx="16" cy="14" r="2.2" fill="#10b981"/>
+                        <defs>
+                            <linearGradient id="finora-grad-login" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#4f46e5"/>
+                                <stop offset="1" stop-color="#6366f1"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <h2>Finora</h2>
+                <p>Plataforma Inteligente de Finanzas Personales</p>
             </div>
             <form id="form-login" onsubmit="iniciarSesion(event)">
                 <div class="form-group">
@@ -56,8 +74,23 @@
         <aside id="app-sidebar" class="app-sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-brand">
-                    <span class="brand-icon">💰</span>
-                    <span class="brand-title">Finanzas</span>
+                    <div class="brand-logo-wrap">
+                        <svg class="finora-logo-svg" width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="32" height="32" rx="9" fill="url(#finora-grad-side)"/>
+                            <path d="M10 22L16 10L22 22H18.5L16 16.8L13.5 22H10Z" fill="white"/>
+                            <circle cx="16" cy="14" r="2.2" fill="#10b981"/>
+                            <defs>
+                                <linearGradient id="finora-grad-side" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#4f46e5"/>
+                                    <stop offset="1" stop-color="#6366f1"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <div class="brand-text-wrap">
+                        <span class="brand-title">Finora</span>
+                        <span class="brand-badge">FINANCE</span>
+                    </div>
                 </div>
                 <button type="button" id="btn-sidebar-collapse" class="btn-sidebar-collapse" onclick="toggleSidebar()" title="Colapsar / Expandir panel lateral">
                     <span class="collapse-icon">◀</span>
@@ -724,6 +757,6 @@
     </div>
 
     <!-- Script de lógica de la aplicación -->
-    <script src="/static/app.js?v=3.0"></script>
+    <script src="/static/app.js?v=3.1"></script>
 </body>
 </html>

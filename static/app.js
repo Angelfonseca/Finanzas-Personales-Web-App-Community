@@ -521,16 +521,18 @@ function actualizarGrafica(dataMensual) {
                     {
                         label: 'Ingresos',
                         data: ingresos,
-                        backgroundColor: 'rgba(46, 204, 113, 0.7)',
-                        borderColor: '#2ecc71',
-                        borderWidth: 1
+                        backgroundColor: 'rgba(16, 185, 129, 0.75)',
+                        borderColor: '#10b981',
+                        borderWidth: 1,
+                        borderRadius: 6
                     },
                     {
                         label: 'Gastos',
                         data: gastos,
-                        backgroundColor: 'rgba(231, 76, 60, 0.7)',
-                        borderColor: '#e74c3c',
-                        borderWidth: 1
+                        backgroundColor: 'rgba(244, 63, 94, 0.75)',
+                        borderColor: '#f43f5e',
+                        borderWidth: 1,
+                        borderRadius: 6
                     }
                 ]
             },
@@ -1044,9 +1046,9 @@ function actualizarGraficaDona(posiciones) {
     canvas.style.display = 'block';
 
     const paleta = [
-        '#3498db', '#9b59b6', '#2ecc71', '#f39c12',
-        '#e74c3c', '#1abc9c', '#34495e', '#e67e22',
-        '#00cec9', '#fd79a8', '#6c5ce7', '#fab1a0'
+        '#4f46e5', '#10b981', '#06b6d4', '#8b5cf6',
+        '#f59e0b', '#ec4899', '#3b82f6', '#14b8a6',
+        '#f43f5e', '#6366f1', '#84cc16', '#a855f7'
     ];
 
     const labels = posiciones.map(p => p.ticker);
