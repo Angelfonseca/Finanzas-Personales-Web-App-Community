@@ -937,6 +937,55 @@ async function cargarInversiones() {
     }
 }
 
+const pluginDonaPorcentajes = {
+    id: 'doughnutPercentageLabels',
+    afterDraw(chart) {
+        const { ctx, data } = chart;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data || meta.data.length === 0) return;
+
+        const total = data.datasets[0].data.reduce((acc, val, idx) => {
+            const isVisible = chart.getDataVisibility ? chart.getDataVisibility(idx) : true;
+            return acc + (isVisible ? Number(val || 0) : 0);
+        }, 0);
+        if (total <= 0) return;
+
+        ctx.save();
+        meta.data.forEach((element, index) => {
+            if (chart.getDataVisibility && !chart.getDataVisibility(index)) return;
+
+            const val = Number(data.datasets[0].data[index] || 0);
+            const pct = (val / total) * 100;
+            // Solo dibujar el porcentaje si la rebanada es >= 3.5% para evitar empalmes
+            if (pct < 3.5) return;
+
+            let posX, posY;
+            if (typeof element.tooltipPosition === 'function') {
+                const pos = element.tooltipPosition();
+                posX = pos.x;
+                posY = pos.y;
+            } else {
+                const angle = (element.startAngle + element.endAngle) / 2;
+                const r = (element.innerRadius + element.outerRadius) / 2;
+                posX = element.x + Math.cos(angle) * r;
+                posY = element.y + Math.sin(angle) * r;
+            }
+
+            const pctText = `${pct.toFixed(1)}%`;
+            ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // Sombra suave para garantizar legibilidad y alto contraste sobre cualquier color
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+            ctx.shadowBlur = 4;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(pctText, posX, posY);
+        });
+        ctx.restore();
+    }
+};
+
 function actualizarGraficaDona(posiciones) {
     const canvas = document.getElementById('graficaDonaAllocation');
     if (!canvas) return;
@@ -972,6 +1021,31 @@ function actualizarGraficaDona(posiciones) {
     const isDesktop = window.innerWidth > 900;
     const legendPos = isDesktop && labels.length <= 8 ? 'right' : 'bottom';
 
+    const funcionGenerarEtiquetas = function(chart) {
+        const data = chart.data;
+        if (!data.labels || !data.labels.length || !data.datasets.length) return [];
+        const dataset = data.datasets[0];
+        const total = dataset.data.reduce((acc, val, idx) => {
+            const isVisible = chart.getDataVisibility ? chart.getDataVisibility(idx) : true;
+            return acc + (isVisible ? Number(val || 0) : 0);
+        }, 0);
+
+        return data.labels.map((label, i) => {
+            const val = Number(dataset.data[i] || 0);
+            const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0.0';
+            const bg = dataset.backgroundColor[i % dataset.backgroundColor.length];
+            const isHidden = chart.getDataVisibility ? !chart.getDataVisibility(i) : false;
+            return {
+                text: `${label} (${pct}%)`,
+                fillStyle: bg,
+                strokeStyle: dataset.borderColor || '#ffffff',
+                lineWidth: 1,
+                hidden: isHidden,
+                index: i
+            };
+        });
+    };
+
     if (graficaDona) {
         graficaDona.data.labels = labels;
         graficaDona.data.datasets[0].data = dataValores;
@@ -979,6 +1053,7 @@ function actualizarGraficaDona(posiciones) {
         graficaDona.data.datasets[0].borderColor = esOscuro ? '#1e1e1e' : '#ffffff';
         graficaDona.options.plugins.legend.position = legendPos;
         graficaDona.options.plugins.legend.labels.color = textColor;
+        graficaDona.options.plugins.legend.labels.generateLabels = funcionGenerarEtiquetas;
         graficaDona.update();
     } else {
         graficaDona = new Chart(canvas.getContext('2d'), {
@@ -1003,7 +1078,8 @@ function actualizarGraficaDona(posiciones) {
                             color: textColor,
                             boxWidth: 12,
                             padding: 10,
-                            font: { size: 12, weight: '500' }
+                            font: { size: 12, weight: '600' },
+                            generateLabels: funcionGenerarEtiquetas
                         }
                     },
                     tooltip: {
@@ -1018,7 +1094,8 @@ function actualizarGraficaDona(posiciones) {
                         }
                     }
                 }
-            }
+            },
+            plugins: [pluginDonaPorcentajes]
         });
     }
 }
