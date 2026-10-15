@@ -304,7 +304,11 @@ function actualizarIconosModoOscuro(esOscuro) {
     const iconModo = document.getElementById('icon-modo-oscuro');
     const lblModo = document.getElementById('lbl-modo-oscuro');
     const btn = document.getElementById('btn-modo');
-    if (iconModo) iconModo.textContent = esOscuro ? '☀️' : '🌙';
+    if (iconModo) {
+        iconModo.innerHTML = esOscuro
+            ? `<svg class="ui-svg-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`
+            : `<svg class="ui-svg-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+    }
     if (lblModo) lblModo.textContent = esOscuro ? 'Modo Claro' : 'Modo Oscuro';
     if (btn) btn.setAttribute('title', esOscuro ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro');
 }
@@ -371,7 +375,7 @@ function actualizarColoresDona() {
         graficaDona.options.plugins.legend.labels.color = textColor;
     }
     if (graficaDona.data && graficaDona.data.datasets && graficaDona.data.datasets[0]) {
-        graficaDona.data.datasets[0].borderColor = esOscuro ? '#1e1e1e' : '#ffffff';
+        graficaDona.data.datasets[0].borderColor = esOscuro ? '#0f1624' : '#ffffff';
     }
     graficaDona.update();
 }
@@ -464,8 +468,8 @@ async function cargarDatos() {
                         <td class="${t.tipo === 'gasto' ? 'text-gasto' : 'text-ingreso'}">${escapeHTML(t.tipo.toUpperCase())}</td>
                         <td>$${Number(t.monto).toFixed(2)}</td>
                         <td class="col-acciones">
-                            <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarTransaccionPorId(${t.id})" title="Editar movimiento">✏️</button>
-                            <button type="button" class="btn-accion btn-eliminar" onclick="eliminarTransaccion(${t.id})" title="Eliminar movimiento">✕</button>
+                            <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarTransaccionPorId(${t.id})" title="Editar movimiento"><svg class="action-svg-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+                            <button type="button" class="btn-accion btn-eliminar" onclick="eliminarTransaccion(${t.id})" title="Eliminar movimiento"><svg class="action-svg-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -560,7 +564,7 @@ if (formTrans) {
 
         const mensajeDiv = document.getElementById('mensaje');
         const btnSubmit = formTrans.querySelector('button[type="submit"]');
-        const origText = btnSubmit ? btnSubmit.textContent : '';
+        const origHTML = btnSubmit ? btnSubmit.innerHTML : '';
 
         const montoVal = parseFloat(document.getElementById('monto').value);
         if (isNaN(montoVal) || montoVal <= 0) {
@@ -582,7 +586,7 @@ if (formTrans) {
         guardandoTransaccion = true;
         if (btnSubmit) {
             btnSubmit.disabled = true;
-            btnSubmit.textContent = '⏳ Guardando...';
+            btnSubmit.innerHTML = '<span>Guardando...</span>';
         }
 
         try {
@@ -620,7 +624,7 @@ if (formTrans) {
             guardandoTransaccion = false;
             if (btnSubmit) {
                 btnSubmit.disabled = false;
-                btnSubmit.textContent = origText || '💾 Guardar Transacción';
+                btnSubmit.innerHTML = origHTML || '<span>Guardar Transacción</span>';
             }
         }
     });
@@ -722,9 +726,10 @@ async function guardarNuevoApartado(e) {
 
     guardandoApartado = true;
     const btnSubmit = document.querySelector('#form-apartado button[type="submit"]');
+    const origHTML = btnSubmit ? btnSubmit.innerHTML : '';
     if (btnSubmit) {
         btnSubmit.disabled = true;
-        btnSubmit.textContent = '⏳ Creando...';
+        btnSubmit.innerHTML = '<span>Creando...</span>';
     }
 
     try {
@@ -748,7 +753,7 @@ async function guardarNuevoApartado(e) {
         guardandoApartado = false;
         if (btnSubmit) {
             btnSubmit.disabled = false;
-            btnSubmit.textContent = '💾 Crear Apartado';
+            btnSubmit.innerHTML = origHTML || '<span>Crear Apartado</span>';
         }
     }
 }
@@ -956,8 +961,8 @@ async function cargarInversiones() {
                         <td class="${clasePnl}">${signoPosMonto}$${fmtMoneda(Math.abs(pos.pnl))} (${signoPos}${pos.pnl_porcentaje.toFixed(2)}%)</td>
                         <td><span class="badge-peso">${pos.peso_porcentaje.toFixed(1)}%</span></td>
                         <td class="col-acciones">
-                            <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarInversionPorId(${pos.id})" title="Editar posición">✏️</button>
-                            <button type="button" class="btn-accion btn-eliminar" onclick="eliminarInversion(${pos.id})" title="Eliminar posición">✕</button>
+                            <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarInversionPorId(${pos.id})" title="Editar posición"><svg class="action-svg-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+                            <button type="button" class="btn-accion btn-eliminar" onclick="eliminarInversion(${pos.id})" title="Eliminar posición"><svg class="action-svg-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -1046,9 +1051,18 @@ function actualizarGraficaDona(posiciones) {
     canvas.style.display = 'block';
 
     const paleta = [
-        '#4f46e5', '#10b981', '#06b6d4', '#8b5cf6',
-        '#f59e0b', '#ec4899', '#3b82f6', '#14b8a6',
-        '#f43f5e', '#6366f1', '#84cc16', '#a855f7'
+        '#c5a059', // Champagne Gold / Commodities & Metals
+        '#1e3a8a', // Deep Sovereign Navy / Equities
+        '#0d9488', // Sovereign Emerald / Cash & Liquidity
+        '#d97706', // Warm Amber / Real Estate
+        '#475569', // Slate Platinum / Fixed Income
+        '#4338ca', // Royal Indigo / Tech Growth
+        '#7c3aed', // Deep Violet / Alternatives & PE
+        '#be123c', // Burgundy / Growth Assets
+        '#0284c7', // Sky Azure / International Markets
+        '#84cc16', // Sage / Sustainable ESG
+        '#b45309', // Burnished Bronze / Infrastructure
+        '#64748b'  // Treasury Steel
     ];
 
     const labels = posiciones.map(p => p.ticker);
@@ -1079,7 +1093,7 @@ function actualizarGraficaDona(posiciones) {
             return {
                 text: `${label} (${pct}%)`,
                 fillStyle: bg,
-                strokeStyle: dataset.borderColor || (modoOscuroActivo ? '#1e1e1e' : '#ffffff'),
+                strokeStyle: dataset.borderColor || (modoOscuroActivo ? '#0f1624' : '#ffffff'),
                 lineWidth: 1,
                 hidden: isHidden,
                 index: i,
@@ -1092,7 +1106,7 @@ function actualizarGraficaDona(posiciones) {
         graficaDona.data.labels = labels;
         graficaDona.data.datasets[0].data = dataValores;
         graficaDona.data.datasets[0].backgroundColor = colores;
-        graficaDona.data.datasets[0].borderColor = esOscuro ? '#1e1e1e' : '#ffffff';
+        graficaDona.data.datasets[0].borderColor = esOscuro ? '#0f1624' : '#ffffff';
         graficaDona.options.plugins.legend.position = legendPos;
         graficaDona.options.plugins.legend.labels.color = textColor;
         graficaDona.options.plugins.legend.labels.generateLabels = funcionGenerarEtiquetas;
@@ -1106,7 +1120,7 @@ function actualizarGraficaDona(posiciones) {
                     data: dataValores,
                     backgroundColor: colores,
                     borderWidth: 2,
-                    borderColor: esOscuro ? '#1e1e1e' : '#ffffff'
+                    borderColor: esOscuro ? '#0f1624' : '#ffffff'
                 }]
             },
             options: {
@@ -1271,10 +1285,10 @@ if (formInversion) {
 
         guardandoInversion = true;
         const btnSubmit = formInversion.querySelector('button[type="submit"]');
-        const origText = btnSubmit ? btnSubmit.textContent : '';
+        const origHTML = btnSubmit ? btnSubmit.innerHTML : '';
         if (btnSubmit) {
             btnSubmit.disabled = true;
-            btnSubmit.textContent = '⏳ Registrando...';
+            btnSubmit.innerHTML = '<span>Registrando...</span>';
         }
 
         try {
@@ -1301,7 +1315,7 @@ if (formInversion) {
             guardandoInversion = false;
             if (btnSubmit) {
                 btnSubmit.disabled = false;
-                btnSubmit.textContent = origText || '📈 Añadir Posición';
+                btnSubmit.innerHTML = origHTML || '<span>Guardar Activo</span>';
             }
         }
     });
@@ -1427,7 +1441,7 @@ async function cargarDatosAdmin() {
                     const esAdminPrincipal = (u.id === 1 || (u.username && u.username.toLowerCase() === 'admin'));
                     
                     let accionesHtml = `
-                        <button type="button" class="btn-edit-user" onclick="abrirModalEditarUsuarioPorId(${u.id})" title="Editar nombre de usuario y contraseña">✏️ Editar</button>
+                        <button type="button" class="btn-edit-user" onclick="abrirModalEditarUsuarioPorId(${u.id})" title="Editar usuario"><svg class="btn-svg-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Editar</button>
                     `;
 
                     if (!esMismoAdmin) {
@@ -1440,11 +1454,11 @@ async function cargarDatosAdmin() {
 
                     if (esAdminPrincipal || esMismoAdmin) {
                         accionesHtml += `
-                            <button type="button" class="btn-delete-user btn-disabled" disabled title="No se puede eliminar la cuenta principal de administración">🚫 Eliminar</button>
+                            <button type="button" class="btn-delete-user btn-disabled" disabled title="No se puede eliminar la cuenta principal de administración"><svg class="btn-svg-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> Eliminar</button>
                         `;
                     } else {
                         accionesHtml += `
-                            <button type="button" class="btn-delete-user" onclick="eliminarUsuarioTenantPorId(${u.id})" title="Eliminar usuario y su base de datos">🗑️ Eliminar</button>
+                            <button type="button" class="btn-delete-user" onclick="eliminarUsuarioTenantPorId(${u.id})" title="Eliminar usuario y su base de datos"><svg class="btn-svg-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Eliminar</button>
                         `;
                     }
 
@@ -1544,10 +1558,10 @@ async function guardarNuevoUsuario(e) {
 
     guardandoUsuario = true;
     const btnSubmit = document.querySelector('#form-crear-usuario button[type="submit"]');
-    const origText = btnSubmit ? btnSubmit.textContent : '';
+    const origHTML = btnSubmit ? btnSubmit.innerHTML : '';
     if (btnSubmit) {
         btnSubmit.disabled = true;
-        btnSubmit.textContent = '⏳ Creando...';
+        btnSubmit.innerHTML = '<span>Creando...</span>';
     }
 
     try {
@@ -1575,7 +1589,7 @@ async function guardarNuevoUsuario(e) {
         guardandoUsuario = false;
         if (btnSubmit) {
             btnSubmit.disabled = false;
-            btnSubmit.textContent = origText || '💾 Crear Usuario y Base de Datos';
+            btnSubmit.innerHTML = origHTML || '<span>Crear Usuario</span>';
         }
     }
 }
@@ -1750,11 +1764,11 @@ function cambiarPestana(tabId) {
 
     // Actualizar título dinámico en la barra superior (topbar)
     const titulosMap = {
-        'tab-dashboard': '📊 Resumen',
-        'tab-movimientos': '💳 Movimientos',
-        'tab-apartados': '🎯 Metas de Ahorro',
-        'tab-inversiones': '📈 Inversiones',
-        'tab-admin': '🛡️ Administración'
+        'tab-dashboard': 'Resumen',
+        'tab-movimientos': 'Movimientos',
+        'tab-apartados': 'Metas de Ahorro',
+        'tab-inversiones': 'Inversiones',
+        'tab-admin': 'Administración'
     };
     const lblTitulo = document.getElementById('topbar-section-title');
     if (lblTitulo && titulosMap[tabId]) {
@@ -1925,10 +1939,10 @@ window.addEventListener('keydown', (e) => {
 
 function exportarExcel() {
     const btn = document.querySelector('.btn-export');
-    const origText = btn ? btn.textContent : '';
+    const origHTML = btn ? btn.innerHTML : '';
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '⏳ Exportando...';
+        btn.innerHTML = '<span>Exportando...</span>';
     }
 
     apiFetch(`/api/exportar-excel?moneda_base=${encodeURIComponent(monedaGlobal)}`)
@@ -1952,17 +1966,17 @@ function exportarExcel() {
         .finally(() => {
             if (btn) {
                 btn.disabled = false;
-                btn.textContent = origText || '📊 Exportar Excel';
+                btn.innerHTML = origHTML || '<span>Exportar Excel</span>';
             }
         });
 }
 
 async function descargarBackup() {
     const btn = document.querySelector('.btn-backup');
-    const origText = btn ? btn.textContent : '';
+    const origHTML = btn ? btn.innerHTML : '';
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '⏳ Generando...';
+        btn.innerHTML = '<span>Generando respaldo...</span>';
     }
 
     try {
@@ -2001,7 +2015,7 @@ async function descargarBackup() {
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = origText || '💾 Respaldo';
+            btn.innerHTML = origHTML || '<span>Descargar Respaldo</span>';
         }
     }
 }
@@ -2010,7 +2024,7 @@ function solicitarImportarBackup() {
     const input = document.getElementById('input-restore-db');
     if (!input) return;
     const confirmar = confirm(
-        "⚠️ ADVERTENCIA: Restaurar una copia de seguridad reemplazará los datos actuales de tu cuenta con los del archivo seleccionado.\n\n" +
+        "ADVERTENCIA: Restaurar una copia de seguridad reemplazará los datos actuales de tu cuenta con los del archivo seleccionado.\n\n" +
         "Se creará un respaldo de seguridad automático (.bak) antes de aplicar la restauración.\n\n" +
         "¿Deseas seleccionar el archivo de respaldo (.db) ahora?"
     );
@@ -2035,10 +2049,10 @@ async function procesarArchivoBackup(e) {
     }
 
     const btnRestore = document.querySelector('.btn-restore');
-    const origText = btnRestore ? btnRestore.textContent : '';
+    const origHTML = btnRestore ? btnRestore.innerHTML : '';
     if (btnRestore) {
         btnRestore.disabled = true;
-        btnRestore.textContent = '⏳ Restaurando...';
+        btnRestore.innerHTML = '<span>Restaurando base de datos...</span>';
     }
 
     const formData = new FormData();
@@ -2052,7 +2066,7 @@ async function procesarArchivoBackup(e) {
 
         if (res.ok) {
             const data = await res.json();
-            alert("✅ ¡Base de datos restaurada con éxito!\n\nTus datos han sido actualizados.");
+            alert("¡Base de datos restaurada con éxito!\n\nTus datos han sido actualizados.");
             await cargarDatos();
             if (usuarioActual && usuarioActual.role === 'admin') {
                 await cargarDatosAdmin();
@@ -2063,15 +2077,15 @@ async function procesarArchivoBackup(e) {
                 const err = await res.json();
                 errorMsg = formatErrorDetail(err.detail, errorMsg);
             } catch (_) {}
-            alert("❌ " + errorMsg);
+            alert(errorMsg);
         }
     } catch (err) {
         console.error("Error al restaurar respaldo:", err);
-        alert("❌ Error al procesar o subir el archivo de respaldo.");
+        alert("Error al procesar o subir el archivo de respaldo.");
     } finally {
         if (btnRestore) {
             btnRestore.disabled = false;
-            btnRestore.textContent = origText || '📥 Restaurar';
+            btnRestore.innerHTML = origHTML || '<span>Restaurar Base de Datos</span>';
         }
         e.target.value = '';
     }
