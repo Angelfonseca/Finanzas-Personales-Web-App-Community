@@ -551,8 +551,8 @@ body {
 /* Área de Contenido Principal */
 .app-main-content {
     flex: 1;
-    padding: 24px;
-    max-width: 1250px;
+    padding: 16px 20px;
+    max-width: 1400px;
     width: 100%;
     margin: 0 auto;
     box-sizing: border-box;
@@ -590,56 +590,65 @@ body {
 /* Tarjetas superiores */
 .cards {
     display: flex;
-    gap: 15px;
-    margin-bottom: 25px;
+    gap: 12px;
+    margin-bottom: 16px;
 }
 .card {
     flex: 1;
     background: var(--panel-bg);
-    padding: 20px;
-    border-radius: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
     box-shadow: var(--card-shadow);
     text-align: center;
 }
 .card h3 {
-    margin: 0 0 10px 0;
-    font-size: 0.9rem;
+    margin: 0 0 4px 0;
+    font-size: 0.74rem;
     color: var(--text-muted);
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 .card p {
     margin: 0;
-    font-size: 1.4rem;
+    font-size: 1.25rem;
     font-weight: bold;
 }
 .card.balance p { color: #3498db; }
 .card.ingresos p { color: #2ecc71; }
 .card.gastos p { color: #e74c3c; }
 
-/* Estructura de Dos Columnas */
+/* Estructura de Columnas y Grids */
 .dashboard-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 25px;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+.dashboard-grid-movimientos {
+    grid-template-columns: 330px 1fr;
 }
 @media (max-width: 900px) {
-    .dashboard-grid { grid-template-columns: 1fr; }
+    .dashboard-grid,
+    .dashboard-grid-movimientos { grid-template-columns: 1fr; }
 }
 
 .panel {
     background: var(--panel-bg);
-    padding: 25px;
-    border-radius: 12px;
+    padding: 16px 18px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
     box-shadow: var(--card-shadow);
-    margin-bottom: 25px;
+    margin-bottom: 16px;
 }
 h2 {
     margin-top: 0;
     color: var(--text-color);
     text-align: center;
-    font-size: 1.2rem;
+    font-size: 1.05rem;
+    margin-bottom: 12px;
 }
-.form-group { margin-bottom: 14px; }
+.form-group { margin-bottom: 10px; }
 .form-row-2col {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -850,44 +859,63 @@ form > button[type="submit"]:active,
 }
 .btn-eliminar:hover { background-color: #c0392b; }
 #mensaje { margin-top: 15px; text-align: center; font-weight: 600; font-size: 0.9rem; }
-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--table-border); font-size: 0.85rem; color: var(--text-color); }
+table { width: 100%; border-collapse: collapse; margin-top: 0; }
+th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--table-border); font-size: 0.82rem; color: var(--text-color); }
 th { background-color: var(--th-bg); color: var(--text-color); }
 .text-gasto { color: #e74c3c; font-weight: bold; }
 .text-ingreso { color: #2ecc71; font-weight: bold; }
-.table-responsive { overflow-x: auto; }
+.table-responsive {
+    max-height: 460px;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--panel-bg);
+}
+.table-responsive th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background-color: var(--th-bg);
+}
 .monthly-card {
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-left: 4px solid #3498db;
-    padding: 10px 15px;
-    margin-bottom: 10px;
-    border-radius: 4px;
+    padding: 7px 12px;
+    margin-bottom: 6px;
+    border-radius: 6px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
 }
-.monthly-info span { font-weight: bold; margin-left: 10px; }
+.monthly-info span { font-weight: bold; margin-left: 8px; }
+#lista-resumen-mensual {
+    max-height: 230px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
 .chart-container {
     position: relative;
     width: 100%;
-    max-height: 300px;
+    height: 230px;
+    max-height: 240px;
     display: flex;
     justify-content: center;
 }
 .grid-apartados {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
-  margin-top: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
 }
 
 /* --- ESTILOS DE APARTADOS Y METAS --- */
 .card-apartado {
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 1rem;
+    border-radius: 10px;
+    padding: 12px 14px;
     background-color: var(--panel-bg); 
     color: var(--text-color);          
     box-shadow: var(--card-shadow);
@@ -897,12 +925,12 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 /* Botón de borrar apartado */
 .btn-eliminar-apartado {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 8px;
+    right: 8px;
     background-color: transparent;
     color: #e74c3c;
     border: none;
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: bold;
     cursor: pointer;
     padding: 0;
@@ -918,10 +946,10 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 .progress-bar-bg {
   background-color: var(--border-color);
   border-radius: 4px;
-  height: 12px;
+  height: 8px;
   width: 100%;
   overflow: hidden;
-  margin: 8px 0;
+  margin: 6px 0;
 }
 
 .progress-bar-fill {
@@ -934,7 +962,7 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 .acciones-apartado {
   display: flex;
   gap: 6px;
-  margin-top: 10px;
+  margin-top: 8px;
   align-items: center;
 }
 
@@ -942,19 +970,19 @@ th { background-color: var(--th-bg); color: var(--text-color); }
   flex: 1;
   min-width: 0;
   margin: 0;
-  height: 32px;
+  height: 30px;
   padding: 0 8px;
-  font-size: 0.86rem;
+  font-size: 0.84rem;
   border-radius: 6px;
 }
 
 .acciones-apartado button {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
   margin: 0;
   padding: 0;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: bold;
   border-radius: 6px;
   display: inline-flex;
@@ -1032,8 +1060,8 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 
 .inversiones-grid {
     display: grid;
-    grid-template-columns: 340px 1fr;
-    gap: 25px;
+    grid-template-columns: 310px 1fr;
+    gap: 16px;
     align-items: start;
     width: 100%;
     max-width: 100%;
@@ -1050,7 +1078,7 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 @media (max-width: 950px) {
     .inversiones-grid {
         grid-template-columns: 1fr;
-        gap: 20px;
+        gap: 16px;
     }
 }
 
@@ -1091,9 +1119,9 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 }
 
 .dona-wrapper {
-    margin-top: 20px;
+    margin-top: 14px;
     background: var(--bg-color);
-    padding: 15px;
+    padding: 10px 12px;
     border-radius: 8px;
     border: 1px solid var(--border-color);
     width: 100%;
@@ -1105,8 +1133,8 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     position: relative;
     width: 100%;
     max-width: 100%;
-    height: 230px;
-    max-height: 250px;
+    height: 180px;
+    max-height: 190px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1144,45 +1172,66 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 .hero-networth {
     background: linear-gradient(135deg, var(--panel-bg) 0%, rgba(52, 152, 219, 0.08) 100%);
     border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 25px 30px;
-    margin-bottom: 25px;
+    border-radius: 12px;
+    padding: 14px 20px;
+    margin-bottom: 16px;
     box-shadow: var(--card-shadow);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.networth-header {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .networth-header small {
     display: block;
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     font-weight: 700;
     color: var(--text-muted);
-    letter-spacing: 1.5px;
+    letter-spacing: 1px;
 }
 
 .networth-header h2 {
-    margin: 8px 0 20px 0;
-    font-size: 2.3rem;
+    margin: 3px 0 0 0;
+    font-size: 1.85rem;
     font-weight: 800;
     color: #2ecc71;
     text-align: left;
+    line-height: 1.1;
 }
 
 .networth-breakdown {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    padding-top: 15px;
-    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-top: 0;
+    border-top: none;
 }
 
 .breakdown-item {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid var(--border-color);
+    padding: 6px 12px;
+    border-radius: 8px;
+}
+
+[data-theme="dark"] .breakdown-item {
+    background: rgba(255, 255, 255, 0.03);
 }
 
 .breakdown-dot {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     flex-shrink: 0;
 }
@@ -1192,12 +1241,12 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 
 .breakdown-info small {
     display: block;
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     color: var(--text-muted);
 }
 
 .breakdown-info strong {
-    font-size: 1.15rem;
+    font-size: 0.95rem;
     color: var(--text-color);
 }
 
@@ -1207,9 +1256,9 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 15px;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -1615,40 +1664,54 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     align-items: center;
     flex-wrap: wrap;
     gap: 12px;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
     border-bottom: 1px solid var(--border-color);
 }
 
 .cards-admin {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    margin-bottom: 25px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 900px) {
+    .cards-admin {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .cards-admin {
+        grid-template-columns: 1fr;
+    }
 }
 
 .card-kpi {
-    padding: 18px;
-    border-radius: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
     text-align: center;
 }
 
 .card-kpi h3 {
-    font-size: 0.85rem;
+    font-size: 0.72rem;
     color: var(--text-muted);
     text-transform: uppercase;
-    margin: 0 0 8px 0;
+    letter-spacing: 0.5px;
+    margin: 0 0 4px 0;
 }
 
 .card-kpi p {
-    font-size: 1.55rem;
+    font-size: 1.35rem;
     font-weight: 700;
     margin: 0;
     color: var(--text-color);
 }
 
 .admin-table-wrap {
-    margin-top: 20px;
+    margin-top: 14px;
 }
 
 .badge-status {
@@ -1797,13 +1860,6 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     .user-trigger-info {
         display: none; /* En pantallas pequeñas solo mostrar avatar y flecha */
     }
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        box-sizing: border-box;
-        padding: 6px 10px;
-        gap: 6px;
-    }
 
     .moneda-global-label {
         font-size: 0.75rem;
@@ -1841,7 +1897,8 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 
     /* Tarjetas Hero de Patrimonio Neto */
     .hero-networth {
-        padding: 16px;
+        display: block;
+        padding: 14px 16px;
         border-radius: 12px;
         margin-bottom: 14px;
     }
