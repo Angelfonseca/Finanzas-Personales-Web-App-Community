@@ -378,6 +378,8 @@ function actualizarColoresDona() {
         graficaDona.data.datasets[0].borderColor = esOscuro ? '#0f1624' : '#ffffff';
     }
     graficaDona.update();
+}
+
 // =============================================================================
 // 4.1 MODO PRIVACIDAD / DISCRECIÓN (ESTILO COPILOT & MONARCH MONEY)
 // =============================================================================
@@ -2281,6 +2283,7 @@ window.cerrarSidebarMobile = cerrarSidebarMobile;
 window.toggleUserDropdown = toggleUserDropdown;
 window.cerrarUserDropdown = cerrarUserDropdown;
 window.toggleModoOscuro = toggleModoOscuro;
+window.toggleModoPrivacidad = toggleModoPrivacidad;
 window.toggleMetaInput = toggleMetaInput;
 window.realizarMovimiento = realizarMovimiento;
 window.eliminarApartado = eliminarApartado;
