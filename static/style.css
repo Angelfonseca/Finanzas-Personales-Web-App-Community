@@ -473,6 +473,58 @@ body {
     border: 1px solid var(--border-color);
 }
 
+/* --- BOTÓN MODO PRIVACIDAD TOPBAR (ESTILO COPILOT / MONARCH) --- */
+.btn-topbar-privacy {
+    background: var(--bg-color);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+    flex-shrink: 0;
+}
+.btn-topbar-privacy:hover {
+    color: var(--gold-color);
+    border-color: var(--gold-border);
+}
+.btn-topbar-privacy.active {
+    background: var(--gold-subtle);
+    color: var(--gold-color);
+    border-color: var(--gold-border);
+}
+
+/* Modo Privacidad / Blur Discreto con Peek-on-Hover */
+body.privacy-mode .hero-networth strong,
+body.privacy-mode #lbl-dash-patrimonio,
+body.privacy-mode .card p,
+body.privacy-mode .breakdown-info strong,
+body.privacy-mode #lbl-apartados-total-acum,
+body.privacy-mode .badge-peso,
+body.privacy-mode #tabla-movimientos td:nth-child(4),
+body.privacy-mode #tabla-inversiones td:nth-child(4),
+body.privacy-mode #tabla-inversiones td:nth-child(6),
+body.privacy-mode #tabla-inversiones td:nth-child(7) {
+    filter: blur(8px);
+    user-select: none;
+    transition: filter 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body.privacy-mode .card:hover p,
+body.privacy-mode .hero-networth:hover strong,
+body.privacy-mode .breakdown-item:hover strong,
+body.privacy-mode #tabla-movimientos tr:hover td:nth-child(4),
+body.privacy-mode #tabla-inversiones tr:hover td:nth-child(4),
+body.privacy-mode #tabla-inversiones tr:hover td:nth-child(6),
+body.privacy-mode #tabla-inversiones tr:hover td:nth-child(7) {
+    filter: blur(0px);
+}
+
 /* Menú de Usuario en la Esquina Superior Derecha */
 .user-menu-container {
     position: relative;
@@ -1481,6 +1533,34 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     color: var(--text-color);
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
+}
+
+/* --- TIRA DE ASSET ALLOCATION PATRIMONIAL (ESTILO KUBERA) --- */
+.networth-alloc-track {
+    width: 100%;
+    height: 5px;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
+    display: flex;
+    overflow: hidden;
+    margin-top: 10px;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+[data-theme="dark"] .networth-alloc-track {
+    background: rgba(255, 255, 255, 0.08);
+}
+.alloc-bar {
+    height: 100%;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.alloc-bar-balance {
+    background-color: var(--primary-color);
+}
+.alloc-bar-apartados {
+    background-color: var(--gold-color);
+}
+.alloc-bar-inversiones {
+    background-color: #3b82f6;
 }
 
 /* Cabecera de Apartados */

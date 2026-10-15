@@ -378,6 +378,39 @@ function actualizarColoresDona() {
         graficaDona.data.datasets[0].borderColor = esOscuro ? '#0f1624' : '#ffffff';
     }
     graficaDona.update();
+// =============================================================================
+// 4.1 MODO PRIVACIDAD / DISCRECIÓN (ESTILO COPILOT & MONARCH MONEY)
+// =============================================================================
+
+function toggleModoPrivacidad() {
+    const activo = document.body.classList.toggle('privacy-mode');
+    localStorage.setItem('finora_privacy_mode', activo ? '1' : '0');
+    actualizarIconoPrivacidad(activo);
+}
+
+function actualizarIconoPrivacidad(activo) {
+    const icon = document.getElementById('icon-privacy');
+    const btn = document.getElementById('btn-toggle-privacidad');
+    if (icon) {
+        if (activo) {
+            icon.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`;
+            if (btn) {
+                btn.classList.add('active');
+                btn.setAttribute('title', 'Modo Discreción ACTIVO: Cifras ocultas (pasa el cursor para ver). Haz clic para revelar todo.');
+            }
+        } else {
+            icon.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+            if (btn) {
+                btn.classList.remove('active');
+                btn.setAttribute('title', 'Modo Discreción: Ocultar cifras sensibles en pantalla');
+            }
+        }
+    }
+}
+
+if (localStorage.getItem('finora_privacy_mode') === '1') {
+    document.body.classList.add('privacy-mode');
+    setTimeout(() => actualizarIconoPrivacidad(true), 60);
 }
 
 // =============================================================================
@@ -410,6 +443,23 @@ async function cargarDatos() {
             document.getElementById('lbl-dash-inversiones').textContent = `$${fmtMoneda(dataResumen.inversiones)} ${monedaGlobal}`;
             document.getElementById('lbl-dash-ingresos').textContent = `$${fmtMoneda(dataResumen.ingresos)}`;
             document.getElementById('lbl-dash-gastos').textContent = `$${fmtMoneda(dataResumen.gastos)}`;
+
+            // Tira de Distribución de Activos (Asset Allocation estilo Kubera)
+            const vBal = Math.max(0, Number(dataResumen.balance) || 0);
+            const vAp = Math.max(0, Number(dataResumen.apartados) || 0);
+            const vInv = Math.max(0, Number(dataResumen.inversiones) || 0);
+            const totalAct = vBal + vAp + vInv;
+            if (totalAct > 0) {
+                const pBal = ((vBal / totalAct) * 100).toFixed(1);
+                const pAp = ((vAp / totalAct) * 100).toFixed(1);
+                const pInv = ((vInv / totalAct) * 100).toFixed(1);
+                const barBal = document.getElementById('alloc-bar-balance');
+                const barAp = document.getElementById('alloc-bar-apartados');
+                const barInv = document.getElementById('alloc-bar-inversiones');
+                if (barBal) { barBal.style.width = `${pBal}%`; barBal.title = `Efectivo: ${pBal}% ($${fmtMoneda(vBal)})`; }
+                if (barAp) { barAp.style.width = `${pAp}%`; barAp.title = `Metas/Apartados: ${pAp}% ($${fmtMoneda(vAp)})`; }
+                if (barInv) { barInv.style.width = `${pInv}%`; barInv.title = `Inversiones: ${pInv}% ($${fmtMoneda(vInv)})`; }
+            }
         }
 
         if (document.getElementById('lbl-apartados-total-acum')) {

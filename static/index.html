@@ -13,9 +13,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Finora | Finanzas Personales</title>
-    <!-- Favicon SVG Finora -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><path d='M10 22L16 10L22 22H18.5L16 16.8L13.5 22H10Z' fill='white'/><circle cx='16' cy='14' r='2.2' fill='%2310b981'/></svg>">
+    <title>Finora | Gestión Patrimonial</title>
+    <!-- Favicon SVG Finora Sovereign Wealth -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%23080c14' stroke='%23c5a059' stroke-width='1.5'/><path d='M10 22L16 10L22 22H18.5L16 16.8L13.5 22H10Z' fill='%23dfba73'/><circle cx='16' cy='14' r='2.2' fill='%2310b981'/></svg>">
+    <link rel="alternate icon" href="/static/favicon.svg" type="image/svg+xml">
     <!-- Google Fonts: Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -175,6 +176,13 @@
                         <span id="badge-tasa-global" class="badge-tasa-topbar">1 USD ≈ $18.40 MXN</span>
                     </div>
 
+                    <!-- Botón Modo Privacidad / Discreción (Estilo Copilot & Monarch) -->
+                    <button type="button" id="btn-toggle-privacidad" class="btn-topbar-privacy" onclick="toggleModoPrivacidad()" title="Modo Discreción: Ocultar o mostrar cifras sensibles">
+                        <svg class="ui-svg-icon" id="icon-privacy" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+
                     <!-- Menú de Usuario en la Esquina Superior Derecha -->
                     <div id="user-menu-wrapper" class="user-menu-container">
                         <button type="button" id="btn-user-menu-trigger" class="btn-user-trigger" onclick="toggleUserDropdown(event)" aria-haspopup="true" aria-expanded="false" title="Opciones de usuario">
@@ -290,6 +298,13 @@
                             <strong id="lbl-dash-inversiones">$0.00</strong>
                         </div>
                     </div>
+                </div>
+
+                <!-- Tira de Distribución de Patrimonio (Estilo Kubera Asset Allocation) -->
+                <div class="networth-alloc-track" id="networth-alloc-track" title="Distribución de Activos: Efectivo vs Metas vs Inversiones">
+                    <div class="alloc-bar alloc-bar-balance" id="alloc-bar-balance" style="width: 33.3%;"></div>
+                    <div class="alloc-bar alloc-bar-apartados" id="alloc-bar-apartados" style="width: 33.3%;"></div>
+                    <div class="alloc-bar alloc-bar-inversiones" id="alloc-bar-inversiones" style="width: 33.4%;"></div>
                 </div>
             </div>
 
