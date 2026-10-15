@@ -1058,28 +1058,42 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     font-weight: 600;
 }
 
-.inversiones-grid {
+/* Layout Mejorado de Inversiones (Fila Superior 2 Columnas + Tabla Inferior Ancho Completo) */
+.inversiones-top-grid {
     display: grid;
-    grid-template-columns: 310px 1fr;
+    grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.25fr);
     gap: 16px;
-    align-items: start;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-}
-
-.inversiones-col-lateral,
-.inversiones-col-tabla {
-    min-width: 0;
-    max-width: 100%;
-    width: 100%;
+    align-items: stretch;
+    margin-bottom: 16px;
 }
 
 @media (max-width: 950px) {
-    .inversiones-grid {
+    .inversiones-top-grid {
         grid-template-columns: 1fr;
-        gap: 16px;
+        gap: 14px;
     }
+}
+
+.inversiones-col-form,
+.inversiones-col-chart {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.inversiones-col-form .card-form {
+    background: var(--bg-color);
+    padding: 16px 18px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.inversiones-tabla-section {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
 }
 
 .input-group-search {
@@ -1119,22 +1133,30 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 }
 
 .dona-wrapper {
-    margin-top: 14px;
+    margin-top: 0;
     background: var(--bg-color);
-    padding: 10px 12px;
-    border-radius: 8px;
+    padding: 16px 18px;
+    border-radius: 10px;
     border: 1px solid var(--border-color);
     width: 100%;
     max-width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
+}
+
+.dona-header {
+    margin-bottom: 12px;
 }
 
 .chart-container-dona {
     position: relative;
     width: 100%;
-    max-width: 100%;
-    height: 180px;
-    max-height: 190px;
+    flex: 1;
+    min-height: 250px;
+    max-height: 285px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1142,6 +1164,7 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 
 .chart-container-dona canvas {
     max-width: 100% !important;
+    max-height: 280px !important;
 }
 
 .pnl-positivo {
@@ -2027,7 +2050,7 @@ th { background-color: var(--th-bg); color: var(--text-color); }
         min-width: 0;
     }
 
-    .inversiones-grid {
+    .inversiones-top-grid {
         grid-template-columns: 1fr;
         gap: 14px;
         width: 100%;
@@ -2035,8 +2058,9 @@ th { background-color: var(--th-bg); color: var(--text-color); }
         min-width: 0;
     }
 
-    .inversiones-col-lateral,
-    .inversiones-col-tabla {
+    .inversiones-col-form,
+    .inversiones-col-chart,
+    .inversiones-tabla-section {
         width: 100%;
         max-width: 100%;
         min-width: 0;

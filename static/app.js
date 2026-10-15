@@ -941,8 +941,22 @@ function actualizarGraficaDona(posiciones) {
     const canvas = document.getElementById('graficaDonaAllocation');
     if (!canvas) return;
 
+    const noDataMsg = document.getElementById('dona-sin-datos');
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = esOscuro ? '#e0e0e0' : '#333333';
+
+    if (!posiciones || posiciones.length === 0) {
+        if (noDataMsg) noDataMsg.style.display = 'block';
+        canvas.style.display = 'none';
+        if (graficaDona) {
+            graficaDona.destroy();
+            graficaDona = null;
+        }
+        return;
+    }
+
+    if (noDataMsg) noDataMsg.style.display = 'none';
+    canvas.style.display = 'block';
 
     const paleta = [
         '#3498db', '#9b59b6', '#2ecc71', '#f39c12',
@@ -954,11 +968,16 @@ function actualizarGraficaDona(posiciones) {
     const dataValores = posiciones.map(p => p.valor_actual);
     const colores = labels.map((_, i) => paleta[i % paleta.length]);
 
+    // En pantallas de escritorio, si hay hasta 8 posiciones, ubicar leyenda a la derecha
+    const isDesktop = window.innerWidth > 900;
+    const legendPos = isDesktop && labels.length <= 8 ? 'right' : 'bottom';
+
     if (graficaDona) {
         graficaDona.data.labels = labels;
         graficaDona.data.datasets[0].data = dataValores;
         graficaDona.data.datasets[0].backgroundColor = colores;
         graficaDona.data.datasets[0].borderColor = esOscuro ? '#1e1e1e' : '#ffffff';
+        graficaDona.options.plugins.legend.position = legendPos;
         graficaDona.options.plugins.legend.labels.color = textColor;
         graficaDona.update();
     } else {
@@ -976,11 +995,16 @@ function actualizarGraficaDona(posiciones) {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '65%',
+                cutout: '62%',
                 plugins: {
                     legend: {
-                        position: 'bottom',
-                        labels: { color: textColor, boxWidth: 12, font: { size: 11 } }
+                        position: legendPos,
+                        labels: {
+                            color: textColor,
+                            boxWidth: 12,
+                            padding: 10,
+                            font: { size: 12, weight: '500' }
+                        }
                     },
                     tooltip: {
                         callbacks: {

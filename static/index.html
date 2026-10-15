@@ -15,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mis Finanzas Personales</title>
     <!-- Hojas de estilo y biblioteca de gráficos Chart.js -->
-    <link rel="stylesheet" href="/static/style.css?v=2.7">
+    <link rel="stylesheet" href="/static/style.css?v=2.8">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -380,11 +380,12 @@
                     </div>
                 </div>
 
-                <div class="inversiones-grid">
+                <!-- Fila Superior: Formulario de Registro y Gráfica de Asignación en 2 Columnas -->
+                <div class="inversiones-top-grid">
                     
-                    <div class="inversiones-col-lateral">
+                    <div class="inversiones-col-form">
                         <form id="form-inversion" class="card-form">
-                            <h3 style="margin-top: 0; font-size: 1rem; color: var(--text-color);">+ Registrar Posición</h3>
+                            <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 1rem; color: var(--text-color);">+ Registrar Posición</h3>
                             
                             <div class="form-group">
                                 <label for="inv-ticker">Ticker (ej. VOO, QQQ, WALMEX.MX):</label>
@@ -426,39 +427,50 @@
                                 <button type="submit" class="btn-primary">💾 Guardar Activo</button>
                             </div>
                         </form>
+                    </div>
 
+                    <div class="inversiones-col-chart">
                         <div class="dona-wrapper">
-                            <h3 style="text-align: center; font-size: 1rem; margin-bottom: 10px; color: var(--text-color);">🎯 Asignación de Activos (% Peso)</h3>
+                            <div class="dona-header">
+                                <h3 style="margin: 0; font-size: 1rem; color: var(--text-color);">🎯 Asignación de Activos (% Peso)</h3>
+                                <p style="margin: 3px 0 0 0; color: var(--text-muted); font-size: 0.8rem;">Distribución porcentual por valor de mercado actual.</p>
+                            </div>
                             <div class="chart-container-dona">
                                 <canvas id="graficaDonaAllocation"></canvas>
+                                <div id="dona-sin-datos" style="display: none; text-align: center; color: var(--text-muted); padding: 30px 10px;">
+                                    <span style="font-size: 2.2rem; display: block; margin-bottom: 8px;">📊</span>
+                                    <strong style="color: var(--text-color);">Sin posiciones registradas</strong>
+                                    <p style="margin: 5px 0 0 0; font-size: 0.82rem;">Registra tu primer activo a la izquierda para visualizar la gráfica de distribución.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="inversiones-col-tabla">
-                        <h3 style="margin-top: 0; font-size: 1rem; color: var(--text-color);">📊 Mis Posiciones</h3>
-                        <div class="table-responsive">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Ticker</th>
-                                        <th>Moneda</th>
-                                        <th>Títulos</th>
-                                        <th>P. Promedio</th>
-                                        <th>P. Actual</th>
-                                        <th>Valor Total (<span class="lbl-moneda-base">MXN</span>)</th>
-                                        <th>PnL (<span class="lbl-moneda-base">MXN</span> / %)</th>
-                                        <th>Peso %</th>
-                                        <th>Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tabla-inversiones">
-                                    <tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Sin posiciones de inversión registradas.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                </div>
 
+                <!-- Fila Inferior: Tabla de Posiciones a Ancho Completo -->
+                <div class="inversiones-tabla-section">
+                    <h3 style="margin: 16px 0 10px 0; font-size: 1.05rem; color: var(--text-color);">📊 Mis Posiciones (ETFs & Acciones)</h3>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Ticker</th>
+                                    <th>Moneda</th>
+                                    <th>Títulos</th>
+                                    <th>P. Promedio</th>
+                                    <th>P. Actual</th>
+                                    <th>Valor Total (<span class="lbl-moneda-base">MXN</span>)</th>
+                                    <th>PnL (<span class="lbl-moneda-base">MXN</span> / %)</th>
+                                    <th>Peso %</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-inversiones">
+                                <tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Sin posiciones de inversión registradas.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </section>
@@ -712,6 +724,6 @@
     </div>
 
     <!-- Script de lógica de la aplicación -->
-    <script src="/static/app.js?v=2.7"></script>
+    <script src="/static/app.js?v=2.8"></script>
 </body>
 </html>
