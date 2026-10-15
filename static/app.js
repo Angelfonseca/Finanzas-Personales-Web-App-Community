@@ -311,14 +311,18 @@ function actualizarIconosModoOscuro(esOscuro) {
 
 function toggleModoOscuro() {
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
-    if (esOscuro) {
-        document.documentElement.removeAttribute('data-theme');
-        localStorage.setItem('theme', 'light');
-        actualizarIconosModoOscuro(false);
-    } else {
+    const nuevoTemaOscuro = !esOscuro;
+    if (nuevoTemaOscuro) {
         document.documentElement.setAttribute('data-theme', 'dark');
         localStorage.setItem('theme', 'dark');
         actualizarIconosModoOscuro(true);
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('theme', 'light');
+        actualizarIconosModoOscuro(false);
+    }
+    if (window.Chart) {
+        Chart.defaults.color = nuevoTemaOscuro ? '#f0f0f0' : '#222222';
     }
     if (miGrafica) actualizarColoresGrafica();
     if (graficaDona) actualizarColoresDona();
@@ -326,30 +330,46 @@ function toggleModoOscuro() {
 
 // Inicialización de tema guardado
 const temaGuardado = localStorage.getItem('theme');
-if (temaGuardado === 'dark') {
+const inicialOscuro = temaGuardado === 'dark';
+if (inicialOscuro) {
     document.documentElement.setAttribute('data-theme', 'dark');
     actualizarIconosModoOscuro(true);
+}
+if (window.Chart) {
+    Chart.defaults.color = inicialOscuro ? '#f0f0f0' : '#222222';
 }
 
 function actualizarColoresGrafica() {
     if (!miGrafica) return;
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
-    const textColor = esOscuro ? '#e0e0e0' : '#333333';
-    const gridColor = esOscuro ? '#333333' : '#eee';
+    const textColor = esOscuro ? '#f0f0f0' : '#222222';
+    const gridColor = esOscuro ? 'rgba(255, 255, 255, 0.12)' : '#eee';
 
-    miGrafica.options.scales.x.ticks.color = textColor;
-    miGrafica.options.scales.y.ticks.color = textColor;
-    miGrafica.options.scales.x.grid.color = gridColor;
-    miGrafica.options.scales.y.grid.color = gridColor;
-    miGrafica.options.plugins.legend.labels.color = textColor;
+    if (window.Chart) Chart.defaults.color = textColor;
+    if (miGrafica.options && miGrafica.options.scales) {
+        if (miGrafica.options.scales.x) {
+            miGrafica.options.scales.x.ticks.color = textColor;
+            miGrafica.options.scales.x.grid.color = gridColor;
+        }
+        if (miGrafica.options.scales.y) {
+            miGrafica.options.scales.y.ticks.color = textColor;
+            miGrafica.options.scales.y.grid.color = gridColor;
+        }
+    }
+    if (miGrafica.options && miGrafica.options.plugins && miGrafica.options.plugins.legend) {
+        miGrafica.options.plugins.legend.labels.color = textColor;
+    }
     miGrafica.update();
 }
 
 function actualizarColoresDona() {
     if (!graficaDona) return;
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
-    const textColor = esOscuro ? '#e0e0e0' : '#333333';
-    graficaDona.options.plugins.legend.labels.color = textColor;
+    const textColor = esOscuro ? '#f0f0f0' : '#222222';
+    if (window.Chart) Chart.defaults.color = textColor;
+    if (graficaDona.options && graficaDona.options.plugins && graficaDona.options.plugins.legend) {
+        graficaDona.options.plugins.legend.labels.color = textColor;
+    }
     if (graficaDona.data && graficaDona.data.datasets && graficaDona.data.datasets[0]) {
         graficaDona.data.datasets[0].borderColor = esOscuro ? '#1e1e1e' : '#ffffff';
     }
@@ -467,8 +487,8 @@ function actualizarGrafica(dataMensual) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
-    const textColor = esOscuro ? '#e0e0e0' : '#333333';
-    const gridColor = esOscuro ? '#333333' : '#eee';
+    const textColor = esOscuro ? '#f0f0f0' : '#222222';
+    const gridColor = esOscuro ? 'rgba(255, 255, 255, 0.12)' : '#eee';
     
     const meses = dataMensual.map(m => m.mes);
     const ingresos = dataMensual.map(m => m.ingresos);
@@ -478,6 +498,19 @@ function actualizarGrafica(dataMensual) {
         miGrafica.data.labels = meses;
         miGrafica.data.datasets[0].data = ingresos;
         miGrafica.data.datasets[1].data = gastos;
+        if (miGrafica.options && miGrafica.options.scales) {
+            if (miGrafica.options.scales.x) {
+                miGrafica.options.scales.x.ticks.color = textColor;
+                miGrafica.options.scales.x.grid.color = gridColor;
+            }
+            if (miGrafica.options.scales.y) {
+                miGrafica.options.scales.y.ticks.color = textColor;
+                miGrafica.options.scales.y.grid.color = gridColor;
+            }
+        }
+        if (miGrafica.options && miGrafica.options.plugins && miGrafica.options.plugins.legend) {
+            miGrafica.options.plugins.legend.labels.color = textColor;
+        }
         miGrafica.update();
     } else {
         miGrafica = new Chart(ctx, {
@@ -972,13 +1005,16 @@ const pluginDonaPorcentajes = {
             }
 
             const pctText = `${pct.toFixed(1)}%`;
-            ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
+            ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            // Sombra suave para garantizar legibilidad y alto contraste sobre cualquier color
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
-            ctx.shadowBlur = 4;
+            // Borde oscuro grueso para alto contraste sobre cualquier color
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+            ctx.strokeText(pctText, posX, posY);
+
+            // Relleno blanco brillante
             ctx.fillStyle = '#ffffff';
             ctx.fillText(pctText, posX, posY);
         });
@@ -992,7 +1028,7 @@ function actualizarGraficaDona(posiciones) {
 
     const noDataMsg = document.getElementById('dona-sin-datos');
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
-    const textColor = esOscuro ? '#e0e0e0' : '#333333';
+    const textColor = esOscuro ? '#f0f0f0' : '#222222';
 
     if (!posiciones || posiciones.length === 0) {
         if (noDataMsg) noDataMsg.style.display = 'block';
@@ -1030,6 +1066,9 @@ function actualizarGraficaDona(posiciones) {
             return acc + (isVisible ? Number(val || 0) : 0);
         }, 0);
 
+        const modoOscuroActivo = document.documentElement.getAttribute('data-theme') === 'dark';
+        const colorEtiqueta = modoOscuroActivo ? '#f0f0f0' : '#222222';
+
         return data.labels.map((label, i) => {
             const val = Number(dataset.data[i] || 0);
             const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0.0';
@@ -1038,10 +1077,11 @@ function actualizarGraficaDona(posiciones) {
             return {
                 text: `${label} (${pct}%)`,
                 fillStyle: bg,
-                strokeStyle: dataset.borderColor || '#ffffff',
+                strokeStyle: dataset.borderColor || (modoOscuroActivo ? '#1e1e1e' : '#ffffff'),
                 lineWidth: 1,
                 hidden: isHidden,
-                index: i
+                index: i,
+                fontColor: colorEtiqueta
             };
         });
     };
