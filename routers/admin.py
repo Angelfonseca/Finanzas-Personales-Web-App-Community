@@ -32,13 +32,11 @@ class UserStatusRequest(BaseModel):
 # =============================================================================
 
 @router.get("/admin/users", summary="Listar usuarios con métricas")
-@router.get("/api/admin/users", summary="Listar usuarios con métricas (alias API)")
 def admin_listar_usuarios(_admin: Dict[str, Any] = Depends(verify_admin)):
     """Retorna todos los usuarios registrados con su actividad y tamaño en disco de su BD."""
     return master_db.list_users_with_metrics()
 
 @router.post("/admin/users", status_code=status.HTTP_201_CREATED, summary="Crear nuevo usuario")
-@router.post("/api/admin/users", status_code=status.HTTP_201_CREATED, summary="Crear nuevo usuario (alias API)")
 def admin_crear_usuario(req: UserCreateRequest, _admin: Dict[str, Any] = Depends(verify_admin)):
     """
     Crea un nuevo usuario en la base maestra y dispara el aprovisionamiento
@@ -78,7 +76,6 @@ def admin_crear_usuario(req: UserCreateRequest, _admin: Dict[str, Any] = Depends
     }
 
 @router.patch("/admin/users/{user_id}/status", summary="Cambiar estado de usuario")
-@router.patch("/api/admin/users/{user_id}/status", summary="Cambiar estado de usuario (alias API)")
 def admin_cambiar_estado(user_id: int, req: UserStatusRequest, admin: Dict[str, Any] = Depends(verify_admin)):
     """
     Activa o desactiva la cuenta de un usuario.
@@ -105,9 +102,6 @@ def admin_cambiar_estado(user_id: int, req: UserStatusRequest, admin: Dict[str, 
     return {"mensaje": f"El usuario '{user['username']}' ha sido {estado_str}.", "is_active": req.is_active}
 
 @router.patch("/admin/users/{user_id}", summary="Editar usuario (nombre, contraseña y rol)")
-@router.patch("/api/admin/users/{user_id}", summary="Editar usuario (alias API)")
-@router.put("/admin/users/{user_id}", summary="Editar usuario")
-@router.put("/api/admin/users/{user_id}", summary="Editar usuario (alias API)")
 def admin_editar_usuario(user_id: int, req: UserUpdateRequest, admin: Dict[str, Any] = Depends(verify_admin)):
     """
     Permite al administrador modificar el nombre de usuario, correo, contraseña y/o rol de cualquier cuenta.
@@ -163,7 +157,6 @@ def admin_editar_usuario(user_id: int, req: UserUpdateRequest, admin: Dict[str, 
     return resp
 
 @router.delete("/admin/users/{user_id}", summary="Eliminar usuario y su base de datos")
-@router.delete("/api/admin/users/{user_id}", summary="Eliminar usuario y su base de datos (alias API)")
 def admin_eliminar_usuario(user_id: int, admin: Dict[str, Any] = Depends(verify_admin)):
     """
     Elimina permanentemente a un usuario de master_db y borra físicamente su base de datos tenant.
@@ -192,7 +185,6 @@ def admin_eliminar_usuario(user_id: int, admin: Dict[str, Any] = Depends(verify_
     return {"mensaje": f"Usuario '{user['username']}' y su base de datos eliminados con éxito."}
 
 @router.get("/admin/stats", summary="Métricas y KPIs globales del sistema")
-@router.get("/api/admin/stats", summary="Métricas y KPIs globales del sistema (alias API)")
 def admin_estadisticas_globales(_admin: Dict[str, Any] = Depends(verify_admin)):
     """Calcula las métricas de usuarios activos, logins acumulados y espacio total en disco."""
     stats = master_db.get_admin_stats(ahora_local())

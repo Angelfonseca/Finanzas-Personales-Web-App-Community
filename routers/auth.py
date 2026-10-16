@@ -55,7 +55,6 @@ class ResetPasswordRequest(BaseModel):
 # =============================================================================
 
 @router.post("/auth/login", summary="Iniciar sesión")
-@router.post("/api/auth/login", summary="Iniciar sesión (alias API)")
 def login(credentials: LoginRequest, request: Request):
     """
     Valida las credenciales del usuario:
@@ -114,15 +113,11 @@ def login(credentials: LoginRequest, request: Request):
     }
 
 @router.get("/auth/me", summary="Datos del usuario activo")
-@router.get("/api/auth/me", summary="Datos del usuario activo (alias API)")
 def get_mi_perfil(current_user: Dict[str, Any] = Depends(verify_token)):
     """Retorna la información del usuario en sesión a partir de su JWT."""
     return {"user": current_user}
 
 @router.patch("/auth/profile", summary="Editar perfil del usuario activo")
-@router.patch("/api/auth/profile", summary="Editar perfil del usuario activo (alias API)")
-@router.put("/auth/profile", summary="Editar perfil del usuario activo")
-@router.put("/api/auth/profile", summary="Editar perfil del usuario activo (alias API)")
 def editar_mi_perfil(req: UserUpdateRequest, current_user: Dict[str, Any] = Depends(verify_token)):
     """
     Permite al usuario autenticado modificar su propio nombre de usuario, correo y/o contraseña.
@@ -162,9 +157,6 @@ def editar_mi_perfil(req: UserUpdateRequest, current_user: Dict[str, Any] = Depe
     }
 
 @router.delete("/auth/delete-account", summary="Eliminar permanentemente la cuenta del usuario activo")
-@router.delete("/api/auth/delete-account", summary="Eliminar permanentemente la cuenta del usuario activo (alias API)")
-@router.delete("/auth/me", summary="Eliminar permanentemente la cuenta del usuario activo")
-@router.delete("/api/auth/me", summary="Eliminar permanentemente la cuenta del usuario activo (alias API)")
 def eliminar_mi_cuenta(current_user: Dict[str, Any] = Depends(verify_token)):
     """
     Permite a los usuarios estándar eliminar permanentemente su propia cuenta y su base de datos tenant.
@@ -204,7 +196,6 @@ def get_email_status():
     return {"configured": esta_configurado_servicio_correo()}
 
 @router.post("/auth/forgot-password", summary="Solicitar código de restablecimiento de contraseña")
-@router.post("/api/auth/forgot-password", summary="Solicitar código de restablecimiento (alias API)")
 def forgot_password(req: ForgotPasswordRequest, background_tasks: BackgroundTasks, request: Request):
     """
     Solicita un código de recuperación de contraseña de 6 dígitos:
@@ -248,7 +239,6 @@ def forgot_password(req: ForgotPasswordRequest, background_tasks: BackgroundTask
     }
 
 @router.post("/auth/reset-password", summary="Restablecer contraseña con código de 6 dígitos")
-@router.post("/api/auth/reset-password", summary="Restablecer contraseña (alias API)")
 def reset_password(req: ResetPasswordRequest, request: Request):
     """
     Restablece la contraseña utilizando el código de 6 dígitos recibido por correo.
