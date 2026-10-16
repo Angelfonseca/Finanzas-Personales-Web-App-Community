@@ -1,12 +1,12 @@
 services:
-  finanzas-app:
+  finanzas-community:
     build: .
-    container_name: finanzas-app
+    container_name: finanzas-community
     restart: unless-stopped
     ports:
-      - "8001:8001"
+      - "8002:8001"
     env_file:
       - .env
     volumes:
-      # Conecta TODA tu carpeta local del Raspberry Pi con el contenedor
+      # Conecta la carpeta local del proyecto con el contenedor
       - .:/app

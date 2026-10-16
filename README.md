@@ -121,7 +121,7 @@ finanzas-app/
    ```
 
 4. **Abrir en el navegador:**
-   Ingresa a `http://localhost:8001`.
+   Ingresa a `http://localhost:8002` (o el puerto que definas en `docker-compose.yml`).
 
 ### 🔑 Credenciales Iniciales por Defecto
 
