@@ -33,6 +33,7 @@ from database import (
     olvidar_tenant
 )
 import master_db
+from finanzas_core import ahora_local, calcular_resumen, valorar_posiciones
 from security import (
     hash_password,
     verify_password,
@@ -100,14 +101,6 @@ async def add_security_and_cache_headers(request: Request, call_next):
 def leer_raiz():
     """Sirve la interfaz web estática desde static/index.html."""
     return FileResponse("static/index.html")
-
-def ahora_local() -> datetime:
-    """Retorna la fecha y hora actual en la zona horaria de México (CST / UTC-6)."""
-    try:
-        from zoneinfo import ZoneInfo
-        return datetime.now(ZoneInfo("America/Mexico_City"))
-    except Exception:
-        return datetime.now()
 
 # =============================================================================
 # MODELOS PYDANTIC: AUTENTICACIÓN Y ADMINISTRACIÓN
@@ -673,55 +666,8 @@ def actualizar_transaccion(id_transaccion: int, t: TransaccionUpdate, conn: sqli
 
 @app.get("/api/resumen", summary="Resumen patrimonial consolidado del tenant")
 def obtener_resumen(moneda_base: str = "MXN", conn: sqlite3.Connection = Depends(get_tenant_db)):
-    cursor = conn.cursor()
-    cursor.execute("SELECT SUM(monto) as total FROM transacciones WHERE tipo='ingreso'")
-    ingresos = cursor.fetchone()["total"] or 0.0
-    
-    cursor.execute("SELECT SUM(monto) as total FROM transacciones WHERE tipo='gasto'")
-    gastos = cursor.fetchone()["total"] or 0.0
-    
-    cursor.execute("SELECT SUM(monto_actual) as total FROM apartados")
-    apartados = cursor.fetchone()["total"] or 0.0
-
-    filas_inv = cursor.execute("SELECT cantidad, precio_actual, moneda FROM inversiones").fetchall()
-
-    tasas = obtener_tasas_cambio()
-    tasa_usd_mxn = tasas.get("MXN", 18.40)
-    moneda_base_upper = moneda_base.upper()
-
-    inversiones_total = 0.0
-    for inv in filas_inv:
-        cant = float(inv["cantidad"])
-        p_act = float(inv["precio_actual"])
-        m_act = (inv["moneda"] or "USD").upper()
-        val = cant * p_act
-        
-        if m_act == "USD" and moneda_base_upper == "MXN":
-            val *= tasa_usd_mxn
-        elif m_act == "MXN" and moneda_base_upper == "USD":
-            val /= tasa_usd_mxn if tasa_usd_mxn > 0 else 1.0
-
-        inversiones_total += val
-
-    factor_mxn_a_base = (1.0 / tasa_usd_mxn) if (moneda_base_upper == "USD" and tasa_usd_mxn > 0) else 1.0
-
-    ingresos_conv = ingresos * factor_mxn_a_base
-    gastos_conv = gastos * factor_mxn_a_base
-    balance_conv = (ingresos - gastos) * factor_mxn_a_base
-    apartados_conv = apartados * factor_mxn_a_base
-
-    patrimonio = balance_conv + apartados_conv + inversiones_total
-
-    return {
-        "moneda_base": moneda_base_upper,
-        "tasa_usd_mxn": tasa_usd_mxn,
-        "ingresos": round(ingresos_conv, 2),
-        "gastos": round(gastos_conv, 2),
-        "balance": round(balance_conv, 2),
-        "apartados": round(apartados_conv, 2),
-        "inversiones": round(inversiones_total, 2),
-        "patrimonio_neto": round(patrimonio, 2)
-    }
+    tasa_usd_mxn = obtener_tasas_cambio().get("MXN", 18.40)
+    return calcular_resumen(conn, moneda_base, tasa_usd_mxn)
 
 @app.get("/api/resumen-mensual", summary="Historial agrupado por mes")
 def resumen_mensual(conn: sqlite3.Connection = Depends(get_tenant_db)):
@@ -900,67 +846,8 @@ def consultar_precio_mercado(ticker: str) -> Optional[float]:
 def listar_inversiones(moneda_base: str = "MXN", conn: sqlite3.Connection = Depends(get_tenant_db)):
     cursor = conn.cursor()
     filas = cursor.execute("SELECT * FROM inversiones ORDER BY id DESC").fetchall()
-
-    tasas = obtener_tasas_cambio()
-    tasa_usd_mxn = tasas.get("MXN", 18.40)
-    moneda_base_upper = moneda_base.upper()
-
-    posiciones = []
-    total_invertido = 0.0
-    total_valor_actual = 0.0
-
-    for fila in filas:
-        item = dict(fila)
-        cant = float(item["cantidad"])
-        costo_prom = float(item["precio_promedio"])
-        precio_act = float(item["precio_actual"])
-        moneda_activo = (item.get("moneda") or "USD").upper()
-
-        if moneda_activo == "USD" and moneda_base_upper == "MXN":
-            factor = tasa_usd_mxn
-        elif moneda_activo == "MXN" and moneda_base_upper == "USD":
-            factor = (1.0 / tasa_usd_mxn) if tasa_usd_mxn > 0 else 1.0
-        else:
-            factor = 1.0
-
-        cap_invertido_orig = round(cant * costo_prom, 2)
-        val_act_orig = round(cant * precio_act, 2)
-
-        cap_invertido_base = round(cap_invertido_orig * factor, 2)
-        val_act_base = round(val_act_orig * factor, 2)
-        pnl_base = round(val_act_base - cap_invertido_base, 2)
-        pnl_pct = round(((val_act_orig - cap_invertido_orig) / cap_invertido_orig) * 100, 2) if cap_invertido_orig > 0 else 0.0
-
-        total_invertido += cap_invertido_base
-        total_valor_actual += val_act_base
-
-        item["moneda"] = moneda_activo
-        item["factor_conversion"] = factor
-        item["capital_invertido_orig"] = cap_invertido_orig
-        item["valor_actual_orig"] = val_act_orig
-        item["capital_invertido"] = cap_invertido_base
-        item["valor_actual"] = val_act_base
-        item["pnl"] = pnl_base
-        item["pnl_porcentaje"] = pnl_pct
-        posiciones.append(item)
-
-    total_pnl = round(total_valor_actual - total_invertido, 2)
-    total_pnl_pct = round((total_pnl / total_invertido) * 100, 2) if total_invertido > 0 else 0.0
-
-    for pos in posiciones:
-        pos["peso_porcentaje"] = round((pos["valor_actual"] / total_valor_actual) * 100, 2) if total_valor_actual > 0 else 0.0
-
-    return {
-        "moneda_base": moneda_base_upper,
-        "tasa_usd_mxn": tasa_usd_mxn,
-        "resumen": {
-            "total_invertido": round(total_invertido, 2),
-            "total_valor_actual": round(total_valor_actual, 2),
-            "total_pnl": total_pnl,
-            "total_pnl_porcentaje": total_pnl_pct
-        },
-        "posiciones": posiciones
-    }
+    tasa_usd_mxn = obtener_tasas_cambio().get("MXN", 18.40)
+    return valorar_posiciones(filas, moneda_base, tasa_usd_mxn)
 
 @app.post("/api/inversiones", status_code=status.HTTP_201_CREATED, summary="Registrar posición bursátil")
 def crear_inversion(item: InversionCreate, conn: sqlite3.Connection = Depends(get_tenant_db)):

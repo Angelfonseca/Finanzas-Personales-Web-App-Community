@@ -18,6 +18,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.chart import PieChart, Reference
 from openpyxl.chart.label import DataLabelList
 from openpyxl.utils import get_column_letter
+from finanzas_core import convertir
 
 def generar_reporte_excel(moneda_base: str = "MXN", conn: sqlite3.Connection = None, db_name: str = "user_1.db") -> io.BytesIO:
     """
@@ -104,17 +105,9 @@ def generar_reporte_excel(moneda_base: str = "MXN", conn: sqlite3.Connection = N
         precio_act = float(inv["precio_actual"])
         moneda_activo = (inv["moneda"] or "USD").upper()
 
-        # Determinar el factor de conversión según la divisa del activo y la divisa base del reporte
-        if moneda_activo == "USD" and moneda_base == "MXN":
-            factor_inv = tasa_usd_mxn
-        elif moneda_activo == "MXN" and moneda_base == "USD":
-            factor_inv = (1.0 / tasa_usd_mxn) if tasa_usd_mxn > 0 else 1.0
-        else:
-            factor_inv = 1.0
-
         # Montos consolidados en la moneda base del reporte
-        cap_inv = round(cant * costo_prom * factor_inv, 2)
-        val_mkt = round(cant * precio_act * factor_inv, 2)
+        cap_inv = round(convertir(cant * costo_prom, moneda_activo, moneda_base, tasa_usd_mxn), 2)
+        val_mkt = round(convertir(cant * precio_act, moneda_activo, moneda_base, tasa_usd_mxn), 2)
         pnl = round(val_mkt - cap_inv, 2)
         pnl_pct = (pnl / cap_inv) if cap_inv > 0 else 0.0
 
