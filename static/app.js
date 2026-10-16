@@ -85,45 +85,42 @@ async function apiFetch(url, options = {}) {
 // =============================================================================
 
 /**
- * Verifica si existe una sesión activa válida al cargar la aplicación.
+ * Muestra la página de presentación pública (Landing Page).
  */
-async function verificarSesionInicial() {
-    const token = localStorage.getItem('jwt_token');
+function mostrarVistaLanding() {
+    const vistaLanding = document.getElementById('vista-landing');
     const vistaLogin = document.getElementById('vista-login');
     const vistaApp = document.getElementById('vista-app');
 
-    if (!token) {
-        mostrarVistaLogin();
-        return;
-    }
+    if (vistaLanding) vistaLanding.style.display = 'block';
+    if (vistaLogin) vistaLogin.style.display = 'none';
+    if (vistaApp) vistaApp.style.display = 'none';
 
-    try {
-        const res = await apiFetch('/auth/me');
-        if (res.ok) {
-            const data = await res.json();
-            establecerSesionActiva(data.user, token);
-        } else if (res.status === 401 || res.status === 403) {
-            cerrarSesionLimpia();
-        } else {
-            console.warn("Respuesta inesperada al verificar sesión inicial:", res.status);
-            mostrarVistaLogin("No se pudo validar la sesión con el servidor.");
-        }
-    } catch (e) {
-        console.error("Fallo de red al verificar sesión inicial:", e);
-        mostrarVistaLogin("Error de conexión al servidor. Revisa tu red.");
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    cargarTipoCambioPublicoLanding();
+
+    // Mantener la URL limpia sin hash si el usuario navegó a la raíz
+    if (window.location.hash && (window.location.hash === '#login' || window.location.hash === '#app')) {
+        history.replaceState(null, '', window.location.pathname);
     }
 }
 
 /**
- * Muestra la vista de login y oculta la aplicación financiera.
+ * Muestra la vista de login y oculta la presentación y la app.
  */
 function mostrarVistaLogin(errorMsg = '') {
+    const vistaLanding = document.getElementById('vista-landing');
     const vistaLogin = document.getElementById('vista-login');
     const vistaApp = document.getElementById('vista-app');
     const loginError = document.getElementById('login-error');
 
+    if (vistaLanding) vistaLanding.style.display = 'none';
     if (vistaLogin) vistaLogin.style.display = 'flex';
     if (vistaApp) vistaApp.style.display = 'none';
+
+    if (window.location.hash !== '#login') {
+        history.pushState(null, '', '#login');
+    }
 
     if (loginError) {
         if (errorMsg) {
@@ -131,6 +128,101 @@ function mostrarVistaLogin(errorMsg = '') {
             loginError.style.display = 'block';
         } else {
             loginError.style.display = 'none';
+        }
+    }
+    const inputUser = document.getElementById('login-username');
+    if (inputUser) setTimeout(() => inputUser.focus(), 80);
+}
+
+/**
+ * Acción principal al pulsar "Ingresar a la Plataforma" en la Landing Page.
+ * Si el usuario ya cuenta con una sesión activa y validada, ingresa directamente
+ * al dashboard; si no, muestra el formulario de inicio de sesión.
+ */
+function ingresarOAcceder() {
+    const token = localStorage.getItem('jwt_token');
+    const userJson = localStorage.getItem('user_info');
+    if (token && (usuarioActual || userJson)) {
+        try {
+            const user = usuarioActual || JSON.parse(userJson);
+            establecerSesionActiva(user, token);
+            return;
+        } catch (e) {}
+    }
+    mostrarVistaLogin();
+}
+
+/**
+ * Adapta el texto de los botones en la Landing Page cuando se detecta una sesión previa válida.
+ */
+function adaptarBotonesLandingUsuarioActivo(user) {
+    if (!user) return;
+    const nombre = user.username || 'mi cuenta';
+    const txtNav = document.getElementById('txt-landing-nav-login');
+    const txtHero = document.getElementById('txt-landing-hero-login');
+    const txtCta = document.getElementById('txt-landing-cta-login');
+
+    const textoActivo = `Ir a mi Panel (${nombre})`;
+    if (txtNav) txtNav.textContent = textoActivo;
+    if (txtHero) txtHero.textContent = textoActivo;
+    if (txtCta) txtCta.textContent = textoActivo;
+}
+
+/**
+ * Verifica el estado inicial de navegación:
+ * Por diseño, la Landing Page es SIEMPRE la pantalla principal del dominio.
+ * Solo redirige al dashboard (/app o #app) o al login (/login o #login) si se solicita explícitamente.
+ */
+async function verificarSesionInicial() {
+    const token = localStorage.getItem('jwt_token');
+    const hash = window.location.hash.toLowerCase();
+    const pathname = window.location.pathname.toLowerCase();
+    const solicitaAppDirecto = (hash === '#app' || pathname === '/app');
+    const solicitaLoginDirecto = (hash === '#login' || pathname === '/login');
+
+    // 1. Solicitud directa al Dashboard de la app (/app o #app)
+    if (solicitaAppDirecto) {
+        if (!token) {
+            mostrarVistaLogin("Por favor inicia sesión para acceder al panel.");
+            return;
+        }
+        try {
+            const res = await apiFetch('/auth/me');
+            if (res.ok) {
+                const data = await res.json();
+                establecerSesionActiva(data.user, token);
+                return;
+            } else {
+                cerrarSesionLimpia();
+                mostrarVistaLogin();
+                return;
+            }
+        } catch (e) {
+            mostrarVistaLogin("Error al verificar la sesión con el servidor.");
+            return;
+        }
+    }
+
+    // 2. Solicitud directa a la pantalla de Login (/login o #login)
+    if (solicitaLoginDirecto) {
+        mostrarVistaLogin();
+        return;
+    }
+
+    // 3. PANTALLA PRINCIPAL: La Landing Page es siempre la portada
+    mostrarVistaLanding();
+
+    // Si existe una sesión guardada, validamos silenciosamente para personalizar los botones
+    if (token) {
+        try {
+            const res = await apiFetch('/auth/me');
+            if (res.ok) {
+                const data = await res.json();
+                usuarioActual = data.user;
+                adaptarBotonesLandingUsuarioActivo(data.user);
+            }
+        } catch (e) {
+            // Silencioso: no altera la navegación del visitante
         }
     }
 }
@@ -143,19 +235,30 @@ function establecerSesionActiva(user, token) {
     localStorage.setItem('jwt_token', token);
     localStorage.setItem('user_info', JSON.stringify(user));
 
-    // Ocultar login y mostrar aplicación
+    // Ocultar landing y login, mostrar aplicación
+    const vistaLanding = document.getElementById('vista-landing');
     const vistaLogin = document.getElementById('vista-login');
     const vistaApp = document.getElementById('vista-app');
+    if (vistaLanding) vistaLanding.style.display = 'none';
     if (vistaLogin) vistaLogin.style.display = 'none';
     if (vistaApp) vistaApp.style.display = 'flex';
+
+    if (window.location.hash !== '#app') {
+        history.pushState(null, '', '#app');
+    }
 
     // Actualizar badges de usuario en el topbar y dropdown popover
     const lblUser = document.getElementById('lbl-username');
     const lblRole = document.getElementById('lbl-user-role');
     const dropUser = document.getElementById('dropdown-user-name');
     const dropRole = document.getElementById('dropdown-user-role');
+    const dropEmail = document.getElementById('dropdown-user-email');
     if (lblUser) lblUser.textContent = user.username;
     if (dropUser) dropUser.textContent = user.username;
+    if (dropEmail) {
+        dropEmail.textContent = user.email || 'Sin correo vinculado';
+        dropEmail.style.color = user.email ? 'var(--gold-color)' : 'var(--text-muted)';
+    }
     if (lblRole) {
         lblRole.textContent = user.role;
         lblRole.className = `badge-role ${user.role === 'admin' ? 'badge-role-admin' : 'badge-role-user'}`;
@@ -292,8 +395,20 @@ function cerrarSesionLimpia(errorMsg = '') {
     if (btnTabAdmin) btnTabAdmin.style.display = 'none';
     cambiarPestana('tab-dashboard');
 
-    // 4. Mostrar pantalla de login
-    mostrarVistaLogin(errorMsg);
+    // Restablecer textos de botones en la Landing Page
+    const txtNav = document.getElementById('txt-landing-nav-login');
+    const txtHero = document.getElementById('txt-landing-hero-login');
+    const txtCta = document.getElementById('txt-landing-cta-login');
+    if (txtNav) txtNav.textContent = 'Ingresar a la Plataforma';
+    if (txtHero) txtHero.textContent = 'Ingresar a la Plataforma';
+    if (txtCta) txtCta.textContent = 'Ingresar a la Plataforma';
+
+    // 4. Mostrar pantalla de login si hay error, o la presentación si fue cierre normal
+    if (errorMsg) {
+        mostrarVistaLogin(errorMsg);
+    } else {
+        mostrarVistaLanding();
+    }
 }
 
 // =============================================================================
@@ -1515,9 +1630,14 @@ async function cargarDatosAdmin() {
                         `;
                     }
 
+                    const correoHtml = u.email 
+                        ? `<span style="font-family: monospace; font-size: 0.84rem; color: var(--gold-color);">${escapeHTML(u.email)}</span>`
+                        : `<span style="color: var(--text-muted); font-size: 0.8rem; font-style: italic;">Sin registrar</span>`;
+
                     tr.innerHTML = `
                         <td>${u.id}</td>
                         <td><strong>${escapeHTML(u.username)}</strong></td>
+                        <td>${correoHtml}</td>
                         <td>${badgeRol}</td>
                         <td>${badgeEstado}</td>
                         <td>${fechaCreacion}</td>
@@ -1604,6 +1724,7 @@ async function guardarNuevoUsuario(e) {
     if (guardandoUsuario) return;
 
     const username = document.getElementById('nuevo-user-username').value.trim();
+    const email = (document.getElementById('nuevo-user-email')?.value || '').trim();
     const password = document.getElementById('nuevo-user-password').value;
     const role = document.getElementById('nuevo-user-role').value;
 
@@ -1621,7 +1742,7 @@ async function guardarNuevoUsuario(e) {
         const res = await apiFetch('/admin/users', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password, role })
+            body: JSON.stringify({ username, password, role, email: email || null })
         });
 
         if (res.ok) {
@@ -1650,13 +1771,15 @@ async function guardarNuevoUsuario(e) {
 /**
  * Abre el modal de edición de usuario desde el panel de administración.
  */
-function abrirModalEditarUsuario(id, username, role) {
+function abrirModalEditarUsuario(id, username, role, email) {
     const modal = document.getElementById('modal-editar-usuario');
     if (!modal) return;
 
     document.getElementById('lbl-edit-user-title').textContent = username;
     document.getElementById('edit-user-id').value = id;
     document.getElementById('edit-user-username').value = username;
+    const emailInput = document.getElementById('edit-user-email');
+    if (emailInput) emailInput.value = email || '';
     document.getElementById('edit-user-password').value = '';
     
     const roleSelect = document.getElementById('edit-user-role');
@@ -1687,7 +1810,7 @@ function abrirModalEditarUsuario(id, username, role) {
  */
 function abrirModalEditarMiPerfil() {
     if (!usuarioActual) return;
-    abrirModalEditarUsuario(usuarioActual.id, usuarioActual.username, usuarioActual.role);
+    abrirModalEditarUsuario(usuarioActual.id, usuarioActual.username, usuarioActual.role, usuarioActual.email);
 }
 
 /**
@@ -1701,12 +1824,14 @@ function cerrarModalEditarUsuario() {
 }
 
 /**
- * Envía la actualización de nombre de usuario y/o contraseña al backend.
+ * Envía la actualización de nombre de usuario, correo y/o contraseña al backend.
  */
 async function guardarEdicionUsuario(e) {
     e.preventDefault();
     const userId = document.getElementById('edit-user-id').value;
     const username = document.getElementById('edit-user-username').value.trim();
+    const emailInput = document.getElementById('edit-user-email');
+    const email = emailInput ? emailInput.value.trim() : null;
     const password = document.getElementById('edit-user-password').value;
     const roleSelect = document.getElementById('edit-user-role');
     const role = roleSelect ? roleSelect.value : undefined;
@@ -1716,7 +1841,7 @@ async function guardarEdicionUsuario(e) {
         return;
     }
 
-    const payload = { username };
+    const payload = { username, email: email || null };
     if (password && password.trim().length > 0) {
         if (password.length < 4) {
             alert("La nueva contraseña debe tener al menos 4 caracteres.");
@@ -1756,8 +1881,13 @@ async function guardarEdicionUsuario(e) {
                     const lblRole = document.getElementById('lbl-user-role');
                     const dropUser = document.getElementById('dropdown-user-name');
                     const dropRole = document.getElementById('dropdown-user-role');
+                    const dropEmail = document.getElementById('dropdown-user-email');
                     if (lblUser) lblUser.textContent = data.user.username;
                     if (dropUser) dropUser.textContent = data.user.username;
+                    if (dropEmail) {
+                        dropEmail.textContent = data.user.email || 'Sin correo vinculado';
+                        dropEmail.style.color = data.user.email ? 'var(--gold-color)' : 'var(--text-muted)';
+                    }
                     if (lblRole) {
                         lblRole.textContent = data.user.role;
                         lblRole.className = `badge-role ${data.user.role === 'admin' ? 'badge-role-admin' : 'badge-role-user'}`;
@@ -1983,6 +2113,8 @@ window.addEventListener('keydown', (e) => {
         cerrarModalCrearUsuario();
         cerrarModalEditarUsuario();
         cerrarModalCrearApartado();
+        cerrarModalRecuperarPassword();
+        cerrarModalLegal();
     }
 });
 
@@ -2246,6 +2378,257 @@ document.addEventListener('keydown', (e) => {
 });
 
 // =============================================================================
+// 12.1 RECUPERACIÓN DE CONTRASEÑA POR EMAIL
+// =============================================================================
+
+let identificadorRecuperacionEnProceso = '';
+
+function abrirModalRecuperarPassword() {
+    const modal = document.getElementById('modal-recuperar-password');
+    if (!modal) return;
+    
+    const formPaso1 = document.getElementById('form-solicitar-codigo');
+    const formPaso2 = document.getElementById('form-restablecer-password');
+    if (formPaso1) {
+        formPaso1.reset();
+        formPaso1.style.display = 'block';
+    }
+    if (formPaso2) {
+        formPaso2.reset();
+        formPaso2.style.display = 'none';
+    }
+    
+    const inputLoginUser = document.getElementById('login-username');
+    const inputIdentifier = document.getElementById('recuperar-identifier');
+    if (inputLoginUser && inputIdentifier && inputLoginUser.value.trim()) {
+        inputIdentifier.value = inputLoginUser.value.trim();
+    }
+    
+    identificadorRecuperacionEnProceso = '';
+    modal.style.display = 'flex';
+    if (inputIdentifier) inputIdentifier.focus();
+}
+
+function cerrarModalRecuperarPassword() {
+    const modal = document.getElementById('modal-recuperar-password');
+    if (modal) modal.style.display = 'none';
+}
+
+function volverAPaso1Recuperacion() {
+    const formPaso1 = document.getElementById('form-solicitar-codigo');
+    const formPaso2 = document.getElementById('form-restablecer-password');
+    if (formPaso1) formPaso1.style.display = 'block';
+    if (formPaso2) formPaso2.style.display = 'none';
+    const inputIdentifier = document.getElementById('recuperar-identifier');
+    if (inputIdentifier) inputIdentifier.focus();
+}
+
+async function enviarSolicitudCodigo(e) {
+    e.preventDefault();
+    const inputIdentifier = document.getElementById('recuperar-identifier');
+    const btnSubmit = document.getElementById('btn-enviar-codigo');
+    const identifier = inputIdentifier ? inputIdentifier.value.trim() : '';
+
+    if (!identifier) {
+        alert('Por favor, ingresa tu usuario o correo electrónico.');
+        return;
+    }
+
+    identificadorRecuperacionEnProceso = identifier;
+
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<span>Enviando código...</span>';
+    }
+
+    try {
+        const res = await fetch('/auth/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier })
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok) {
+            const formPaso1 = document.getElementById('form-solicitar-codigo');
+            const formPaso2 = document.getElementById('form-restablecer-password');
+            if (formPaso1) formPaso1.style.display = 'none';
+            if (formPaso2) {
+                formPaso2.reset();
+                formPaso2.style.display = 'block';
+                const inputCodigo = document.getElementById('recuperar-codigo');
+                if (inputCodigo) inputCodigo.focus();
+            }
+        } else {
+            alert(data.detail || 'Hubo un error al procesar la solicitud.');
+        }
+    } catch (err) {
+        console.error('Error al solicitar código:', err);
+        alert('Error de conexión con el servidor.');
+    } finally {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = '<span>Enviar Código</span>';
+        }
+    }
+}
+
+async function enviarRestablecerPassword(e) {
+    e.preventDefault();
+    const codigoInput = document.getElementById('recuperar-codigo');
+    const passInput = document.getElementById('recuperar-nuevo-password');
+    const passConfirmInput = document.getElementById('recuperar-confirmar-password');
+    const btnSubmit = document.getElementById('btn-confirmar-reset');
+
+    const code = codigoInput ? codigoInput.value.trim() : '';
+    const new_password = passInput ? passInput.value : '';
+    const confirm_password = passConfirmInput ? passConfirmInput.value : '';
+
+    if (!code || code.length !== 6) {
+        alert('Ingresa el código numérico de 6 dígitos que te enviamos.');
+        return;
+    }
+    if (new_password.length < 4) {
+        alert('La nueva contraseña debe tener al menos 4 caracteres.');
+        return;
+    }
+    if (new_password !== confirm_password) {
+        alert('Las contraseñas no coinciden. Por favor verifícalas.');
+        return;
+    }
+
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<span>Restableciendo...</span>';
+    }
+
+    try {
+        const res = await fetch('/auth/reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                identifier: identificadorRecuperacionEnProceso,
+                code,
+                new_password
+            })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            alert(data.mensaje || '¡Contraseña actualizada con éxito! Ya puedes iniciar sesión.');
+            cerrarModalRecuperarPassword();
+            const inputLoginUser = document.getElementById('login-username');
+            const inputLoginPass = document.getElementById('login-password');
+            if (inputLoginUser) inputLoginUser.value = identificadorRecuperacionEnProceso;
+            if (inputLoginPass) {
+                inputLoginPass.value = '';
+                inputLoginPass.focus();
+            }
+        } else {
+            alert(data.detail || 'No se pudo restablecer la contraseña. Verifica el código.');
+        }
+    } catch (err) {
+        console.error('Error al restablecer contraseña:', err);
+        alert('Error de conexión con el servidor.');
+    } finally {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = '<span>Restablecer Contraseña</span>';
+        }
+    }
+}
+
+// =============================================================================
+// 12.2 LÓGICA DE LA PÁGINA DE PRESENTACIÓN (LANDING PAGE)
+// =============================================================================
+
+let tasaCambioLanding = 18.45;
+
+/**
+ * Consulta la tasa de cambio interbancaria en tiempo real para el ticker de la landing.
+ */
+async function cargarTipoCambioPublicoLanding() {
+    try {
+        const res = await fetch('/api/public/tipo-cambio');
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.tasas && data.tasas.MXN) {
+                tasaCambioLanding = Number(data.tasas.MXN);
+                const valEl = document.getElementById('landing-exchange-val');
+                if (valEl) {
+                    valEl.textContent = tasaCambioLanding.toFixed(2);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("No se pudo obtener el tipo de cambio público:", e);
+    }
+}
+
+/**
+ * Alterna entre MXN y USD en la maqueta interactiva del Hero.
+ */
+function toggleMonedaMockup(moneda) {
+    const btnMxn = document.getElementById('btn-mock-mxn');
+    const btnUsd = document.getElementById('btn-mock-usd');
+    const elPatrimonio = document.getElementById('mock-val-patrimonio');
+    const elCaja = document.getElementById('mock-val-caja');
+    const elMetas = document.getElementById('mock-val-metas');
+    const elInv = document.getElementById('mock-val-inversiones');
+
+    if (moneda === 'USD') {
+        if (btnMxn) btnMxn.classList.remove('active');
+        if (btnUsd) btnUsd.classList.add('active');
+
+        const rate = (tasaCambioLanding && tasaCambioLanding > 0) ? tasaCambioLanding : 18.45;
+        const patUsd = 1254820.50 / rate;
+        const cajaUsd = 184350.00 / rate;
+        const metasUsd = 320000.00 / rate;
+        const invUsd = 750470.50 / rate;
+
+        if (elPatrimonio) elPatrimonio.textContent = '$' + patUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (elCaja) elCaja.textContent = '$' + cajaUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (elMetas) elMetas.textContent = '$' + metasUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (elInv) elInv.textContent = '$' + invUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else {
+        if (btnMxn) btnMxn.classList.add('active');
+        if (btnUsd) btnUsd.classList.remove('active');
+
+        if (elPatrimonio) elPatrimonio.textContent = '$1,254,820.50';
+        if (elCaja) elCaja.textContent = '$184,350.00';
+        if (elMetas) elMetas.textContent = '$320,000.00';
+        if (elInv) elInv.textContent = '$750,470.50';
+    }
+}
+
+/**
+ * Cambia la pestaña activa en el demostrador de módulos de la landing.
+ */
+function cambiarShowcaseTab(tabId, btnEl) {
+    document.querySelectorAll('.showcase-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.showcase-tab-btn').forEach(b => b.classList.remove('active'));
+
+    const target = document.getElementById(tabId);
+    if (target) target.classList.add('active');
+    if (btnEl) btnEl.classList.add('active');
+}
+
+/**
+ * Despliega o repliega preguntas frecuentes en la landing.
+ */
+function toggleFaqItem(btnEl) {
+    const item = btnEl.closest('.faq-item');
+    if (!item) return;
+    const estabaActivo = item.classList.contains('active');
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('active'));
+    if (!estabaActivo) {
+        item.classList.add('active');
+    }
+}
+
+// =============================================================================
 // 13. EXPOSICIÓN GLOBAL DE FUNCIONES EN WINDOW
 // =============================================================================
 
@@ -2264,7 +2647,7 @@ function abrirModalEditarInversionPorId(id) {
 function abrirModalEditarUsuarioPorId(id) {
     const u = cacheUsuarios[id];
     if (!u) return;
-    abrirModalEditarUsuario(u.id, u.username, u.role);
+    abrirModalEditarUsuario(u.id, u.username, u.role, u.email);
 }
 
 function eliminarUsuarioTenantPorId(id) {
@@ -2309,6 +2692,21 @@ window.cambiarPestana = cambiarPestana;
 window.cambiarMonedaGlobal = cambiarMonedaGlobal;
 window.cambiarMonedaInversiones = cambiarMonedaGlobal;
 
+// Funciones de la Página de Presentación (Landing)
+window.mostrarVistaLanding = mostrarVistaLanding;
+window.mostrarVistaLogin = mostrarVistaLogin;
+window.ingresarOAcceder = ingresarOAcceder;
+window.toggleMonedaMockup = toggleMonedaMockup;
+window.cambiarShowcaseTab = cambiarShowcaseTab;
+window.toggleFaqItem = toggleFaqItem;
+
+// Funciones de Recuperación de Contraseña
+window.abrirModalRecuperarPassword = abrirModalRecuperarPassword;
+window.cerrarModalRecuperarPassword = cerrarModalRecuperarPassword;
+window.volverAPaso1Recuperacion = volverAPaso1Recuperacion;
+window.enviarSolicitudCodigo = enviarSolicitudCodigo;
+window.enviarRestablecerPassword = enviarRestablecerPassword;
+
 // Funciones del Panel de Administración y Perfil
 window.abrirModalCrearUsuario = abrirModalCrearUsuario;
 window.cerrarModalCrearUsuario = cerrarModalCrearUsuario;
@@ -2319,6 +2717,53 @@ window.abrirModalEditarMiPerfil = abrirModalEditarMiPerfil;
 window.guardarEdicionUsuario = guardarEdicionUsuario;
 window.cambiarEstadoUsuario = cambiarEstadoUsuario;
 window.eliminarUsuarioTenant = eliminarUsuarioTenant;
+
+// Funciones del Marco Legal, Términos y Privacidad
+function abrirModalLegal(seccion = 'terminos') {
+    const modal = document.getElementById('modal-legal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    cambiarTabLegal(seccion);
+}
+
+function cerrarModalLegal() {
+    const modal = document.getElementById('modal-legal');
+    if (modal) modal.style.display = 'none';
+}
+
+function cambiarTabLegal(tabId) {
+    document.querySelectorAll('.btn-legal-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.legal-content-panel').forEach(p => p.style.display = 'none');
+
+    const btn = document.getElementById(`btn-tab-legal-${tabId}`);
+    const panel = document.getElementById(`panel-legal-${tabId}`);
+    if (btn) btn.classList.add('active');
+    if (panel) panel.style.display = 'block';
+
+    const scrollContainer = document.getElementById('legal-content-scroll');
+    if (scrollContainer) scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+window.abrirModalLegal = abrirModalLegal;
+window.cerrarModalLegal = cerrarModalLegal;
+window.cambiarTabLegal = cambiarTabLegal;
+
+// Navegación en el historial del navegador (Atrás / Adelante)
+window.addEventListener('popstate', () => {
+    const hash = window.location.hash.toLowerCase();
+    if (hash === '#login') {
+        mostrarVistaLogin();
+    } else if (hash === '#app') {
+        const token = localStorage.getItem('jwt_token');
+        if (token && usuarioActual) {
+            establecerSesionActiva(usuarioActual, token);
+        } else {
+            mostrarVistaLogin();
+        }
+    } else {
+        mostrarVistaLanding();
+    }
+});
 
 // =============================================================================
 // 14. ARRANQUE DE LA APLICACIÓN

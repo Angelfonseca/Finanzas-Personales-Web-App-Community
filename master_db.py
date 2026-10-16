@@ -26,7 +26,7 @@ def get_master_conn() -> sqlite3.Connection:
     return conn
 
 def init_master_db() -> None:
-    """Crea la tabla 'users' e índices en la base de datos maestra."""
+    """Crea la tabla 'users', 'password_resets' e índices en la base de datos maestra."""
     conn = get_master_conn()
     cursor = conn.cursor()
     cursor.execute("PRAGMA journal_mode=WAL;")
@@ -39,13 +39,34 @@ def init_master_db() -> None:
             role TEXT CHECK(role IN ('admin', 'user')) NOT NULL DEFAULT 'user',
             is_active INTEGER NOT NULL DEFAULT 1,
             db_name TEXT NOT NULL UNIQUE,
+            email TEXT DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_login TIMESTAMP DEFAULT NULL,
             login_count INTEGER NOT NULL DEFAULT 0
         )
     """)
     
+    # Migración defensiva si la columna email no existía
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN email TEXT DEFAULT NULL;")
+    except sqlite3.OperationalError:
+        pass
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            code TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    """)
+    
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_resets_user_code ON password_resets(user_id, code);")
     conn.commit()
     conn.close()
 
@@ -57,6 +78,22 @@ def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
     conn.close()
     return dict(row) if row else None
 
+def get_user_by_identifier(identifier: str) -> Optional[Dict[str, Any]]:
+    """Busca un usuario por su nombre de usuario o por su dirección de correo electrónico."""
+    ident = identifier.strip()
+    conn = get_master_conn()
+    cursor = conn.cursor()
+    row = cursor.execute(
+        """
+        SELECT * FROM users 
+        WHERE LOWER(username) = LOWER(?) OR (email IS NOT NULL AND LOWER(email) = LOWER(?))
+        LIMIT 1
+        """,
+        (ident, ident)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
 def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
     """Busca un usuario por su ID único."""
     conn = get_master_conn()
@@ -65,22 +102,83 @@ def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
     conn.close()
     return dict(row) if row else None
 
-def create_user_entry(username: str, password_hash: str, role: str = 'user', is_active: int = 1) -> Dict[str, Any]:
+def create_password_reset_code(user_id: int) -> str:
+    """Genera y registra un código numérico aleatorio de 6 dígitos con vigencia de 15 minutos."""
+    import secrets
+    codigo = f"{secrets.randbelow(900000) + 100000}"
+    expira = (datetime.now() + timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S")
+
+    conn = get_master_conn()
+    cursor = conn.cursor()
+    
+    # Limpieza automática: purgar códigos caducados o usados de más de 24 horas para mantener la BD limpia
+    limite_limpieza = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute("DELETE FROM password_resets WHERE expires_at < ? OR (used = 1 AND created_at < ?)", (limite_limpieza, limite_limpieza))
+
+    # Invalidar cualquier código anterior pendiente del usuario
+    cursor.execute("UPDATE password_resets SET used = 1 WHERE user_id = ? AND used = 0", (user_id,))
+    cursor.execute(
+        "INSERT INTO password_resets (user_id, code, expires_at, used) VALUES (?, ?, ?, 0)",
+        (user_id, codigo, expira)
+    )
+    conn.commit()
+    conn.close()
+    return codigo
+
+def verify_and_use_reset_code(identifier: str, code: str, new_password_hash: str) -> Optional[Dict[str, Any]]:
+    """
+    Verifica que el código de 6 dígitos pertenezca al usuario, esté vigente y no haya sido usado.
+    Si es válido, actualiza el password_hash del usuario y marca el código como usado.
+    """
+    user = get_user_by_identifier(identifier)
+    if not user:
+        return None
+
+    user_id = user["id"]
+    code_clean = code.strip()
+    ahora_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    conn = get_master_conn()
+    cursor = conn.cursor()
+    reset_row = cursor.execute(
+        """
+        SELECT * FROM password_resets 
+        WHERE user_id = ? AND code = ? AND used = 0 AND expires_at >= ?
+        ORDER BY id DESC LIMIT 1
+        """,
+        (user_id, code_clean, ahora_str)
+    ).fetchone()
+
+    if not reset_row:
+        conn.close()
+        return None
+
+    # Quemar el código y actualizar la contraseña del usuario
+    cursor.execute("UPDATE password_resets SET used = 1 WHERE id = ?", (reset_row["id"],))
+    cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_password_hash, user_id))
+    conn.commit()
+    
+    updated_user = cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+    return dict(updated_user) if updated_user else None
+
+def create_user_entry(username: str, password_hash: str, role: str = 'user', is_active: int = 1, email: Optional[str] = None) -> Dict[str, Any]:
     """
     Crea un nuevo usuario en la base maestra y dispara el aprovisionamiento automático
     de su base de datos tenant individual ('user_{id}.db').
     """
     username_clean = username.strip()
+    email_clean = email.strip() if (email and email.strip()) else None
     conn = get_master_conn()
     cursor = conn.cursor()
     
-    # 1. Insertar inicialmente con un placeholder temporal de db_name
+    # 1. Insertar inicialmente con un placeholder temporal de db_name y correo
     cursor.execute(
         """
-        INSERT INTO users (username, password_hash, role, is_active, db_name)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO users (username, password_hash, role, is_active, db_name, email)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (username_clean, password_hash, role, is_active, f"temp_{os.urandom(4).hex()}")
+        (username_clean, password_hash, role, is_active, f"temp_{os.urandom(4).hex()}", email_clean)
     )
     new_id = cursor.lastrowid
     
@@ -123,11 +221,12 @@ def update_user(
     user_id: int, 
     username: Optional[str] = None, 
     password_hash: Optional[str] = None, 
-    role: Optional[str] = None
+    role: Optional[str] = None,
+    email: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
     """
-    Actualiza datos de un usuario (nombre de usuario, contraseña hasheada y/o rol).
-    Valida que el nuevo nombre no esté duplicado con otro usuario.
+    Actualiza datos de un usuario (nombre de usuario, contraseña hasheada, rol y/o email).
+    Valida que el nuevo nombre o correo no esté duplicado con otro usuario.
     """
     user = get_user_by_id(user_id)
     if not user:
@@ -151,6 +250,18 @@ def update_user(
             raise ValueError(f"El nombre de usuario '{clean_user}' ya está en uso por otra cuenta.")
         fields.append("username = ?")
         params.append(clean_user)
+
+    if email is not None:
+        clean_email = email.strip()
+        if clean_email:
+            existing_email = cursor.execute("SELECT id FROM users WHERE LOWER(email) = LOWER(?) AND id != ?", (clean_email, user_id)).fetchone()
+            if existing_email:
+                conn.close()
+                raise ValueError(f"El correo electrónico '{clean_email}' ya está registrado en otra cuenta.")
+            fields.append("email = ?")
+            params.append(clean_email)
+        else:
+            fields.append("email = NULL")
 
     if password_hash is not None and password_hash.strip():
         fields.append("password_hash = ?")
@@ -228,7 +339,7 @@ def list_users_with_metrics() -> List[Dict[str, Any]]:
     cursor = conn.cursor()
     rows = cursor.execute(
         """
-        SELECT id, username, role, is_active, db_name, created_at, last_login, login_count 
+        SELECT id, username, email, role, is_active, db_name, created_at, last_login, login_count 
         FROM users 
         ORDER BY id ASC
         """

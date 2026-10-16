@@ -80,14 +80,17 @@ Diseñada desde cero para ser rápida, privada y correr de forma ultra eficiente
 ```text
 finanzas-app/
 ├── main.py              # API REST en FastAPI, inyección Depends(get_tenant_db) y endpoints
-├── master_db.py         # Base de datos maestra (users, auditoría, estadísticas admin)
+├── master_db.py         # Base de datos maestra (users, auditoría, estadísticas admin y códigos OTP)
 ├── security.py          # Criptografía bcrypt, tokens JWT y dependencias verify_token/verify_admin
+├── email_service.py     # Servicio de envío de correos transaccionales (Resend API y SMTP)
 ├── database.py          # Gestor de esquemas tenant, conexiones dinámicas y aprovisionamiento
 ├── export_service.py    # Servicio generador de reportes Excel (.xlsx) con gráficas nativas
 ├── requirements.txt     # Dependencias (fastapi, uvicorn, pydantic, openpyxl, bcrypt, pyjwt)
 ├── Dockerfile           # Imagen Docker basada en python:3.11-slim
 ├── docker-compose.yml   # Configuración de Docker Compose con volumen montado y puerto 8001
+├── .env.example         # Plantilla de variables de entorno para JWT y claves de correo
 ├── README.md            # Documentación completa del proyecto
+├── LICENSE              # Licencia GNU General Public License v3.0 (GPLv3)
 ├── data/                # Almacenamiento local (ignorado en git)
 │   ├── master.db        # Base maestra de usuarios y auditoría
 │   └── tenants/         # Directorio de bases de datos individuales (user_1.db, user_2.db...)
@@ -103,16 +106,21 @@ finanzas-app/
 
 1. **Clonar el repositorio:**
    ```bash
-   git clone <URL_DEL_REPOSITORIO>
-   cd finanzas-app
+   git clone https://github.com/Ricardo-Gomez-4-113/Finanzas-Personales-Web-App-Community.git
+   cd Finanzas-Personales-Web-App-Community
    ```
 
-2. **Construir e iniciar los contenedores:**
+2. **Configurar variables de entorno (Opcional):**
+   ```bash
+   cp .env.example .env
+   ```
+
+3. **Construir e iniciar los contenedores:**
    ```bash
    docker compose up -d --build
    ```
 
-3. **Abrir en el navegador:**
+4. **Abrir en el navegador:**
    Ingresa a `http://localhost:8001`.
 
 ### 🔑 Credenciales Iniciales por Defecto
@@ -124,18 +132,48 @@ Al arrancar por primera vez, el sistema crea automáticamente el usuario Adminis
 * **Rol:** `admin`
 
 > [!TIP]
-> Una vez dentro, puedes ingresar a la pestaña `🛡️ Admin` para crear nuevos usuarios o dar de alta cuentas adicionales.
+> Una vez dentro, puedes ingresar a la pestaña `🛡️ Admin` para crear nuevos usuarios o dar de alta cuentas adicionales con su respectivo correo electrónico.
+
+---
+
+## 📧 Configuración de Correo para Recuperación de Contraseña
+
+La versión comunitaria incluye el sistema completo de recuperación de contraseñas mediante códigos OTP de 6 dígitos. Cada usuario o administrador que auto-hospede la plataforma puede conectar sus propias credenciales en el archivo `.env`:
+
+### Opción 1: Resend API (Recomendada)
+1. Obtén una cuenta gratuita en [Resend](https://resend.com) (incluye **3,000 correos gratis al mes**).
+2. Genera una API Key en el panel de Resend.
+3. En tu archivo `.env`:
+   ```env
+   RESEND_API_KEY=re_tu_api_key_aqui
+   RESEND_FROM=Finora MX <onboarding@resend.dev>  # O tu propio dominio autenticado
+   ```
+
+### Opción 2: Servidor SMTP Tradicional (Gmail, Brevo, etc.)
+En tu archivo `.env`:
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=tu_correo@gmail.com
+SMTP_PASSWORD=tu_contrasena_de_aplicacion_16_caracteres
+SMTP_FROM=Finora MX <tu_correo@gmail.com>
+```
+
+> [!NOTE]
+> Si no configuras ninguna API ni servidor SMTP, el sistema funcionará de forma local sin problemas, pero la recuperación de contraseña requerirá que un administrador cambie la clave manualmente desde el panel de administración.
 
 ---
 
 ## 🌐 Resumen de Endpoints de la API
 
-### Autenticación y Perfil
+### Autenticación, Perfil y Recuperación
 | Método | Endpoint | Seguridad | Descripción |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/auth/login` | Público | Autenticación con credenciales, registro de auditoría y emisión de JWT |
 | `GET` | `/auth/me` | `verify_token` | Retorna los datos del usuario en sesión activa |
 | `PATCH` | `/auth/profile` | `verify_token` | Permite al usuario activo modificar su nombre de usuario o contraseña |
+| `POST` | `/auth/recuperar-password/solicitar` | Público | Genera y envía código de 6 dígitos por email si está configurado |
+| `POST` | `/auth/recuperar-password/confirmar` | Público | Valida código de 6 dígitos no expirado y actualiza la contraseña |
 
 ### Administración (Exclusivo Admin)
 | Método | Endpoint | Seguridad | Descripción |

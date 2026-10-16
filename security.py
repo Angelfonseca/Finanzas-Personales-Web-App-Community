@@ -142,6 +142,7 @@ def verify_token(token: Optional[str] = Depends(oauth2_scheme)) -> Dict[str, Any
         "username": user["username"],
         "role": user["role"],
         "db_name": user["db_name"],
+        "email": user.get("email"),
         "is_active": user["is_active"]
     }
 

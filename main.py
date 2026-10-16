@@ -36,11 +36,18 @@ from security import (
     get_tenant_db
 )
 
+# Control de exposición de documentación técnica (Swagger UI / ReDoc / OpenAPI)
+# Por seguridad en producción, queda completamente deshabilitado (404) a menos que ENABLE_DOCS=true
+ENABLE_DOCS = os.environ.get("ENABLE_DOCS", "false").strip().lower() in ("true", "1", "yes")
+
 # Inicialización de la aplicación FastAPI
 app = FastAPI(
     title="Finanzas Personales API Multi-Tenant",
     description="Plataforma SaaS Multi-Tenant para control financiero personal e inversiones con bases de datos aisladas.",
-    version="2.0"
+    version="2.0",
+    docs_url="/docs" if ENABLE_DOCS else None,
+    redoc_url="/redoc" if ENABLE_DOCS else None,
+    openapi_url="/openapi.json" if ENABLE_DOCS else None
 )
 
 # Montar recursos estáticos (HTML, CSS, JS)
@@ -82,6 +89,9 @@ async def add_security_and_cache_headers(request: Request, call_next):
     return response
 
 @app.get("/", summary="Página principal SPA")
+@app.get("/landing", summary="Página de presentación")
+@app.get("/login", summary="Página de acceso")
+@app.get("/app", summary="Aplicación principal")
 def leer_raiz():
     """Sirve la interfaz web estática desde static/index.html."""
     return FileResponse("static/index.html")
@@ -106,6 +116,7 @@ class UserCreateRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_-]+$", description="Nombre de usuario alfanumérico")
     password: str = Field(..., min_length=4, max_length=72, description="Contraseña de acceso")
     role: Literal['admin', 'user'] = Field('user', description="Rol del usuario: 'admin' o 'user'")
+    email: Optional[str] = Field(None, max_length=120, description="Correo electrónico para recuperación de contraseña")
 
 class UserStatusRequest(BaseModel):
     is_active: bool = Field(..., description="Estado activo (True) o suspendido (False)")
@@ -114,6 +125,15 @@ class UserUpdateRequest(BaseModel):
     username: Optional[str] = Field(None, min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_-]+$", description="Nuevo nombre de usuario")
     password: Optional[str] = Field(None, min_length=4, max_length=72, description="Nueva contraseña (dejar en blanco para no cambiar)")
     role: Optional[Literal['admin', 'user']] = Field(None, description="Rol del usuario: 'admin' o 'user'")
+    email: Optional[str] = Field(None, max_length=120, description="Correo electrónico del usuario")
+
+class ForgotPasswordRequest(BaseModel):
+    identifier: str = Field(..., min_length=2, max_length=120, description="Nombre de usuario o correo electrónico")
+
+class ResetPasswordRequest(BaseModel):
+    identifier: str = Field(..., min_length=2, max_length=120, description="Nombre de usuario o correo electrónico")
+    code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$", description="Código numérico de 6 dígitos")
+    new_password: str = Field(..., min_length=4, max_length=72, description="Nueva contraseña")
 
 # =============================================================================
 # MODELOS PYDANTIC: TRANSACCIONES, APARTADOS E INVERSIONES
@@ -224,7 +244,8 @@ def login(credentials: LoginRequest, request: Request):
         "sub": str(user["id"]),
         "username": user["username"],
         "role": user["role"],
-        "db_name": user["db_name"]
+        "db_name": user["db_name"],
+        "email": user.get("email")
     }
     token = create_access_token(payload)
     
@@ -235,7 +256,8 @@ def login(credentials: LoginRequest, request: Request):
             "id": user["id"],
             "username": user["username"],
             "role": user["role"],
-            "db_name": user["db_name"]
+            "db_name": user["db_name"],
+            "email": user.get("email")
         }
     }
 
@@ -251,7 +273,7 @@ def get_mi_perfil(current_user: Dict[str, Any] = Depends(verify_token)):
 @app.put("/api/auth/profile", summary="Editar perfil del usuario activo (alias API)")
 def editar_mi_perfil(req: UserUpdateRequest, current_user: Dict[str, Any] = Depends(verify_token)):
     """
-    Permite al usuario autenticado modificar su propio nombre de usuario y/o contraseña.
+    Permite al usuario autenticado modificar su propio nombre de usuario, correo y/o contraseña.
     """
     user_id = current_user["id"]
     pwd_hash = hash_password(req.password) if (req.password and req.password.strip()) else None
@@ -261,7 +283,8 @@ def editar_mi_perfil(req: UserUpdateRequest, current_user: Dict[str, Any] = Depe
             user_id=user_id,
             username=req.username,
             password_hash=pwd_hash,
-            role=None  # No permitir auto-escalar rol
+            role=None,  # No permitir auto-escalar rol
+            email=req.email
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -270,7 +293,8 @@ def editar_mi_perfil(req: UserUpdateRequest, current_user: Dict[str, Any] = Depe
         "sub": str(user_actualizado["id"]),
         "username": user_actualizado["username"],
         "role": user_actualizado["role"],
-        "db_name": user_actualizado["db_name"]
+        "db_name": user_actualizado["db_name"],
+        "email": user_actualizado.get("email")
     })
 
     return {
@@ -279,9 +303,69 @@ def editar_mi_perfil(req: UserUpdateRequest, current_user: Dict[str, Any] = Depe
             "id": user_actualizado["id"],
             "username": user_actualizado["username"],
             "role": user_actualizado["role"],
-            "db_name": user_actualizado["db_name"]
+            "db_name": user_actualizado["db_name"],
+            "email": user_actualizado.get("email")
         },
         "new_token": nuevo_token
+    }
+
+# =============================================================================
+# ENDPOINTS: RECUPERACIÓN DE CONTRASEÑA POR EMAIL
+# =============================================================================
+
+@app.post("/auth/forgot-password", summary="Solicitar código de restablecimiento de contraseña")
+@app.post("/api/auth/forgot-password", summary="Solicitar código de restablecimiento (alias API)")
+def forgot_password(req: ForgotPasswordRequest, background_tasks: BackgroundTasks, request: Request):
+    """
+    Solicita un código de recuperación de contraseña de 6 dígitos:
+    1. Aplica rate limiting para prevenir spam.
+    2. Busca al usuario por username o email.
+    3. Si tiene email registrado, genera código y lo envía en segundo plano por SMTP.
+    4. Responde con un mensaje neutro para evitar enumeración de usuarios.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    clave_tasa = f"forgot:{client_ip}"
+    verificar_tasa_login(clave_tasa)
+
+    user = master_db.get_user_by_identifier(req.identifier)
+    if user and user.get("email") and user.get("is_active"):
+        codigo = master_db.create_password_reset_code(user["id"])
+        from email_service import enviar_correo_codigo_recuperacion
+        background_tasks.add_task(
+            enviar_correo_codigo_recuperacion,
+            user["email"],
+            user["username"],
+            codigo
+        )
+    else:
+        registrar_fallo_login(clave_tasa)
+
+    return {
+        "mensaje": "Si el usuario o correo electrónico existe y tiene una dirección registrada, hemos enviado un código de recuperación de 6 dígitos (válido por 15 minutos)."
+    }
+
+@app.post("/auth/reset-password", summary="Restablecer contraseña con código de 6 dígitos")
+@app.post("/api/auth/reset-password", summary="Restablecer contraseña (alias API)")
+def reset_password(req: ResetPasswordRequest, request: Request):
+    """
+    Restablece la contraseña utilizando el código de 6 dígitos recibido por correo.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    clave_tasa = f"reset:{client_ip}"
+    verificar_tasa_login(clave_tasa)
+
+    nuevo_hash = hash_password(req.new_password)
+    user = master_db.verify_and_use_reset_code(req.identifier, req.code, nuevo_hash)
+    if not user:
+        registrar_fallo_login(clave_tasa)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El código de recuperación es incorrecto, ya ha sido utilizado o ha expirado (vigencia de 15 minutos)."
+        )
+
+    limpiar_fallos_login(clave_tasa)
+    return {
+        "mensaje": f"¡Contraseña actualizada exitosamente para '{user['username']}'! Ya puedes iniciar sesión con tu nueva contraseña."
     }
 
 # =============================================================================
@@ -313,7 +397,8 @@ def admin_crear_usuario(req: UserCreateRequest, _admin: Dict[str, Any] = Depends
         username=username,
         password_hash=pwd_hash,
         role=req.role,
-        is_active=1
+        is_active=1,
+        email=req.email
     )
     
     return {
@@ -322,7 +407,8 @@ def admin_crear_usuario(req: UserCreateRequest, _admin: Dict[str, Any] = Depends
             "id": nuevo_usuario["id"],
             "username": nuevo_usuario["username"],
             "role": nuevo_usuario["role"],
-            "db_name": nuevo_usuario["db_name"]
+            "db_name": nuevo_usuario["db_name"],
+            "email": nuevo_usuario.get("email")
         }
     }
 
@@ -359,7 +445,7 @@ def admin_cambiar_estado(user_id: int, req: UserStatusRequest, admin: Dict[str, 
 @app.put("/api/admin/users/{user_id}", summary="Editar usuario (alias API)")
 def admin_editar_usuario(user_id: int, req: UserUpdateRequest, admin: Dict[str, Any] = Depends(verify_admin)):
     """
-    Permite al administrador modificar el nombre de usuario, contraseña y/o rol de cualquier cuenta.
+    Permite al administrador modificar el nombre de usuario, correo, contraseña y/o rol de cualquier cuenta.
     Si se edita la propia cuenta del administrador en sesión, se genera y retorna un nuevo token JWT.
     """
     user = master_db.get_user_by_id(user_id)
@@ -381,7 +467,8 @@ def admin_editar_usuario(user_id: int, req: UserUpdateRequest, admin: Dict[str, 
             user_id=user_id,
             username=req.username,
             password_hash=pwd_hash,
-            role=req.role
+            role=req.role,
+            email=req.email
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -392,7 +479,8 @@ def admin_editar_usuario(user_id: int, req: UserUpdateRequest, admin: Dict[str, 
             "id": user_actualizado["id"],
             "username": user_actualizado["username"],
             "role": user_actualizado["role"],
-            "db_name": user_actualizado["db_name"]
+            "db_name": user_actualizado["db_name"],
+            "email": user_actualizado.get("email")
         }
     }
 
@@ -402,7 +490,8 @@ def admin_editar_usuario(user_id: int, req: UserUpdateRequest, admin: Dict[str, 
             "sub": str(user_actualizado["id"]),
             "username": user_actualizado["username"],
             "role": user_actualizado["role"],
-            "db_name": user_actualizado["db_name"]
+            "db_name": user_actualizado["db_name"],
+            "email": user_actualizado.get("email")
         })
         resp["new_token"] = nuevo_token
 
@@ -977,6 +1066,16 @@ def obtener_tasas_cambio():
 
 @app.get("/api/tipo-cambio", summary="Consultar tipos de cambio vigentes")
 def get_tipo_cambio(_user: Dict[str, Any] = Depends(verify_token)):
+    tasas = obtener_tasas_cambio()
+    return {
+        "base": "USD",
+        "tasas": tasas,
+        "actualizado_en": ahora_local().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+@app.get("/api/public/tipo-cambio", summary="Consultar tipos de cambio públicos")
+def get_tipo_cambio_publico():
+    """Retorna las tasas de cambio de moneda (MXN/USD) sin requerir autenticación para la página de presentación."""
     tasas = obtener_tasas_cambio()
     return {
         "base": "USD",

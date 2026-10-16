@@ -13,8 +13,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Finora | Gestión Patrimonial</title>
-    <!-- Favicon SVG Finora Sovereign Wealth -->
+    <title>Finora MX | Gestión Patrimonial</title>
+    <!-- Favicon SVG Finora MX Sovereign Wealth -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%23080c14' stroke='%23c5a059' stroke-width='1.5'/><path d='M10 22L16 10L22 22H18.5L16 16.8L13.5 22H10Z' fill='%23dfba73'/><circle cx='16' cy='14' r='2.2' fill='%2310b981'/></svg>">
     <link rel="alternate icon" href="/static/favicon.svg" type="image/svg+xml">
     <!-- Google Fonts: Plus Jakarta Sans -->
@@ -22,10 +22,798 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Hojas de estilo y biblioteca de gráficos Chart.js -->
-    <link rel="stylesheet" href="/static/style.css?v=3.4">
+    <link rel="stylesheet" href="/static/style.css?v=4.1">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+
+    <!-- ========================================================== -->
+    <!-- VISTA 0: PÁGINA DE PRESENTACIÓN (LANDING PAGE)            -->
+    <!-- ========================================================== -->
+    <div id="vista-landing" class="landing-wrapper">
+        <!-- Fondos ambientales y resplandores -->
+        <div class="landing-ambient-bg">
+            <div class="ambient-glow-gold"></div>
+            <div class="ambient-glow-emerald"></div>
+        </div>
+
+        <!-- Encabezado de Navegación Fijo -->
+        <header class="landing-header">
+            <div class="landing-nav-container">
+                <a href="#inicio" class="landing-brand" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;">
+                    <div class="landing-brand-logo">
+                        <svg class="finora-logo-svg" width="34" height="34" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="32" height="32" rx="9" fill="url(#finora-grad-land)" stroke="#c5a059" stroke-opacity="0.4" stroke-width="1.2"/>
+                            <path d="M10 22L16 10L22 22H18.5L16 16.8L13.5 22H10Z" fill="url(#finora-gold-land)"/>
+                            <circle cx="16" cy="14" r="2" fill="#10b981"/>
+                            <defs>
+                                <linearGradient id="finora-grad-land" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#090e1a"/>
+                                    <stop offset="1" stop-color="#141f35"/>
+                                </linearGradient>
+                                <linearGradient id="finora-gold-land" x1="10" y1="10" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#dfba73"/>
+                                    <stop offset="1" stop-color="#c5a059"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <span class="landing-brand-name">Finora <span style="color: var(--gold-color); font-size: 0.82em; font-weight: 800;">MX</span></span>
+                    <span class="landing-tag">Gestión Patrimonial</span>
+                </a>
+
+                <nav class="landing-nav-links">
+                    <a href="#capacidades" class="landing-nav-link">Capacidades</a>
+                    <a href="#plataforma" class="landing-nav-link">Plataforma</a>
+                    <a href="#seguridad" class="landing-nav-link">Seguridad & Soberanía</a>
+                    <a href="#precios" class="landing-nav-link">Precios & Código</a>
+                    <a href="#faq" class="landing-nav-link">Preguntas Frecuentes</a>
+                </nav>
+
+                <div class="landing-nav-actions">
+                    <span class="landing-ticker-badge" id="landing-ticker-badge" title="Tipo de cambio interbancario USD / MXN en tiempo real">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+                        <span>1 USD ≈ <strong id="landing-exchange-val">18.45</strong> MXN</span>
+                    </span>
+
+                    <button type="button" class="btn-landing-theme" onclick="toggleModoOscuro()" title="Cambiar tema de color">
+                        <svg class="ui-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                    </button>
+
+                    <button type="button" id="btn-landing-nav-login" class="btn-landing-login" onclick="ingresarOAcceder()">
+                        <span id="txt-landing-nav-login">Ingresar a la Plataforma</span>
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sección Hero Principal -->
+        <section class="landing-hero" id="inicio">
+            <div class="hero-chip">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>Plataforma Privada de Inteligencia Patrimonial</span>
+            </div>
+
+            <h1 class="hero-title">
+                El estándar institucional para tu <span class="gold-gradient-text">patrimonio personal</span>.
+            </h1>
+
+            <p class="hero-subtitle">
+                Consolida tu riqueza neta en tiempo real, domina tus presupuestos y supervisa portafolios bursátiles multimoneda (MXN/USD) con total soberanía y bases de datos físicamente aisladas por usuario.
+            </p>
+
+            <div class="hero-cta-group">
+                <button type="button" id="btn-landing-hero-login" class="btn-hero-primary" onclick="ingresarOAcceder()">
+                    <span id="txt-landing-hero-login">Ingresar a la Plataforma</span>
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+                <a href="#plataforma" class="btn-hero-secondary">
+                    <span>Explorar Capacidades</span>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </a>
+            </div>
+
+            <div class="hero-trust-bar">
+                <div class="trust-item">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>100% Bases de Datos SQLite Aisladas</span>
+                </div>
+                <div class="trust-item">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>Cotizaciones Bursátiles en Vivo (Yahoo Finance)</span>
+                </div>
+                <div class="trust-item">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>Cero Rastreadores ni Venta de Datos</span>
+                </div>
+            </div>
+
+            <!-- Mockup Interactivo del Dashboard Finora -->
+            <div class="landing-mockup-frame">
+                <div class="mockup-header-bar">
+                    <div class="mockup-dots">
+                        <span class="mockup-dot dot-red"></span>
+                        <span class="mockup-dot dot-yellow"></span>
+                        <span class="mockup-dot dot-green"></span>
+                    </div>
+                    <div class="mockup-title-bar">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <span>Finora MX Sovereign Wealth • Bóveda Patrimonial</span>
+                    </div>
+                    <div class="mockup-currency-toggle" title="Prueba cambiar la divisa de la simulación">
+                        <button type="button" class="mockup-curr-btn active" id="btn-mock-mxn" onclick="toggleMonedaMockup('MXN')">MXN</button>
+                        <button type="button" class="mockup-curr-btn" id="btn-mock-usd" onclick="toggleMonedaMockup('USD')">USD</button>
+                    </div>
+                </div>
+
+                <div class="mockup-body">
+                    <!-- 4 Tarjetas KPI -->
+                    <div class="mockup-kpi-grid">
+                        <div class="mockup-kpi-card kpi-featured">
+                            <div class="mockup-kpi-header">
+                                <span class="mockup-kpi-label">Patrimonio Neto</span>
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--gold-color)" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                            </div>
+                            <div class="mockup-kpi-val" id="mock-val-patrimonio">$1,254,820.50</div>
+                            <span class="mockup-kpi-badge">
+                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg>
+                                +14.2% Rendimiento YTD
+                            </span>
+                        </div>
+
+                        <div class="mockup-kpi-card">
+                            <div class="mockup-kpi-header">
+                                <span class="mockup-kpi-label">Liquidez en Caja</span>
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                            </div>
+                            <div class="mockup-kpi-val" id="mock-val-caja">$184,350.00</div>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">Disponible de inmediato</span>
+                        </div>
+
+                        <div class="mockup-kpi-card">
+                            <div class="mockup-kpi-header">
+                                <span class="mockup-kpi-label">Apartados y Metas</span>
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#10b981" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                            </div>
+                            <div class="mockup-kpi-val" id="mock-val-metas">$320,000.00</div>
+                            <span style="font-size: 0.72rem; color: #10b981;">3 metas activas (84% meta)</span>
+                        </div>
+
+                        <div class="mockup-kpi-card">
+                            <div class="mockup-kpi-header">
+                                <span class="mockup-kpi-label">Portafolio Bursátil</span>
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#dfba73" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                            </div>
+                            <div class="mockup-kpi-val" id="mock-val-inversiones">$750,470.50</div>
+                            <span style="font-size: 0.72rem; color: #10b981;">+18.6% Plusvalía acumulada</span>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico y Desglose Patrimonial -->
+                    <div class="mockup-chart-strip">
+                        <div class="mockup-chart-info" style="flex: 1;">
+                            <h4>Distribución de Activos</h4>
+                            <p>Asignación estratégica de capital: Bursátil, Ahorro Programado y Liquidez.</p>
+                            <div class="mockup-wealth-bar">
+                                <div class="mockup-wealth-seg seg-inv" title="Inversiones (60%)"></div>
+                                <div class="mockup-wealth-seg seg-metas" title="Metas de Ahorro (25%)"></div>
+                                <div class="mockup-wealth-seg seg-caja" title="Caja / Liquidez (15%)"></div>
+                            </div>
+                            <div style="display: flex; gap: 16px; margin-top: 8px; font-size: 0.75rem; color: var(--text-muted);">
+                                <span><strong style="color: #dfba73;">■</strong> Inversiones 60%</span>
+                                <span><strong style="color: #10b981;">■</strong> Metas 25%</span>
+                                <span><strong style="color: #38bdf8;">■</strong> Caja 15%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tickers bursátiles en tiempo real -->
+                    <div class="mockup-tickers-strip">
+                        <div class="mockup-ticker-pill">
+                            <div>
+                                <div class="ticker-pill-name">VOO</div>
+                                <div class="ticker-pill-sub">Vanguard S&P 500</div>
+                            </div>
+                            <div class="ticker-pill-right">
+                                <div class="ticker-pill-price">$512.30 USD</div>
+                                <div class="ticker-pill-gain">▲ +1.24%</div>
+                            </div>
+                        </div>
+
+                        <div class="mockup-ticker-pill">
+                            <div>
+                                <div class="ticker-pill-name">NVDA</div>
+                                <div class="ticker-pill-sub">NVIDIA Corp.</div>
+                            </div>
+                            <div class="ticker-pill-right">
+                                <div class="ticker-pill-price">$134.80 USD</div>
+                                <div class="ticker-pill-gain">▲ +2.15%</div>
+                            </div>
+                        </div>
+
+                        <div class="mockup-ticker-pill">
+                            <div>
+                                <div class="ticker-pill-name">AAPL</div>
+                                <div class="ticker-pill-sub">Apple Inc.</div>
+                            </div>
+                            <div class="ticker-pill-right">
+                                <div class="ticker-pill-price">$228.50 USD</div>
+                                <div class="ticker-pill-gain">▲ +0.85%</div>
+                            </div>
+                        </div>
+
+                        <div class="mockup-ticker-pill">
+                            <div>
+                                <div class="ticker-pill-name">CETES 28D</div>
+                                <div class="ticker-pill-sub">Renta Fija México</div>
+                            </div>
+                            <div class="ticker-pill-right">
+                                <div class="ticker-pill-price">10.75%</div>
+                                <div class="ticker-pill-gain">Tasa Anual</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sección: 6 Capacidades de Grado Institucional -->
+        <section class="landing-section" id="capacidades">
+            <div class="section-head">
+                <span class="section-tag">Capacidades de Grado Institucional</span>
+                <h2 class="section-title">Diseñado para quienes demandan soberanía y precisión financiera.</h2>
+                <p class="section-subtitle">
+                    Finora MX reemplaza las hojas de cálculo fragmentadas y las aplicaciones comerciales limitadas con una arquitectura privada de nivel profesional.
+                </p>
+            </div>
+
+            <div class="pillars-grid">
+                <div class="pillar-card">
+                    <div class="pillar-icon-box">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+                    </div>
+                    <h3>Tablero Patrimonial 360°</h3>
+                    <p>Métricas de riqueza neta consolidadas en tiempo real: liquidez en cuentas bancarias, metas de ahorro reservadas y activos bursátiles.</p>
+                </div>
+
+                <div class="pillar-card">
+                    <div class="pillar-icon-box">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                    </div>
+                    <h3>Portafolio Bursátil Multimoneda</h3>
+                    <p>Cotizaciones bursátiles en vivo de NYSE, NASDAQ y mercados globales vía Yahoo Finance, calculando costos promedio, plusvalías y rendimientos en MXN y USD.</p>
+                </div>
+
+                <div class="pillar-card">
+                    <div class="pillar-icon-box">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                    </div>
+                    <h3>Metas y Sobres de Ahorro</h3>
+                    <p>Ahorro programado con asignación porcentual automática, barra de progreso visual y blindaje del dinero contra gastos corrientes imprevistos.</p>
+                </div>
+
+                <div class="pillar-card">
+                    <div class="pillar-icon-box">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <h3>Aislamiento Físico Multi-Tenant</h3>
+                    <p>Cada usuario posee su propio archivo SQLite físico independiente. Tu información financiera nunca se mezcla en tablas compartidas ni bases de datos conjuntas.</p>
+                </div>
+
+                <div class="pillar-card">
+                    <div class="pillar-icon-box">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </div>
+                    <h3>Modo Discreción y Privacidad</h3>
+                    <p>Oculta cifras y balances con un solo clic. Consulta tu plataforma con tranquilidad en cafeterías, aeropuertos, transporte o pantallas compartidas.</p>
+                </div>
+
+                <div class="pillar-card">
+                    <div class="pillar-icon-box">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    </div>
+                    <h3>Auditorías y Respaldos Físicos</h3>
+                    <p>Exporta reportes detallados en hojas de cálculo Excel (.xlsx) y descarga una copia física completa de tu base de datos SQLite en cualquier momento con un clic.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sección: Demostración Interactiva de Módulos (Showcase) -->
+        <section class="landing-section" id="plataforma">
+            <div class="section-head">
+                <span class="section-tag">Explora la Plataforma</span>
+                <h2 class="section-title">Una interfaz deliberada, rápida y sin fricción.</h2>
+                <p class="section-subtitle">
+                    Navega por los módulos centrales diseñados con la identidad visual institucional Obsidian & Satin Gold.
+                </p>
+            </div>
+
+            <div class="showcase-container">
+                <div class="showcase-tabs-nav">
+                    <button type="button" class="showcase-tab-btn active" onclick="cambiarShowcaseTab('tab-show-resumen', this)">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+                        <span>Resumen Patrimonial</span>
+                    </button>
+                    <button type="button" class="showcase-tab-btn" onclick="cambiarShowcaseTab('tab-show-movimientos', this)">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                        <span>Movimientos de Caja</span>
+                    </button>
+                    <button type="button" class="showcase-tab-btn" onclick="cambiarShowcaseTab('tab-show-metas', this)">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                        <span>Metas y Sobres</span>
+                    </button>
+                    <button type="button" class="showcase-tab-btn" onclick="cambiarShowcaseTab('tab-show-inversiones', this)">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                        <span>Portafolio de Inversión</span>
+                    </button>
+                </div>
+
+                <!-- Panel 1: Resumen -->
+                <div id="tab-show-resumen" class="showcase-panel active">
+                    <div class="showcase-grid-inner">
+                        <div class="showcase-content">
+                            <h3>Tu riqueza neta en un solo vistazo ejecutivo</h3>
+                            <p>El tablero principal consolida tus saldos en tiempo real, desglosando con exactitud matemática el capital disponible, el dinero apartado en metas y el valor de tus inversiones.</p>
+                            <ul class="showcase-feature-list">
+                                <li class="showcase-feature-item">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span>Conversión instantánea entre Pesos Mexicanos (MXN) y Dólares (USD).</span>
+                                </li>
+                                <li class="showcase-feature-item">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span>Gráfica interactiva de flujo mensual comparando ingresos vs gastos.</span>
+                                </li>
+                                <li class="showcase-feature-item">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span>Modo discreción con un clic para ocultar balances sensibles.</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="showcase-card-visual">
+                            <div style="font-size: 0.8rem; font-weight: 700; color: var(--gold-color); text-transform: uppercase; margin-bottom: 12px;">Vista Resumen en Vivo</div>
+                            <div style="background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">Patrimonio Neto Consolidado</div>
+                                <div style="font-size: 1.6rem; font-weight: 800; color: var(--text-color); font-variant-numeric: tabular-nums;">$1,254,820.50 MXN</div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div style="background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">Ingresos del Mes</div>
+                                    <div style="font-size: 1.1rem; font-weight: 700; color: #10b981;">+$65,000.00</div>
+                                </div>
+                                <div style="background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">Gastos del Mes</div>
+                                    <div style="font-size: 1.1rem; font-weight: 700; color: var(--danger-color);">-$22,450.00</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel 2: Movimientos -->
+                <div id="tab-show-movimientos" class="showcase-panel">
+                    <div class="showcase-grid-inner">
+                        <div class="showcase-content">
+                            <h3>Control total de ingresos y egresos</h3>
+                            <p>Registra cada transacción en segundos. Clasifica gastos, audita el flujo de caja diario y detecta fugas de capital con filtros por fecha y categoría.</p>
+                            <ul class="showcase-feature-list">
+                                <li class="showcase-feature-item">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span>Categorías inteligentes: Alimentos, Transporte, Vivienda, Salud y más.</span>
+                                </li>
+                                <li class="showcase-feature-item">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span>Edición y corrección in situ de movimientos con un solo clic.</span>
+                                </li>
+                                <li class="showcase-feature-item">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span>Exportación completa del historial de movimientos a Excel (.xlsx).</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="showcase-card-visual">
+                            <div style="font-size: 0.8rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; margin-bottom: 12px;">Registro de Transacciones</div>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--panel-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                    <div>
+                                        <div style="font-weight: 700; font-size: 0.88rem;">Honorarios Profesionales</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);">Ingreso · 15 Oct</div>
+                                    </div>
+                                    <div style="color: #10b981; font-weight: 700; font-variant-numeric: tabular-nums;">+$45,000.00</div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--panel-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                    <div>
+                                        <div style="font-weight: 700; font-size: 0.88rem;">Supermercado y Despensa</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);">Alimentos · 14 Oct</div>
+                                    </div>
+                                    <div style="color: var(--danger-color); font-weight: 700; font-variant-numeric: tabular-nums;">-$3,820.00</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel 3: Metas -->
+                <div id="tab-show-metas" class="showcase-panel">
+                    <div class="showcase-grid-inner">
+                        <div class="showcase-content">
+                            <h3>Presupuestos por sobres y metas de ahorro</h3>
+                            <p>El dinero asignado a una meta queda protegido de tu saldo líquido disponible, impidiendo que lo gastes sin darte cuenta.</p>
+                            <ul class="showcase-feature-list">
+                                <li class="showcase-feature-item">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span>Fondo de Emergencia, Enganche de Casa, Vacaciones y más.</span>
+                                </li>
+                                <li class="showcase-feature-item">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span>Barra de progreso porcentual y cálculo dinámico de capital restante.</span>
+                                </li>
+                                <li class="showcase-feature-item">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span>Protección contra retiros accidentales.</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="showcase-card-visual">
+                            <div style="font-size: 0.8rem; font-weight: 700; color: #10b981; text-transform: uppercase; margin-bottom: 12px;">Sobres de Ahorro</div>
+                            <div style="background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 10px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                    <strong>Fondo de Emergencia (6 Meses)</strong>
+                                    <span style="color: #10b981; font-weight: 700;">85%</span>
+                                </div>
+                                <div style="height: 8px; background: var(--border-color); border-radius: 4px; overflow: hidden; margin-bottom: 6px;">
+                                    <div style="width: 85%; height: 100%; background: #10b981;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted);">
+                                    <span>$170,000.00 ahorrados</span>
+                                    <span>Meta: $200,000.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel 4: Inversiones -->
+                <div id="tab-show-inversiones" class="showcase-panel">
+                    <div class="showcase-grid-inner">
+                        <div class="showcase-content">
+                            <h3>Portafolio de inversión bursátil en tiempo real</h3>
+                            <p>Monitorea tus acciones, fondos cotizados (ETFs) e instrumentos de renta fija con sincronización directa al mercado financiero internacional.</p>
+                            <ul class="showcase-feature-list">
+                                <li class="showcase-feature-item">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span>Buscador y autocompletado inteligente de tickers (AAPL, NVDA, VOO, TSLA).</span>
+                                </li>
+                                <li class="showcase-feature-item">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span>Cálculo automático de precio promedio de compra y plusvalía/minusvalía.</span>
+                                </li>
+                                <li class="showcase-feature-item">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span>Valuación instantánea tanto en dólares como en pesos mexicanos.</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="showcase-card-visual">
+                            <div style="font-size: 0.8rem; font-weight: 700; color: #dfba73; text-transform: uppercase; margin-bottom: 12px;">Posiciones Abiertas</div>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--panel-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                    <div>
+                                        <div style="font-weight: 700; font-size: 0.88rem;">VOO · Vanguard S&P 500</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);">45 títulos · Costo prom: $460.00</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-weight: 700; font-size: 0.88rem;">$23,053.50 USD</div>
+                                        <div style="color: #10b981; font-weight: 700; font-size: 0.75rem;">+$2,353.50 (+11.3%)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sección: Soberanía de Datos y Comparativa de Seguridad -->
+        <section class="landing-section" id="seguridad">
+            <div class="section-head">
+                <span class="section-tag">Seguridad y Soberanía Tecnológica</span>
+                <h2 class="section-title">¿Por qué Finora MX es diferente a cualquier otra app?</h2>
+                <p class="section-subtitle">
+                    Tus datos patrimoniales no deben ser monetizados ni residir en bases de datos centralizadas vulnerables a filtraciones masivas.
+                </p>
+            </div>
+
+            <div class="sovereignty-table-wrap">
+                <table class="sovereignty-table">
+                    <thead>
+                        <tr>
+                            <th>Criterio de Privacidad & Arquitectura</th>
+                            <th class="col-finora">Finora MX (Soberanía Privada)</th>
+                            <th>Apps Financieras Típicas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Aislamiento de Base de Datos</strong></td>
+                            <td class="col-finora"><span class="check-green">✓ Archivo SQLite dedicado por usuario</span></td>
+                            <td><span class="cross-red">✗ Base compartida con millones de usuarios</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Monetización de Datos Financieros</strong></td>
+                            <td class="col-finora"><span class="check-green">✓ 100% Libre de anuncios y telemetría</span></td>
+                            <td><span class="cross-red">✗ Venta de perfiles y hábitos a anunciantes</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Portabilidad y Respaldos Físicos</strong></td>
+                            <td class="col-finora"><span class="check-green">✓ Descarga tu base de datos completa en 1 clic</span></td>
+                            <td><span class="cross-red">✗ Bloqueo de salida (Vendor Lock-in)</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Cifrado de Credenciales</strong></td>
+                            <td class="col-finora"><span class="check-green">✓ Bcrypt de grado bancario + JWT efímeros</span></td>
+                            <td>Varios estándares propietarios</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Recuperación de Contraseña</strong></td>
+                            <td class="col-finora"><span class="check-green">✓ Códigos OTP únicos de 6 dígitos con Resend</span></td>
+                            <td>Enlaces expuestos de reseteo</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Sección: Transparencia & Precios (Open Source vs Cloud) -->
+        <section class="landing-section" id="precios">
+            <div class="section-head">
+                <span class="section-tag">Modelo Abierto & Transparencia Total</span>
+                <h2 class="section-title">El software es libre. Solo pagas por la nube y el soporte.</h2>
+                <p class="section-subtitle">
+                    Creemos en la soberanía tecnológica radical. El código fuente es 100% abierto y gratuito en GitHub bajo licencia GPLv3. No cobramos por licenciar software: nuestra cuota accesible cubre exclusivamente los servidores de alta disponibilidad, las alertas de seguridad y la asistencia técnica continua.
+                </p>
+            </div>
+
+            <div class="pricing-grid">
+                <!-- Tarjeta 1: Community Edition (Self-Hosted) -->
+                <div class="pricing-card">
+                    <div class="pricing-card-header">
+                        <div class="pricing-badge-tier tier-free">100% Código Abierto</div>
+                        <h3 class="pricing-title">Self-Hosted</h3>
+                        <p class="pricing-desc">Para desarrolladores, administradores de sistemas y usuarios con servidor o Raspberry Pi propia.</p>
+                        <div class="pricing-price-wrap">
+                            <span class="price-currency">$</span>
+                            <span class="price-amount">0</span>
+                            <span class="price-period">MXN / siempre libre</span>
+                        </div>
+                    </div>
+
+                    <ul class="pricing-features-list">
+                        <li>
+                            <svg class="feature-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span>Código fuente completo (Licencia GNU GPLv3)</span>
+                        </li>
+                        <li>
+                            <svg class="feature-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span>Aislamiento multi-tenant físico en SQLite</span>
+                        </li>
+                        <li>
+                            <svg class="feature-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span>Recuperación de contraseñas por correo (conectando tu propia API de Resend o SMTP)</span>
+                        </li>
+                        <li>
+                            <svg class="feature-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span>Despliegue local con <code>docker compose up</code></span>
+                        </li>
+                        <li>
+                            <svg class="feature-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span>Exportación a Excel y descarga de copias <code>.db</code></span>
+                        </li>
+                        <li class="feature-muted">
+                            <svg class="feature-cross" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            <span>Configuración de servidores, dominio y SSL por tu cuenta</span>
+                        </li>
+                        <li class="feature-muted">
+                            <svg class="feature-cross" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            <span>Gestión y costo de tu propia cuenta/API de correos</span>
+                        </li>
+                        <li class="feature-muted">
+                            <svg class="feature-cross" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            <span>Sin soporte técnico oficial garantizado</span>
+                        </li>
+                    </ul>
+
+                    <div class="pricing-card-action">
+                        <a href="https://github.com/Ricardo-Gomez-4-113/Finanzas-Personales-Web-App-Community" target="_blank" rel="noopener noreferrer" class="btn-pricing-secondary">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+                            <span>Ver Código en GitHub</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 2: Finora MX Cloud (Alojamiento Gestionado + Soporte) -->
+                <div class="pricing-card card-featured">
+                    <div class="pricing-featured-ribbon">Alojamiento + Soporte</div>
+                    <div class="pricing-card-header">
+                        <div class="pricing-badge-tier tier-pro">Finora MX Cloud</div>
+                        <h3 class="pricing-title">Todo Resuelto</h3>
+                        <p class="pricing-desc">Para profesionales, ejecutivos y familias que buscan la máxima comodidad en la nube sin complicaciones técnicas.</p>
+                        <div class="pricing-price-wrap">
+                            <span class="price-currency">$</span>
+                            <span class="price-amount">50</span>
+                            <span class="price-period">MXN / mes</span>
+                        </div>
+                    </div>
+
+                    <ul class="pricing-features-list">
+                        <li>
+                            <svg class="feature-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span><strong>Acceso instantáneo 24/7</strong> en <code>finora.rgmlabs.org</code> con SSL</span>
+                        </li>
+                        <li>
+                            <svg class="feature-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span>Base de datos SQLite físicamente aislada en servidor privado</span>
+                        </li>
+                        <li>
+                            <svg class="feature-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span><strong>Envío de correos y alertas OTP resuelto</strong> (sin contratar APIs de terceros)</span>
+                        </li>
+                        <li>
+                            <svg class="feature-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span>Respaldos automáticos en la nube y mantenimiento continuo</span>
+                        </li>
+                        <li>
+                            <svg class="feature-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span>Actualizaciones de software automáticas sin interrupciones</span>
+                        </li>
+                        <li>
+                            <svg class="feature-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span><strong>Soporte técnico prioritario</strong> y resolución de dudas</span>
+                        </li>
+                        <li>
+                            <svg class="feature-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span>Sin permanencia forzosa: descarga tus datos y cancela cuando quieras</span>
+                        </li>
+                    </ul>
+
+                    <div class="pricing-card-action">
+                        <button type="button" class="btn-pricing-primary" onclick="ingresarOAcceder()">
+                            <span>Comenzar por $50 MXN / mes</span>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manifiesto de Honestidad y Filosofía de Cobro -->
+            <div class="pricing-manifesto-box">
+                <div class="manifesto-icon-wrap">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <div class="manifesto-text">
+                    <h4>Nuestra Filosofía: El código nunca se cobra, el servicio sí.</h4>
+                    <p>
+                        No creemos en cobrar licencias por líneas de código ni en bloquear funciones esenciales. Si tienes los conocimientos técnicos para alojar Finora MX por tu cuenta, tienes nuestro respaldo total y el código completo en GitHub listo para conectar tu propia API de correos (Resend o SMTP). Tus <strong>$50 MXN al mes</strong> no compran el software: sustentan los servidores de cómputo en la nube de alta disponibilidad, la infraestructura de entrega de correos ya configurada y costeada por nosotros, los respaldos continuos y la atención personalizada.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sección: Preguntas Frecuentes (FAQ) -->
+        <section class="landing-section" id="faq">
+            <div class="section-head">
+                <span class="section-tag">Dudas y Respuestas</span>
+                <h2 class="section-title">Preguntas Frecuentes</h2>
+                <p class="section-subtitle">Todo lo que necesitas saber sobre el funcionamiento de la plataforma.</p>
+            </div>
+
+            <div class="faq-accordion">
+                <div class="faq-item active">
+                    <button type="button" class="faq-question-btn" onclick="toggleFaqItem(this)">
+                        <span>¿Por qué cobran $50 MXN/mes si el código es gratis en GitHub?</span>
+                        <svg class="faq-arrow" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        Porque el software es 100% libre bajo licencia GNU GPLv3: puedes descargar el código completo, correrlo en tu propio servidor e integrar tu propia API de Resend o SMTP sin pagar un solo peso. Sin embargo, no todo el mundo desea configurar servidores Linux, Docker, dominios, registros DNS o administrar APIs de correo externas. Por solo $50 pesos al mes, nosotros resolvemos toda la infraestructura en la nube, el envío automático de correos, los respaldos y el soporte técnico para que uses la plataforma sin complicaciones.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <button type="button" class="faq-question-btn" onclick="toggleFaqItem(this)">
+                        <span>¿Qué es Finora MX y en qué se distingue de una app bancaria convencional?</span>
+                        <svg class="faq-arrow" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        Finora MX es un centro de comando financiero privado que consolida todas tus cuentas, apartados de ahorro y portafolios de inversión en un solo lugar. A diferencia de las apps bancarias comerciales, Finora MX no te vende créditos ni comparte tus datos con intermediarios; opera con bases de datos aisladas físicamente bajo tu control.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <button type="button" class="faq-question-btn" onclick="toggleFaqItem(this)">
+                        <span>¿Mis datos financieros están completamente aislados de otros usuarios?</span>
+                        <svg class="faq-arrow" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        Sí, al 100%. Finora MX implementa una arquitectura multi-tenant física: cada cuenta de usuario tiene su propio archivo de base de datos SQLite independiente en el servidor. Tus movimientos, saldos e inversiones nunca residen en la misma tabla ni en el mismo archivo que los de otros usuarios.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <button type="button" class="faq-question-btn" onclick="toggleFaqItem(this)">
+                        <span>¿De dónde provienen las cotizaciones bursátiles y el tipo de cambio?</span>
+                        <svg class="faq-arrow" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        La plataforma se conecta en tiempo real a los mercados financieros internacionales mediante la API de Yahoo Finance para obtener precios actualizados de acciones, ETFs y fondos. El tipo de cambio interbancario USD/MXN se sincroniza automáticamente para permitir la conversión al instante.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <button type="button" class="faq-question-btn" onclick="toggleFaqItem(this)">
+                        <span>¿Puedo descargar y respaldar mi información en cualquier momento?</span>
+                        <svg class="faq-arrow" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        Absolutamente. Puedes descargar una copia física completa de tu base de datos SQLite con un solo clic desde la barra superior, así como exportar informes ejecutivos completos de tus movimientos en formato Excel (.xlsx).
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <button type="button" class="faq-question-btn" onclick="toggleFaqItem(this)">
+                        <span>¿Cómo puedo obtener acceso a la plataforma en la nube?</span>
+                        <svg class="faq-arrow" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        El acceso al plan Finora MX Cloud ($50 MXN/mes) se habilita mediante asignación y alta directa por el administrador de la plataforma, garantizando un acompañamiento guiado, verificación de seguridad y aislamiento de base de datos desde el primer día.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Banner de Llamado a la Acción (CTA) Final -->
+        <section class="landing-cta-banner">
+            <div class="cta-banner-card">
+                <h2>Toma el control absoluto de tu patrimonio hoy mismo.</h2>
+                <p>Accede a tu bóveda financiera personal con el estándar y la discreción de la banca privada institucional.</p>
+                <button type="button" id="btn-landing-cta-login" class="btn-hero-primary" onclick="ingresarOAcceder()">
+                    <span id="txt-landing-cta-login">Ingresar a la Plataforma</span>
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- Footer Institucional -->
+        <footer class="landing-footer">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <svg class="finora-logo-svg" width="24" height="24" viewBox="0 0 32 32" fill="none">
+                        <rect width="32" height="32" rx="7" fill="#090e1a" stroke="#c5a059" stroke-width="1.2"/>
+                        <path d="M10 22L16 10L22 22H18.5L16 16.8L13.5 22H10Z" fill="#dfba73"/>
+                        <circle cx="16" cy="14" r="1.8" fill="#10b981"/>
+                    </svg>
+                    <strong style="color: var(--text-color); font-size: 1rem;">Finora <span style="color: var(--gold-color);">MX</span></strong>
+                    <span style="font-size: 0.78rem; color: var(--gold-color);">Gestión Patrimonial Soberana</span>
+                </div>
+
+                <div class="footer-legal-links">
+                    <a href="javascript:void(0)" onclick="abrirModalLegal('terminos')" class="footer-legal-link">Términos y Condiciones</a>
+                    <span class="footer-legal-sep">•</span>
+                    <a href="javascript:void(0)" onclick="abrirModalLegal('privacidad')" class="footer-legal-link">Aviso de Privacidad</a>
+                    <span class="footer-legal-sep">•</span>
+                    <a href="javascript:void(0)" onclick="abrirModalLegal('disclaimer')" class="footer-legal-link">Deslinde Financiero</a>
+                </div>
+
+                <div class="footer-system-status">
+                    <span class="pulse-dot"></span>
+                    <span>Sistemas Operacionales</span>
+                </div>
+
+                <div class="footer-copy">
+                    &copy; 2026 Finora MX | Gestión Patrimonial. Todos los derechos reservados.
+                </div>
+            </div>
+        </footer>
+    </div>
 
     <!-- ========================================================== -->
     <!-- VISTA 1: PANTALLA DE AUTENTICACIÓN (LOGIN)                 -->
@@ -50,8 +838,8 @@
                         </defs>
                     </svg>
                 </div>
-                <h2>Finora</h2>
-                <p>Gestión Patrimonial y Finanzas Personales</p>
+                <h2>Finora <span style="color: var(--gold-color);">MX</span></h2>
+                <p>Monitoreo Patrimonial y Finanzas Personales</p>
             </div>
             <form id="form-login" onsubmit="iniciarSesion(event)">
                 <div class="form-group">
@@ -62,9 +850,23 @@
                     <label for="login-password">Contraseña</label>
                     <input type="password" id="login-password" placeholder="Tu contraseña" required autocomplete="current-password">
                 </div>
+                <div class="login-options-row" style="display: flex; justify-content: flex-end; margin-top: -6px; margin-bottom: 14px;">
+                    <a href="javascript:void(0)" onclick="abrirModalRecuperarPassword()" class="link-forgot-password" style="font-size: 0.8rem; color: var(--gold-color); text-decoration: none; font-weight: 500;">¿Olvidaste tu contraseña?</a>
+                </div>
                 <button type="submit" id="btn-login-submit" class="btn-primary btn-block">Ingresar a la Plataforma</button>
                 <div id="login-error" class="login-error-msg" style="display: none;"></div>
             </form>
+            <div style="text-align: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                <a href="javascript:void(0)" onclick="mostrarVistaLanding()" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--text-muted); text-decoration: none; transition: color 0.18s ease;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                    <span>Volver a la página de presentación</span>
+                </a>
+                <p style="font-size: 0.74rem; color: var(--text-muted); margin: 12px 0 0 0; line-height: 1.4;">
+                    Al ingresar aceptas nuestros 
+                    <a href="javascript:void(0)" onclick="abrirModalLegal('terminos')" style="color: var(--gold-color); text-decoration: underline;">Términos</a> y el 
+                    <a href="javascript:void(0)" onclick="abrirModalLegal('privacidad')" style="color: var(--gold-color); text-decoration: underline;">Aviso de Privacidad</a>.
+                </p>
+            </div>
         </div>
     </div>
 
@@ -78,7 +880,7 @@
         <!-- Panel Lateral Desplegable / Colapsable (Sidebar) -->
         <aside id="app-sidebar" class="app-sidebar">
             <div class="sidebar-header">
-                <div class="sidebar-brand">
+                <div class="sidebar-brand" onclick="mostrarVistaLanding()" style="cursor: pointer;" title="Ir a la página de presentación">
                     <div class="brand-logo-wrap">
                         <svg class="finora-logo-svg" width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <rect width="32" height="32" rx="9" fill="url(#finora-grad-side)" stroke="#c5a059" stroke-opacity="0.35" stroke-width="1"/>
@@ -97,7 +899,7 @@
                         </svg>
                     </div>
                     <div class="brand-text-wrap">
-                        <span class="brand-title">Finora</span>
+                        <span class="brand-title">Finora <span style="color: var(--gold-color);">MX</span></span>
                     </div>
                 </div>
                 <button type="button" id="btn-sidebar-collapse" class="btn-sidebar-collapse" onclick="toggleSidebar()" title="Colapsar / Expandir panel lateral">
@@ -205,6 +1007,7 @@
                                 <div class="dropdown-header-info">
                                     <strong id="dropdown-user-name">usuario</strong>
                                     <span id="dropdown-user-role" class="dropdown-role-pill">user</span>
+                                    <small id="dropdown-user-email" style="font-size: 0.75rem; color: var(--gold-color); display: block; margin-top: 3px; font-family: monospace; word-break: break-all;"></small>
                                 </div>
                             </div>
 
@@ -252,6 +1055,12 @@
                             <div class="dropdown-section-divider"></div>
 
                             <div class="dropdown-action-list">
+                                <button type="button" class="dropdown-action-btn" onclick="mostrarVistaLanding(); cerrarUserDropdown();" title="Ver la página de presentación de Finora MX">
+                                    <span class="action-icon">
+                                        <svg class="ui-svg-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+                                    </span>
+                                    <span>Ver Presentación</span>
+                                </button>
                                 <button type="button" class="dropdown-action-btn dropdown-btn-logout btn-logout" onclick="logoutUsuario();" title="Cerrar sesión actual">
                                     <span class="action-icon">
                                         <svg class="ui-svg-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -644,6 +1453,7 @@
                                 <tr>
                                     <th>ID</th>
                                     <th>Usuario</th>
+                                    <th>Correo Electrónico</th>
                                     <th>Rol</th>
                                     <th>Estado</th>
                                     <th>Creado</th>
@@ -654,7 +1464,7 @@
                                 </tr>
                             </thead>
                             <tbody id="tabla-usuarios-admin">
-                                <tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Cargando directorio...</td></tr>
+                                <tr><td colspan="10" style="text-align: center; color: var(--text-muted);">Cargando directorio...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -769,6 +1579,11 @@
                     <input type="text" id="nuevo-user-username" required minlength="3" maxlength="50" placeholder="Ej. ricardo, contador, analista" autocomplete="off" pattern="^[a-zA-Z0-9_-]+$">
                 </div>
                 <div class="form-group">
+                    <label for="nuevo-user-email">Correo Electrónico (Opcional):</label>
+                    <input type="email" id="nuevo-user-email" placeholder="ejemplo@gmail.com" autocomplete="email">
+                    <small style="color: var(--text-muted); font-size: 0.8rem;">Permite recuperar contraseña en caso de olvido.</small>
+                </div>
+                <div class="form-group">
                     <label for="nuevo-user-password">Contraseña:</label>
                     <input type="password" id="nuevo-user-password" required minlength="4" placeholder="Mínimo 4 caracteres">
                 </div>
@@ -809,6 +1624,12 @@
                 <div class="form-group">
                     <label for="edit-user-username">Nombre de Usuario:</label>
                     <input type="text" id="edit-user-username" required minlength="3" placeholder="Nuevo nombre de usuario" autocomplete="off" pattern="^[a-zA-Z0-9_-]+$">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-user-email">Correo Electrónico:</label>
+                    <input type="email" id="edit-user-email" placeholder="ejemplo@gmail.com" autocomplete="email">
+                    <small style="color: var(--text-muted); font-size: 0.8rem;">Utilizado para recibir códigos de recuperación de contraseña.</small>
                 </div>
                 
                 <div class="form-group">
@@ -878,7 +1699,200 @@
         </div>
     </div>
 
+    <!-- ============================================== -->
+    <!-- MODAL 6: RECUPERAR CONTRASEÑA POR EMAIL        -->
+    <!-- ============================================== -->
+    <div id="modal-recuperar-password" class="modal-overlay" style="display: none;" onclick="if(event.target === this) cerrarModalRecuperarPassword()">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 style="display: flex; align-items: center; gap: 8px;">
+                    <svg class="heading-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <span>Recuperar Contraseña</span>
+                </h3>
+                <button type="button" class="btn-modal-close" onclick="cerrarModalRecuperarPassword()">&times;</button>
+            </div>
+            
+            <!-- Paso 1: Solicitar Código -->
+            <form id="form-solicitar-codigo" onsubmit="enviarSolicitudCodigo(event)">
+                <p style="margin: 0 0 16px 0; font-size: 0.88rem; color: var(--text-muted); line-height: 1.5;">
+                    Ingresa tu usuario o el correo electrónico que tienes registrado en tu cuenta. Te enviaremos un código de seguridad de 6 dígitos.
+                </p>
+                <div class="form-group">
+                    <label for="recuperar-identifier">Usuario o Correo:</label>
+                    <input type="text" id="recuperar-identifier" required placeholder="Tu nombre de usuario o correo" autocomplete="username">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="cerrarModalRecuperarPassword()">Cancelar</button>
+                    <button type="submit" id="btn-enviar-codigo" class="btn-primary">
+                        <span>Enviar Código</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Paso 2: Introducir Código y Nueva Contraseña (oculto inicialmente) -->
+            <form id="form-restablecer-password" style="display: none;" onsubmit="enviarRestablecerPassword(event)">
+                <div class="alert-info" style="margin-bottom: 16px; padding: 12px; background: rgba(197, 160, 89, 0.1); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 8px; font-size: 0.82rem; color: var(--gold-color);">
+                    Hemos enviado un código a tu correo. Revisa también tu carpeta de Spam.
+                </div>
+                <div class="form-group">
+                    <label for="recuperar-codigo">Código de 6 dígitos:</label>
+                    <input type="text" id="recuperar-codigo" required maxlength="6" pattern="^[0-9]{6}$" placeholder="Ej. 123456" style="letter-spacing: 4px; font-weight: bold; font-family: monospace; font-size: 1.1rem; text-align: center;">
+                </div>
+                <div class="form-group">
+                    <label for="recuperar-nuevo-password">Nueva Contraseña:</label>
+                    <input type="password" id="recuperar-nuevo-password" required minlength="4" placeholder="Mínimo 4 caracteres">
+                </div>
+                <div class="form-group">
+                    <label for="recuperar-confirmar-password">Confirmar Contraseña:</label>
+                    <input type="password" id="recuperar-confirmar-password" required minlength="4" placeholder="Repite la contraseña">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="volverAPaso1Recuperacion()">Volver</button>
+                    <button type="submit" id="btn-confirmar-reset" class="btn-primary">
+                        <span>Restablecer Contraseña</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODAL 7: MARCO LEGAL, TÉRMINOS Y PRIVACIDAD    -->
+    <!-- ============================================== -->
+    <div id="modal-legal" class="modal-overlay" style="display: none;" onclick="if(event.target === this) cerrarModalLegal()">
+        <div class="modal-card modal-legal-card">
+            <div class="modal-header">
+                <h3 style="display: flex; align-items: center; gap: 8px;">
+                    <svg class="heading-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <span>Marco Legal & Soberanía de Datos — Finora MX</span>
+                </h3>
+                <button type="button" class="btn-modal-close" onclick="cerrarModalLegal()">&times;</button>
+            </div>
+
+            <!-- Selector de Pestañas Legales -->
+            <div class="modal-legal-tabs">
+                <button type="button" id="btn-tab-legal-terminos" class="btn-legal-tab active" onclick="cambiarTabLegal('terminos')">
+                    Términos y Condiciones
+                </button>
+                <button type="button" id="btn-tab-legal-privacidad" class="btn-legal-tab" onclick="cambiarTabLegal('privacidad')">
+                    Aviso de Privacidad
+                </button>
+                <button type="button" id="btn-tab-legal-disclaimer" class="btn-legal-tab" onclick="cambiarTabLegal('disclaimer')">
+                    Deslinde Financiero
+                </button>
+            </div>
+
+            <!-- Contenido con scroll independiente -->
+            <div id="legal-content-scroll" class="modal-legal-scroll">
+                
+                <!-- PANEL 1: TÉRMINOS Y CONDICIONES -->
+                <div id="panel-legal-terminos" class="legal-content-panel">
+                    <div class="legal-badge-pill">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>Vigente a partir de Octubre 2026 • Versión 1.0</span>
+                    </div>
+
+                    <h4>1. Naturaleza y Objeto del Servicio</h4>
+                    <p>
+                        <strong>Finora MX</strong> es una solución de software orientada a la inteligencia financiera personal, consolidación cuantitativa de patrimonio, presupuestación por el método de sobres y seguimiento de inversiones multimoneda (MXN/USD). El acceso y uso de la plataforma implican la aceptación plena e incondicional de los presentes Términos y Condiciones.
+                    </p>
+
+                    <h4>2. Soberanía Tecnológica y Aislamiento Físico</h4>
+                    <p>
+                        A diferencia de plataformas comerciales convencionales, Finora MX implementa una arquitectura <em>Multi-Tenant Hermética</em>. Cada usuario cuenta con su propio repositorio de base de datos SQLite físicamente independiente en el servidor. Tus movimientos contables, saldos, categorías y portafolios de inversión residen de forma aislada, garantizando que ninguna otra cuenta u organización tenga visibilidad sobre tus activos.
+                    </p>
+
+                    <h4>3. Propiedad y Portabilidad Incondicional</h4>
+                    <p>
+                        El usuario es el único y exclusivo propietario de los datos financieros registrados. Finora MX garantiza el derecho de portabilidad permanente: puedes exportar en cualquier momento tu historial en hojas de cálculo Excel (<code>.xlsx</code>) o descargar una copia de seguridad íntegra de tu base de datos física (<code>.db</code>) en un solo clic, sin ningún tipo de retención forzosa (<em>Zero Vendor Lock-in</em>).
+                    </p>
+
+                    <h4>4. Responsabilidad y Custodia de Credenciales</h4>
+                    <p>
+                        El usuario es responsable exclusivo de resguardar la confidencialidad de su nombre de usuario, contraseña maestra y el control de su cuenta de correo electrónico vinculada para la recepción de códigos de seguridad de un solo uso (OTP). Cualquier movimiento o modificación realizada bajo credenciales válidas se considerará efectuada por el titular.
+                    </p>
+
+                    <h4>5. Disponibilidad y Responsabilidad del Software</h4>
+                    <p>
+                        Finora MX provee sus herramientas bajo el principio de buena fe técnica. Si bien implementamos estándares de cifrado criptográfico rigurosos y respaldos directos, el software se entrega "tal cual" (<em>as is</em>). El usuario es incentivado a descargar periódicamente respaldos de su base de datos local para su custodia personal.
+                    </p>
+                </div>
+
+                <!-- PANEL 2: AVISO DE PRIVACIDAD -->
+                <div id="panel-legal-privacidad" class="legal-content-panel" style="display: none;">
+                    <div class="legal-badge-pill">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        <span>Cumplimiento con Estándares de Privacidad y LFPDPPP</span>
+                    </div>
+
+                    <h4>1. Responsable del Tratamiento de Datos</h4>
+                    <p>
+                        Finora MX actúa como responsable técnico de la infraestructura de almacenamiento y procesamiento de la plataforma de gestión patrimonial privada.
+                    </p>
+
+                    <h4>2. Datos Personales Recabados</h4>
+                    <p>Para la operación del servicio se solicitan únicamente:</p>
+                    <ul>
+                        <li><strong>Identificadores de Cuenta:</strong> Nombre de usuario, contraseña cifrada mediante hash criptográfico unilateral y correo electrónico para notificaciones de seguridad.</li>
+                        <li><strong>Registros Financieros Voluntarios:</strong> Movimientos de flujo de efectivo, presupuestos por apartados y títulos bursátiles registrados por el propio usuario.</li>
+                    </ul>
+
+                    <h4>3. Finalidad Estricta y Cero Monetización</h4>
+                    <p>
+                        Tus datos se utilizan <strong>exclusivamente</strong> para permitirte autenticarte en el sistema, calcular balances cuantitativos en pantalla y enviarte códigos temporales de restablecimiento.
+                    </p>
+                    <p>
+                        <strong>Política de Cero Venta de Datos:</strong> Finora MX <strong>no vende, no comercializa, no transfiere ni cede</strong> ningún dato personal ni financiero a agencias de publicidad, corredores de datos (<em>data brokers</em>), instituciones de crédito ni terceros bajo ninguna circunstancia.
+                    </p>
+
+                    <h4>4. Cifrado y Medidas de Seguridad</h4>
+                    <p>
+                        Las contraseñas se almacenan mediante funciones de derivación de claves de alta resistencia (Bcrypt). El intercambio de solicitudes autenticadas se realiza a través de tokens JWT firmados criptográficamente con tiempo de expiración corto, y los códigos de recuperación por correo expiran automáticamente en 15 minutos.
+                    </p>
+
+                    <h4>5. Ejercicio de Derechos ARCO</h4>
+                    <p>
+                        Puedes ejercer en cualquier momento tus derechos de Acceso, Rectificación, Cancelación y Oposición modificando tus datos desde la sección <em>Mi Perfil</em> o solicitando a la administración la purga absoluta y borrado definitivo de tu archivo de base de datos individual del servidor.
+                    </p>
+                </div>
+
+                <!-- PANEL 3: DESLINDE FINANCIERO -->
+                <div id="panel-legal-disclaimer" class="legal-content-panel" style="display: none;">
+                    <div class="legal-badge-pill" style="color: #f59e0b; background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.25);">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <span>Aviso de Deslinde Legal & Financiero</span>
+                    </div>
+
+                    <h4>1. No Constituye Asesoría Financiera</h4>
+                    <p>
+                        Finora MX es una herramienta de software para fines estrictamente informativos, de organización y seguimiento administrativo personal. <strong>No constituye una casa de bolsa, entidad de ahorro, banco, asesor de inversión ni intermediario financiero regulado.</strong>
+                    </p>
+                    <p>
+                        Ningún contenido, cálculo de rendimiento, gráfica de distribución o indicador mostrado en la aplicación debe interpretarse como una recomendación de inversión, compra, venta o asesoramiento fiscal o contable.
+                    </p>
+
+                    <h4>2. Fuentes de Mercado y Tipos de Cambio</h4>
+                    <p>
+                        Las tasas de cotización (USD/MXN, EUR) y valores de activos bursátiles provienen de APIs públicas de referencia y son provistas a título indicativo para simulación cuantitativa. Finora MX no garantiza su exactitud en tiempo real ni se hace responsable por variaciones cambiarias en transacciones externas.
+                    </p>
+
+                    <h4>3. Autonomía y Decisiones Patrimoniales</h4>
+                    <p>
+                        El usuario reconoce que cualquier decisión financiera, asignación de capital o compra de instrumentos de inversión es de su exclusiva responsabilidad y riesgo.
+                    </p>
+                </div>
+
+            </div>
+
+            <div class="modal-actions" style="margin-top: 18px; border-top: 1px solid var(--border-color); padding-top: 14px;">
+                <button type="button" class="btn-primary" onclick="cerrarModalLegal()" style="min-width: 140px;">
+                    <span>Entendido y Cerrar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Script de lógica de la aplicación -->
-    <script src="/static/app.js?v=3.4"></script>
+    <script src="/static/app.js?v=4.1"></script>
 </body>
 </html>
