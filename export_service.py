@@ -18,7 +18,8 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.chart import PieChart, Reference
 from openpyxl.chart.label import DataLabelList
 from openpyxl.utils import get_column_letter
-from finanzas_core import convertir
+from finanzas_core import ahora_local, convertir
+from mercado import obtener_tasas_cambio, cotizar_varios
 
 def generar_reporte_excel(moneda_base: str = "MXN", conn: sqlite3.Connection = None, db_name: str = "user_1.db") -> io.BytesIO:
     """
@@ -38,8 +39,6 @@ def generar_reporte_excel(moneda_base: str = "MXN", conn: sqlite3.Connection = N
     io.BytesIO
         Stream binario con el archivo Excel generado y listo para ser enviado en la respuesta HTTP.
     """
-    # Importación diferida para evitar dependencias circulares con el módulo principal
-    from main import obtener_tasas_cambio, consultar_precio_y_moneda_mercado, ahora_local
     from database import get_tenant_conn
 
     # Normalizar la moneda base seleccionada (solo se aceptan MXN o USD)
@@ -69,8 +68,9 @@ def generar_reporte_excel(moneda_base: str = "MXN", conn: sqlite3.Connection = N
     # Sincronizar precios de mercado al momento exacto de la exportación para máxima fidelidad
     filas_inv_raw = cursor.execute("SELECT * FROM inversiones ORDER BY id DESC").fetchall()
     actualizaciones_mkt = []
+    cotizaciones = cotizar_varios([inv["ticker"] for inv in filas_inv_raw])
     for inv in filas_inv_raw:
-        precio_mkt, moneda_mkt = consultar_precio_y_moneda_mercado(inv["ticker"])
+        precio_mkt, moneda_mkt = cotizaciones[inv["ticker"]]
         if precio_mkt and precio_mkt > 0:
             actualizaciones_mkt.append((precio_mkt, moneda_mkt, inv["id"]))
 

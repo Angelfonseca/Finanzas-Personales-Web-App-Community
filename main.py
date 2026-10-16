@@ -34,6 +34,7 @@ from database import (
 )
 import master_db
 from finanzas_core import ahora_local, calcular_resumen, valorar_posiciones
+from mercado import consultar_precio_y_moneda_mercado, buscar_tickers_mercado, obtener_tasas_cambio, cotizar_varios
 from security import (
     hash_password,
     verify_password,
@@ -810,38 +811,6 @@ def movimiento_apartado(apartado_id: int, mov: MovimientoApartado, conn: sqlite3
 # ENDPOINTS MULTI-TENANT: INVERSIONES & ASSET ALLOCATION
 # =============================================================================
 
-def consultar_precio_y_moneda_mercado(ticker: str):
-    ticker_clean = ticker.strip().upper()
-    urls = [
-        f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker_clean}?interval=1d&range=1d",
-        f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker_clean}?interval=1d&range=1d"
-    ]
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-
-    for url in urls:
-        try:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=5) as response:
-                if response.status == 200:
-                    data = json.loads(response.read().decode())
-                    result = data.get("chart", {}).get("result", [])
-                    if result:
-                        meta = result[0].get("meta", {})
-                        precio = meta.get("regularMarketPrice")
-                        moneda = (meta.get("currency") or ("MXN" if ticker_clean.endswith(".MX") else "USD")).upper()
-                        if precio is not None:
-                            return round(float(precio), 2), moneda
-        except Exception:
-            continue
-    moneda_def = "MXN" if ticker_clean.endswith(".MX") else "USD"
-    return None, moneda_def
-
-def consultar_precio_mercado(ticker: str) -> Optional[float]:
-    precio, _ = consultar_precio_y_moneda_mercado(ticker)
-    return precio
-
 @app.get("/api/inversiones", summary="Listar portafolio con rendimientos del tenant")
 def listar_inversiones(moneda_base: str = "MXN", conn: sqlite3.Connection = Depends(get_tenant_db)):
     cursor = conn.cursor()
@@ -915,9 +884,10 @@ def sincronizar_precios(conn: sqlite3.Connection = Depends(get_tenant_db)):
     no_actualizados = []
 
     pendientes = []
+    cotizaciones = cotizar_varios([fila["ticker"] for fila in filas])
     for fila in filas:
         t = fila["ticker"]
-        precio, moneda = consultar_precio_y_moneda_mercado(t)
+        precio, moneda = cotizaciones[t]
         if precio is not None:
             moneda_actualizada = moneda or ("MXN" if t.endswith(".MX") else "USD")
             pendientes.append((precio, moneda_actualizada, fila["id"]))
@@ -948,37 +918,6 @@ def cotizar_ticker(ticker: str, _user: Dict[str, Any] = Depends(verify_token)):
         raise HTTPException(status_code=404, detail=f"No se pudo consultar la cotización para {ticker.upper()}")
     return {"ticker": ticker.upper(), "precio": precio, "moneda": moneda}
 
-def buscar_tickers_mercado(query: str):
-    q = urllib.parse.quote(query.strip())
-    url = f"https://query1.finance.yahoo.com/v1/finance/search?q={q}&quotesCount=8&newsCount=0"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-    try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=4) as response:
-            if response.status == 200:
-                data = json.loads(response.read().decode())
-                quotes = data.get("quotes", [])
-                resultados = []
-                for item in quotes:
-                    simbolo = item.get("symbol")
-                    if not simbolo:
-                        continue
-                    nombre = item.get("shortname") or item.get("longname") or simbolo
-                    tipo = item.get("quoteType") or item.get("typeDisp") or "ACTIVO"
-                    bolsa = item.get("exchDisp") or item.get("exchange") or ""
-                    resultados.append({
-                        "symbol": simbolo,
-                        "nombre": nombre,
-                        "tipo": tipo,
-                        "bolsa": bolsa
-                    })
-                return resultados
-    except Exception:
-        pass
-    return []
-
 @app.get("/api/inversiones/buscar", summary="Buscador predictivo de tickers")
 def api_buscar_ticker(q: str = "", _user: Dict[str, Any] = Depends(verify_token)):
     if not q or len(q.strip()) < 1:
@@ -986,42 +925,8 @@ def api_buscar_ticker(q: str = "", _user: Dict[str, Any] = Depends(verify_token)
     return buscar_tickers_mercado(q)
 
 # =============================================================================
-# TIPOS DE CAMBIO CON MEMORIA CACHÉ
+# TIPOS DE CAMBIO (ver mercado.py)
 # =============================================================================
-
-_CACHE_TASAS = {
-    "datos": None,
-    "expira_en": 0.0
-}
-
-def obtener_tasas_cambio():
-    ahora = time.time()
-    if _CACHE_TASAS["datos"] is not None and ahora < _CACHE_TASAS["expira_en"]:
-        return _CACHE_TASAS["datos"]
-
-    tasas = {
-        "USD": 1.0,
-        "MXN": 18.40,
-        "EUR": 0.89
-    }
-    try:
-        precio_mxn = consultar_precio_mercado("USDMXN=X")
-        if precio_mxn and precio_mxn > 0:
-            tasas["MXN"] = round(precio_mxn, 4)
-            
-        precio_eur = consultar_precio_mercado("EURUSD=X")
-        if precio_eur and precio_eur > 0:
-            tasas["EUR"] = round(1.0 / precio_eur, 4)
-
-        _CACHE_TASAS["datos"] = tasas
-        _CACHE_TASAS["expira_en"] = ahora + 300
-    except Exception:
-        if _CACHE_TASAS["datos"] is not None:
-            return _CACHE_TASAS["datos"]
-        _CACHE_TASAS["datos"] = tasas
-        _CACHE_TASAS["expira_en"] = ahora + 60
-
-    return _CACHE_TASAS["datos"]
 
 @app.get("/api/tipo-cambio", summary="Consultar tipos de cambio vigentes")
 def get_tipo_cambio(_user: Dict[str, Any] = Depends(verify_token)):
