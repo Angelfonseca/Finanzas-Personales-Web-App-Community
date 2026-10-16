@@ -82,7 +82,7 @@ finanzas-app/
 ├── main.py              # API REST en FastAPI, inyección Depends(get_tenant_db) y endpoints
 ├── master_db.py         # Base de datos maestra (users, auditoría, estadísticas admin y códigos OTP)
 ├── security.py          # Criptografía bcrypt, tokens JWT y dependencias verify_token/verify_admin
-├── email_service.py     # Servicio de envío de correos transaccionales (Resend API y SMTP)
+├── email_service.py     # Servicio de envío de correos transaccionales (API o SMTP)
 ├── database.py          # Gestor de esquemas tenant, conexiones dinámicas y aprovisionamiento
 ├── export_service.py    # Servicio generador de reportes Excel (.xlsx) con gráficas nativas
 ├── requirements.txt     # Dependencias (fastapi, uvicorn, pydantic, openpyxl, bcrypt, pyjwt)
@@ -134,33 +134,32 @@ Al arrancar por primera vez, el sistema crea automáticamente el usuario Adminis
 > [!TIP]
 > Una vez dentro, puedes ingresar a la pestaña `🛡️ Admin` para crear nuevos usuarios o dar de alta cuentas adicionales con su respectivo correo electrónico.
 
----
+## 📧 Configuración del Servicio de Correo (Opcional)
 
-## 📧 Configuración de Correo para Recuperación de Contraseña
+La versión comunitaria incluye soporte para el envío de códigos de recuperación de contraseña de 6 dígitos. Puedes conectar tu propio servicio de correo mediante API o servidor SMTP configurando el archivo `.env`:
 
-La versión comunitaria incluye el sistema completo de recuperación de contraseñas mediante códigos OTP de 6 dígitos. Cada usuario o administrador que auto-hospede la plataforma puede conectar sus propias credenciales en el archivo `.env`:
-
-### Opción 1: Resend API (Recomendada)
-1. Obtén una cuenta gratuita en [Resend](https://resend.com) (incluye **3,000 correos gratis al mes**).
-2. Genera una API Key en el panel de Resend.
-3. En tu archivo `.env`:
-   ```env
-   RESEND_API_KEY=re_tu_api_key_aqui
-   RESEND_FROM=Finora MX <onboarding@resend.dev>  # O tu propio dominio autenticado
+1. **Copia la plantilla de configuración:**
+   ```bash
+   cp .env.example .env
    ```
 
-### Opción 2: Servidor SMTP Tradicional (Gmail, Brevo, etc.)
-En tu archivo `.env`:
-```env
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=tu_correo@gmail.com
-SMTP_PASSWORD=tu_contrasena_de_aplicacion_16_caracteres
-SMTP_FROM=Finora MX <tu_correo@gmail.com>
-```
+2. **Define las credenciales de tu proveedor:**
+   * **Opción A: Vía API de Correo**
+     ```env
+     RESEND_API_KEY=tu_api_key_aqui
+     RESEND_FROM=Finora MX <notificaciones@tu-dominio.com>
+     ```
+   * **Opción B: Vía Servidor SMTP**
+     ```env
+     SMTP_HOST=smtp.tu-servidor.com
+     SMTP_PORT=587
+     SMTP_USER=tu_usuario@tu-dominio.com
+     SMTP_PASSWORD=tu_contrasena_o_token
+     SMTP_FROM=Finora MX <tu_usuario@tu-dominio.com>
+     ```
 
 > [!NOTE]
-> Si no configuras ninguna API ni servidor SMTP, el sistema funcionará de forma local sin problemas, pero la recuperación de contraseña requerirá que un administrador cambie la clave manualmente desde el panel de administración.
+> Si no configuras un proveedor de correo, la aplicación opera de forma autónoma en modo local. Las contraseñas pueden ser administradas directamente desde el panel de administración.
 
 ---
 
