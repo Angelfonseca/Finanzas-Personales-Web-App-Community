@@ -110,9 +110,26 @@ finanzas-app/
    cd Finanzas-Personales-Web-App-Community
    ```
 
-2. **Configurar variables de entorno (Opcional):**
+2. **Configurar variables de entorno y clave secreta:**
    ```bash
    cp .env.example .env
+   ```
+   Genera una clave criptográfica segura para `JWT_SECRET_KEY` (de al menos 32 bytes / 64 caracteres hex):
+   * **Con Docker (recomendado, sin requerir Python en el host):**
+     ```bash
+     docker run --rm python:3.11-slim python3 -c "import secrets; print(secrets.token_hex(32))"
+     ```
+   * **Con Python local:**
+     ```bash
+     python3 -c "import secrets; print(secrets.token_hex(32))"
+     ```
+   * **Con OpenSSL (Linux / macOS):**
+     ```bash
+     openssl rand -hex 32
+     ```
+   Pega la clave generada en tu archivo `.env`:
+   ```env
+   JWT_SECRET_KEY=tu_clave_hexadecimal_generada_aqui
    ```
 
 3. **Construir e iniciar los contenedores:**
