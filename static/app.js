@@ -133,22 +133,6 @@ function ingresarOAcceder() {
 }
 
 /**
- * Adapta el texto de los botones en la Landing Page cuando se detecta una sesión previa válida.
- */
-function adaptarBotonesLandingUsuarioActivo(user) {
-    if (!user) return;
-    const nombre = user.username || 'mi cuenta';
-    const txtNav = document.getElementById('txt-landing-nav-login');
-    const txtHero = document.getElementById('txt-landing-hero-login');
-    const txtCta = document.getElementById('txt-landing-cta-login');
-
-    const textoActivo = `Ir a mi Panel (${nombre})`;
-    if (txtNav) txtNav.textContent = textoActivo;
-    if (txtHero) txtHero.textContent = textoActivo;
-    if (txtCta) txtCta.textContent = textoActivo;
-}
-
-/**
  * Verifica el estado inicial de navegación:
  * En la edición Comunitaria, si existe token válido entra al dashboard;
  * en caso contrario, muestra directamente la pantalla de inicio de sesión.
@@ -2579,94 +2563,6 @@ async function enviarRestablecerPassword(e) {
 }
 
 // =============================================================================
-// 12.2 LÓGICA DE LA PÁGINA DE PRESENTACIÓN (LANDING PAGE)
-// =============================================================================
-
-let tasaCambioLanding = 18.45;
-
-/**
- * Consulta la tasa de cambio interbancaria en tiempo real para el ticker de la landing.
- */
-async function cargarTipoCambioPublicoLanding() {
-    try {
-        const res = await fetch('/api/public/tipo-cambio');
-        if (res.ok) {
-            const data = await res.json();
-            if (data && data.tasas && data.tasas.MXN) {
-                tasaCambioLanding = Number(data.tasas.MXN);
-                const valEl = document.getElementById('landing-exchange-val');
-                if (valEl) {
-                    valEl.textContent = tasaCambioLanding.toFixed(2);
-                }
-            }
-        }
-    } catch (e) {
-        console.warn("No se pudo obtener el tipo de cambio público:", e);
-    }
-}
-
-/**
- * Alterna entre MXN y USD en la maqueta interactiva del Hero.
- */
-function toggleMonedaMockup(moneda) {
-    const btnMxn = document.getElementById('btn-mock-mxn');
-    const btnUsd = document.getElementById('btn-mock-usd');
-    const elPatrimonio = document.getElementById('mock-val-patrimonio');
-    const elCaja = document.getElementById('mock-val-caja');
-    const elMetas = document.getElementById('mock-val-metas');
-    const elInv = document.getElementById('mock-val-inversiones');
-
-    if (moneda === 'USD') {
-        if (btnMxn) btnMxn.classList.remove('active');
-        if (btnUsd) btnUsd.classList.add('active');
-
-        const rate = (tasaCambioLanding && tasaCambioLanding > 0) ? tasaCambioLanding : 18.45;
-        const patUsd = 1254820.50 / rate;
-        const cajaUsd = 184350.00 / rate;
-        const metasUsd = 320000.00 / rate;
-        const invUsd = 750470.50 / rate;
-
-        if (elPatrimonio) elPatrimonio.textContent = '$' + patUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        if (elCaja) elCaja.textContent = '$' + cajaUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        if (elMetas) elMetas.textContent = '$' + metasUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        if (elInv) elInv.textContent = '$' + invUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    } else {
-        if (btnMxn) btnMxn.classList.add('active');
-        if (btnUsd) btnUsd.classList.remove('active');
-
-        if (elPatrimonio) elPatrimonio.textContent = '$1,254,820.50';
-        if (elCaja) elCaja.textContent = '$184,350.00';
-        if (elMetas) elMetas.textContent = '$320,000.00';
-        if (elInv) elInv.textContent = '$750,470.50';
-    }
-}
-
-/**
- * Cambia la pestaña activa en el demostrador de módulos de la landing.
- */
-function cambiarShowcaseTab(tabId, btnEl) {
-    document.querySelectorAll('.showcase-panel').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.showcase-tab-btn').forEach(b => b.classList.remove('active'));
-
-    const target = document.getElementById(tabId);
-    if (target) target.classList.add('active');
-    if (btnEl) btnEl.classList.add('active');
-}
-
-/**
- * Despliega o repliega preguntas frecuentes en la landing.
- */
-function toggleFaqItem(btnEl) {
-    const item = btnEl.closest('.faq-item');
-    if (!item) return;
-    const estabaActivo = item.classList.contains('active');
-    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('active'));
-    if (!estabaActivo) {
-        item.classList.add('active');
-    }
-}
-
-// =============================================================================
 // 13. EXPOSICIÓN GLOBAL DE FUNCIONES EN WINDOW
 // =============================================================================
 
@@ -2734,9 +2630,6 @@ window.cambiarMonedaInversiones = cambiarMonedaGlobal;
 window.mostrarVistaLanding = mostrarVistaLanding;
 window.mostrarVistaLogin = mostrarVistaLogin;
 window.ingresarOAcceder = ingresarOAcceder;
-window.toggleMonedaMockup = toggleMonedaMockup;
-window.cambiarShowcaseTab = cambiarShowcaseTab;
-window.toggleFaqItem = toggleFaqItem;
 
 // Funciones de Recuperación de Contraseña
 window.abrirModalRecuperarPassword = abrirModalRecuperarPassword;
