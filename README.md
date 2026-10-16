@@ -1,4 +1,4 @@
-# 💰 Finanzas Personales Web App (SaaS Multi-Tenant)
+# 💰 Finanzas Personales Web App
 
 Una plataforma web moderna, ligera, minimalista y autohospedada para llevar el control integral de finanzas personales, metas de ahorro y portafolios de inversión con **arquitectura Multi-Tenant (base de datos aislada por usuario)** y autenticación mediante **JSON Web Tokens (JWT)**.
 
