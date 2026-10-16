@@ -8,5 +8,5 @@ services:
     env_file:
       - .env
     volumes:
-      # Conecta la carpeta local del proyecto con el contenedor
-      - .:/app
+      # Solo los datos persisten fuera del contenedor (el código va dentro de la imagen)
+      - ./data:/app/data

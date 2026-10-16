@@ -15,7 +15,7 @@ Diseñada desde cero para ser rápida, privada y correr de forma ultra eficiente
   * **Tenant DBs:** `data/tenants/user_{id}.db` (Bases de datos independientes y 100% aisladas para cada usuario).
 * **Frontend:** HTML5, CSS3 Moderno (Variables CSS & Modo Oscuro), JavaScript (Vanilla ES6+ SPA) y cliente interceptor `apiFetch`.
 * **Visualización de Datos:** [Chart.js](https://www.chartjs.org/) (Gráficas de barras mensuales y dona de asignación de activos).
-* **Servidor ASGI:** [Uvicorn](https://www.uvicorn.org/) (Con live-reload activo).
+* **Servidor ASGI:** [Uvicorn](https://www.uvicorn.org/) (Producción sin live-reload; para desarrollo usa `--reload` localmente).
 * **Despliegue & Contenedor:** Docker y Docker Compose.
 
 ---
@@ -139,6 +139,12 @@ finanzas-app/
 
 4. **Abrir en el navegador:**
    Ingresa a `http://localhost:8002` (o el puerto que definas en `docker-compose.yml`).
+
+   > Para desarrollo con recarga automática, ejecuta sin Docker:
+   > ```bash
+   > uvicorn main:app --reload --port 8001
+   > ```
+   > Tras cambiar código en Docker, vuelve a construir con `docker compose up -d --build`.
 
 ### 🔑 Credenciales Iniciales por Defecto
 
