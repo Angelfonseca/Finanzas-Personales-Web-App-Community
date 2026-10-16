@@ -11,8 +11,9 @@ Este módulo implementa:
 """
 
 import os
+import time
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any, Generator
+from typing import Optional, Dict, Any, Generator, List
 import sqlite3
 import bcrypt
 import jwt
@@ -203,3 +204,26 @@ def get_tenant_db(current_user: Dict[str, Any] = Depends(verify_token)) -> Gener
             conn.close()
         except Exception:
             pass
+
+
+# Control en memoria de intentos fallidos de autenticación (freno anti fuerza bruta)
+_intentos_fallidos_login: Dict[str, List[float]] = {}
+
+def registrar_fallo_login(clave: str):
+    ahora = time.time()
+    intentos = [t for t in _intentos_fallidos_login.get(clave, []) if ahora - t < 300]
+    intentos.append(ahora)
+    _intentos_fallidos_login[clave] = intentos
+
+def verificar_tasa_login(clave: str):
+    ahora = time.time()
+    intentos = [t for t in _intentos_fallidos_login.get(clave, []) if ahora - t < 300]
+    _intentos_fallidos_login[clave] = intentos
+    if len(intentos) >= 5:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados intentos fallidos. Por seguridad, espera 5 minutos antes de volver a intentar."
+        )
+
+def limpiar_fallos_login(clave: str):
+    _intentos_fallidos_login.pop(clave, None)
