@@ -150,7 +150,7 @@ Finanzas Cloud | Gestión Patrimonial
             import json
             import urllib.request
             
-            resend_from = os.environ.get("RESEND_FROM", "Finanzas Cloud <onboarding@resend.dev>").strip()
+            resend_from = os.environ.get("RESEND_FROM", "Finanzas Cloud <notificaciones@finanzas.rgmlabs.org>").strip()
             payload = {
                 "from": resend_from,
                 "to": [destinatario],
