@@ -446,7 +446,8 @@ function actualizarColoresDona() {
 
 function toggleModoPrivacidad() {
     const activo = document.body.classList.toggle('privacy-mode');
-    localStorage.setItem('finora_privacy_mode', activo ? '1' : '0');
+    localStorage.setItem('finanzas_cloud_privacy_mode', activo ? '1' : '0');
+    localStorage.removeItem('finora_privacy_mode');
     actualizarIconoPrivacidad(activo);
 }
 
@@ -470,7 +471,8 @@ function actualizarIconoPrivacidad(activo) {
     }
 }
 
-if (localStorage.getItem('finora_privacy_mode') === '1') {
+const savedPrivacyMode = localStorage.getItem('finanzas_cloud_privacy_mode') ?? localStorage.getItem('finora_privacy_mode');
+if (savedPrivacyMode === '1') {
     document.body.classList.add('privacy-mode');
     setTimeout(() => actualizarIconoPrivacidad(true), 60);
 }
