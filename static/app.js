@@ -605,8 +605,8 @@ function actualizarGrafica(dataMensual) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
-    const textColor = esOscuro ? '#f0f0f0' : '#222222';
-    const gridColor = esOscuro ? 'rgba(255, 255, 255, 0.12)' : '#eee';
+    const textColor = esOscuro ? '#f0f0f0' : '#0d172a';
+    const gridColor = esOscuro ? 'rgba(255, 255, 255, 0.12)' : 'rgba(13, 23, 42, 0.08)';
     
     const meses = dataMensual.map(m => m.mes);
     const ingresos = dataMensual.map(m => m.ingresos);
@@ -1198,7 +1198,7 @@ function actualizarGraficaDona(posiciones) {
         }, 0);
 
         const modoOscuroActivo = document.documentElement.getAttribute('data-theme') === 'dark';
-        const colorEtiqueta = modoOscuroActivo ? '#f0f0f0' : '#222222';
+        const colorEtiqueta = modoOscuroActivo ? '#f0f0f0' : '#0d172a';
 
         return data.labels.map((label, i) => {
             const val = Number(dataset.data[i] || 0);
