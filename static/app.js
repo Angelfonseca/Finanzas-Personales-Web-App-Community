@@ -1516,6 +1516,11 @@ async function cargarDatosAdmin() {
             document.getElementById('lbl-kpi-active-7d').textContent = stats.active_users_7d;
             document.getElementById('lbl-kpi-inactive').textContent = stats.inactive_users;
             document.getElementById('lbl-kpi-disk-total').textContent = stats.total_disk_formatted;
+
+            const bannerEmail = document.getElementById('admin-banner-email-warning');
+            if (bannerEmail && stats.email_service_configured !== undefined) {
+                bannerEmail.style.display = stats.email_service_configured ? 'none' : 'block';
+            }
         }
 
         // 2. Cargar Directorio de Usuarios
@@ -2234,7 +2239,9 @@ function toggleSidebar() {
         const isCollapsed = sidebar.classList.toggle('sidebar-collapsed');
         appLayout.classList.toggle('sidebar-collapsed', isCollapsed);
         if (collapseIcon) {
-            collapseIcon.textContent = isCollapsed ? '▶' : '◀';
+            collapseIcon.innerHTML = isCollapsed
+                ? `<svg class="ui-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`
+                : `<svg class="ui-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
         }
         localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
         // Redimensionar gráficas tras la transición del layout
@@ -2262,7 +2269,9 @@ function inicializarEstadoSidebar() {
             const collapseIcon = btnCollapse ? btnCollapse.querySelector('.collapse-icon') : null;
             if (sidebar) sidebar.classList.add('sidebar-collapsed');
             if (appLayout) appLayout.classList.add('sidebar-collapsed');
-            if (collapseIcon) collapseIcon.textContent = '▶';
+            if (collapseIcon) {
+                collapseIcon.innerHTML = `<svg class="ui-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+            }
         }
     }
 }
@@ -2343,6 +2352,17 @@ function abrirModalRecuperarPassword() {
     identificadorRecuperacionEnProceso = '';
     modal.style.display = 'flex';
     if (inputIdentifier) inputIdentifier.focus();
+
+    // Comprobar si el servicio de correo está configurado en el servidor para advertir al usuario
+    fetch('/api/public/email-status')
+        .then(r => r.json())
+        .then(data => {
+            const alerta = document.getElementById('alerta-email-no-configurado');
+            if (alerta) {
+                alerta.style.display = data.configured ? 'none' : 'block';
+            }
+        })
+        .catch(() => {});
 }
 
 function cerrarModalRecuperarPassword() {

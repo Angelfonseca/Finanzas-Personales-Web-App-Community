@@ -125,20 +125,22 @@ def create_password_reset_code(user_id: int) -> str:
     """Genera y registra un código numérico aleatorio de 6 dígitos con vigencia de 15 minutos."""
     import secrets
     codigo = f"{secrets.randbelow(900000) + 100000}"
-    expira = (datetime.now() + timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S")
+    ahora_dt = datetime.now()
+    ahora_str = ahora_dt.strftime("%Y-%m-%d %H:%M:%S")
+    expira = (ahora_dt + timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S")
 
     conn = get_master_conn()
     cursor = conn.cursor()
     
     # Limpieza automática: purgar códigos caducados o usados de más de 24 horas para mantener la BD limpia
-    limite_limpieza = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+    limite_limpieza = (ahora_dt - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
     cursor.execute("DELETE FROM password_resets WHERE expires_at < ? OR (used = 1 AND created_at < ?)", (limite_limpieza, limite_limpieza))
 
     # Invalidar cualquier código anterior pendiente del usuario
     cursor.execute("UPDATE password_resets SET used = 1 WHERE user_id = ? AND used = 0", (user_id,))
     cursor.execute(
-        "INSERT INTO password_resets (user_id, code, expires_at, used, attempts) VALUES (?, ?, ?, 0, 0)",
-        (user_id, codigo, expira)
+        "INSERT INTO password_resets (user_id, code, expires_at, used, attempts, created_at) VALUES (?, ?, ?, 0, 0, ?)",
+        (user_id, codigo, expira, ahora_str)
     )
     conn.commit()
     conn.close()
@@ -215,6 +217,15 @@ def create_user_entry(username: str, password_hash: str, role: str = 'user', is_
     email_clean = email.strip() if (email and email.strip()) else None
     conn = get_master_conn()
     cursor = conn.cursor()
+
+    if email_clean:
+        existing_email = cursor.execute(
+            "SELECT id FROM users WHERE LOWER(email) = LOWER(?)",
+            (email_clean,)
+        ).fetchone()
+        if existing_email:
+            conn.close()
+            raise ValueError(f"El correo electrónico '{email_clean}' ya está registrado en otra cuenta.")
     
     # 1. Insertar inicialmente con un placeholder temporal de db_name y correo
     cursor.execute(
@@ -345,6 +356,7 @@ def delete_user_and_tenant(user_id: int) -> bool:
     db_name = user["db_name"]
     conn = get_master_conn()
     cursor = conn.cursor()
+    cursor.execute("DELETE FROM password_resets WHERE user_id = ?", (user_id,))
     cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
     conn.commit()
     conn.close()

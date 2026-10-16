@@ -8,6 +8,7 @@ Este módulo gestiona:
 """
 
 import os
+import html
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -36,6 +37,7 @@ def enviar_correo_codigo_recuperacion(destinatario: str, nombre_usuario: str, co
     smtp_from = os.environ.get("SMTP_FROM", f"Finora MX Patrimonial <{smtp_user}>")
 
     asunto = f"{codigo} es tu código de recuperación en Finora MX"
+    nombre_seguro = html.escape(nombre_usuario or "Usuario")
 
     # Si está configurada la API Key de Resend, enviamos directamente por Resend API
     resend_api_key = os.environ.get("RESEND_API_KEY", "").strip()
@@ -92,7 +94,7 @@ Finora MX | Gestión Patrimonial
                         <td style="padding: 32px;">
                             <h1 style="margin: 0 0 14px 0; font-size: 18px; font-weight: 700; color: #ffffff; text-align: center;">Código de Recuperación</h1>
                             <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #94a3b8; text-align: center;">
-                                Hola <strong style="color: #f1f5f9;">{nombre_usuario}</strong>, recibimos una solicitud para restablecer el acceso a tu cuenta.
+                                Hola <strong style="color: #f1f5f9;">{nombre_seguro}</strong>, recibimos una solicitud para restablecer el acceso a tu cuenta.
                             </p>
                             
                             <!-- Caja de Código 6 Dígitos -->
@@ -206,3 +208,16 @@ Finora MX | Gestión Patrimonial
     except Exception as e:
         print(f"[EMAIL ERROR] Error al enviar correo vía SMTP ({smtp_host}:{smtp_port}): {e}")
         return False
+
+def esta_configurado_servicio_correo() -> bool:
+    """
+    Determina si el servidor cuenta con configuración válida para el envío de correos
+    transaccionales (ya sea mediante API Key de Resend o mediante credenciales SMTP).
+    """
+    resend_api_key = os.environ.get("RESEND_API_KEY", "").strip()
+    if resend_api_key:
+        return True
+    smtp_user = os.environ.get("SMTP_USER", "").strip()
+    smtp_password = os.environ.get("SMTP_PASSWORD", "").strip()
+    return bool(smtp_user and smtp_password)
+

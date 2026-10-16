@@ -197,6 +197,12 @@ def startup_event():
     else:
         print("[STARTUP] Base de datos maestra lista y verificada.")
 
+    from email_service import esta_configurado_servicio_correo
+    if esta_configurado_servicio_correo():
+        print("[EMAIL] Servicio de correo transaccional (API / SMTP) configurado y activo.")
+    else:
+        print("[EMAIL ADVERTENCIA] El servicio de envío de correos NO está configurado en .env. La recuperación de contraseñas por correo permanecerá inactiva hasta definir RESEND_API_KEY o credenciales SMTP.")
+
 # =============================================================================
 # ENDPOINTS: AUTENTICACIÓN (LOGIN & PERFIL)
 # =============================================================================
@@ -312,16 +318,31 @@ def editar_mi_perfil(req: UserUpdateRequest, current_user: Dict[str, Any] = Depe
 # ENDPOINTS: RECUPERACIÓN DE CONTRASEÑA POR EMAIL
 # =============================================================================
 
+@app.get("/api/public/email-status", summary="Consultar estado de configuración del correo")
+@app.get("/auth/email-status", summary="Consultar estado de configuración del correo (alias)")
+def get_email_status():
+    """Retorna si el servicio de correo transaccional (API o SMTP) está configurado en el servidor."""
+    from email_service import esta_configurado_servicio_correo
+    return {"configured": esta_configurado_servicio_correo()}
+
 @app.post("/auth/forgot-password", summary="Solicitar código de restablecimiento de contraseña")
 @app.post("/api/auth/forgot-password", summary="Solicitar código de restablecimiento (alias API)")
 def forgot_password(req: ForgotPasswordRequest, background_tasks: BackgroundTasks, request: Request):
     """
     Solicita un código de recuperación de contraseña de 6 dígitos:
-    1. Aplica rate limiting para prevenir spam.
-    2. Busca al usuario por username o email.
-    3. Si tiene email registrado, genera código y lo envía en segundo plano por SMTP.
-    4. Responde con un mensaje neutro para evitar enumeración de usuarios.
+    1. Verifica si el servicio de correo está configurado.
+    2. Aplica rate limiting para prevenir spam.
+    3. Busca al usuario por username o email.
+    4. Si tiene email registrado, genera código y lo envía en segundo plano por correo/SMTP.
+    5. Responde con un mensaje neutro para evitar enumeración de usuarios.
     """
+    from email_service import esta_configurado_servicio_correo, enviar_correo_codigo_recuperacion
+    if not esta_configurado_servicio_correo():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El servicio de envío de correos no está configurado en este servidor. Por favor, solicita asistencia directamente al administrador del sistema para restablecer tu contraseña."
+        )
+
     client_ip = request.client.host if request.client else "unknown"
     clave_tasa = f"forgot:{client_ip}"
     verificar_tasa_login(clave_tasa)
@@ -335,7 +356,6 @@ def forgot_password(req: ForgotPasswordRequest, background_tasks: BackgroundTask
                 detail="Has alcanzado el límite máximo de 2 intentos de recuperación de contraseña para este usuario en las últimas 24 horas. Por seguridad, solicita asistencia al administrador del sistema."
             )
         codigo = master_db.create_password_reset_code(user["id"])
-        from email_service import enviar_correo_codigo_recuperacion
         background_tasks.add_task(
             enviar_correo_codigo_recuperacion,
             user["email"],
@@ -399,13 +419,19 @@ def admin_crear_usuario(req: UserCreateRequest, _admin: Dict[str, Any] = Depends
         )
         
     pwd_hash = hash_password(req.password)
-    nuevo_usuario = master_db.create_user_entry(
-        username=username,
-        password_hash=pwd_hash,
-        role=req.role,
-        is_active=1,
-        email=req.email
-    )
+    try:
+        nuevo_usuario = master_db.create_user_entry(
+            username=username,
+            password_hash=pwd_hash,
+            role=req.role,
+            is_active=1,
+            email=req.email
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     
     return {
         "mensaje": f"Usuario '{username}' creado exitosamente con su base de datos individual.",
@@ -536,7 +562,10 @@ def admin_eliminar_usuario(user_id: int, admin: Dict[str, Any] = Depends(verify_
 @app.get("/api/admin/stats", summary="Métricas y KPIs globales del sistema (alias API)")
 def admin_estadisticas_globales(_admin: Dict[str, Any] = Depends(verify_admin)):
     """Calcula las métricas de usuarios activos, logins acumulados y espacio total en disco."""
-    return master_db.get_admin_stats(ahora_local())
+    stats = master_db.get_admin_stats(ahora_local())
+    from email_service import esta_configurado_servicio_correo
+    stats["email_service_configured"] = esta_configurado_servicio_correo()
+    return stats
 
 # =============================================================================
 # ENDPOINTS MULTI-TENANT: MOVIMIENTOS (TRANSACCIONES DE CAJA)
@@ -1240,7 +1269,7 @@ def exportar_excel(
         db_name=current_user.get("db_name", "user_1.db")
     )
     fecha_str = ahora_local().strftime("%Y%m%d_%H%M%S")
-    username_safe = current_user.get("username", "user")
+    username_safe = "".join(c for c in current_user.get("username", "user") if c.isalnum() or c in ("-", "_"))
     nombre_archivo = f"reporte_{username_safe}_{moneda_base.upper()}_{fecha_str}.xlsx"
     return Response(
         content=buf.getvalue(),
