@@ -89,7 +89,6 @@ async def add_security_and_cache_headers(request: Request, call_next):
     return response
 
 @app.get("/", summary="Página principal SPA")
-@app.get("/landing", summary="Página de presentación")
 @app.get("/login", summary="Página de acceso")
 @app.get("/app", summary="Aplicación principal")
 def leer_raiz():

@@ -85,42 +85,22 @@ async function apiFetch(url, options = {}) {
 // =============================================================================
 
 /**
- * Muestra la página de presentación pública (Landing Page).
+ * En la edición Comunitaria no hay landing page: redirige directamente al login.
  */
 function mostrarVistaLanding() {
-    const vistaLanding = document.getElementById('vista-landing');
-    const vistaLogin = document.getElementById('vista-login');
-    const vistaApp = document.getElementById('vista-app');
-
-    if (vistaLanding) vistaLanding.style.display = 'block';
-    if (vistaLogin) vistaLogin.style.display = 'none';
-    if (vistaApp) vistaApp.style.display = 'none';
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    cargarTipoCambioPublicoLanding();
-
-    // Mantener la URL limpia sin hash si el usuario navegó a la raíz
-    if (window.location.hash && (window.location.hash === '#login' || window.location.hash === '#app')) {
-        history.replaceState(null, '', window.location.pathname);
-    }
+    mostrarVistaLogin();
 }
 
 /**
- * Muestra la vista de login y oculta la presentación y la app.
+ * Muestra la vista de login y oculta la app principal.
  */
 function mostrarVistaLogin(errorMsg = '') {
-    const vistaLanding = document.getElementById('vista-landing');
     const vistaLogin = document.getElementById('vista-login');
     const vistaApp = document.getElementById('vista-app');
     const loginError = document.getElementById('login-error');
 
-    if (vistaLanding) vistaLanding.style.display = 'none';
     if (vistaLogin) vistaLogin.style.display = 'flex';
     if (vistaApp) vistaApp.style.display = 'none';
-
-    if (window.location.hash !== '#login') {
-        history.pushState(null, '', '#login');
-    }
 
     if (loginError) {
         if (errorMsg) {
@@ -170,60 +150,31 @@ function adaptarBotonesLandingUsuarioActivo(user) {
 
 /**
  * Verifica el estado inicial de navegación:
- * Por diseño, la Landing Page es SIEMPRE la pantalla principal del dominio.
- * Solo redirige al dashboard (/app o #app) o al login (/login o #login) si se solicita explícitamente.
+ * En la edición Comunitaria, si existe token válido entra al dashboard;
+ * en caso contrario, muestra directamente la pantalla de inicio de sesión.
  */
 async function verificarSesionInicial() {
     const token = localStorage.getItem('jwt_token');
-    const hash = window.location.hash.toLowerCase();
-    const pathname = window.location.pathname.toLowerCase();
-    const solicitaAppDirecto = (hash === '#app' || pathname === '/app');
-    const solicitaLoginDirecto = (hash === '#login' || pathname === '/login');
 
-    // 1. Solicitud directa al Dashboard de la app (/app o #app)
-    if (solicitaAppDirecto) {
-        if (!token) {
-            mostrarVistaLogin("Por favor inicia sesión para acceder al panel.");
-            return;
-        }
-        try {
-            const res = await apiFetch('/auth/me');
-            if (res.ok) {
-                const data = await res.json();
-                establecerSesionActiva(data.user, token);
-                return;
-            } else {
-                cerrarSesionLimpia();
-                mostrarVistaLogin();
-                return;
-            }
-        } catch (e) {
-            mostrarVistaLogin("Error al verificar la sesión con el servidor.");
-            return;
-        }
-    }
-
-    // 2. Solicitud directa a la pantalla de Login (/login o #login)
-    if (solicitaLoginDirecto) {
+    if (!token) {
         mostrarVistaLogin();
         return;
     }
 
-    // 3. PANTALLA PRINCIPAL: La Landing Page es siempre la portada
-    mostrarVistaLanding();
-
-    // Si existe una sesión guardada, validamos silenciosamente para personalizar los botones
-    if (token) {
-        try {
-            const res = await apiFetch('/auth/me');
-            if (res.ok) {
-                const data = await res.json();
-                usuarioActual = data.user;
-                adaptarBotonesLandingUsuarioActivo(data.user);
-            }
-        } catch (e) {
-            // Silencioso: no altera la navegación del visitante
+    try {
+        const res = await apiFetch('/auth/me');
+        if (res.ok) {
+            const data = await res.json();
+            establecerSesionActiva(data.user, token);
+            return;
+        } else {
+            cerrarSesionLimpia();
+            mostrarVistaLogin();
+            return;
         }
+    } catch (e) {
+        mostrarVistaLogin("Error al verificar la sesión con el servidor.");
+        return;
     }
 }
 
@@ -235,11 +186,8 @@ function establecerSesionActiva(user, token) {
     localStorage.setItem('jwt_token', token);
     localStorage.setItem('user_info', JSON.stringify(user));
 
-    // Ocultar landing y login, mostrar aplicación
-    const vistaLanding = document.getElementById('vista-landing');
     const vistaLogin = document.getElementById('vista-login');
     const vistaApp = document.getElementById('vista-app');
-    if (vistaLanding) vistaLanding.style.display = 'none';
     if (vistaLogin) vistaLogin.style.display = 'none';
     if (vistaApp) vistaApp.style.display = 'flex';
 
@@ -395,20 +343,8 @@ function cerrarSesionLimpia(errorMsg = '') {
     if (btnTabAdmin) btnTabAdmin.style.display = 'none';
     cambiarPestana('tab-dashboard');
 
-    // Restablecer textos de botones en la Landing Page
-    const txtNav = document.getElementById('txt-landing-nav-login');
-    const txtHero = document.getElementById('txt-landing-hero-login');
-    const txtCta = document.getElementById('txt-landing-cta-login');
-    if (txtNav) txtNav.textContent = 'Ingresar a la Plataforma';
-    if (txtHero) txtHero.textContent = 'Ingresar a la Plataforma';
-    if (txtCta) txtCta.textContent = 'Ingresar a la Plataforma';
-
-    // 4. Mostrar pantalla de login si hay error, o la presentación si fue cierre normal
-    if (errorMsg) {
-        mostrarVistaLogin(errorMsg);
-    } else {
-        mostrarVistaLanding();
-    }
+    // 4. Mostrar pantalla de login
+    mostrarVistaLogin(errorMsg);
 }
 
 // =============================================================================
@@ -2750,18 +2686,11 @@ window.cambiarTabLegal = cambiarTabLegal;
 
 // Navegación en el historial del navegador (Atrás / Adelante)
 window.addEventListener('popstate', () => {
-    const hash = window.location.hash.toLowerCase();
-    if (hash === '#login') {
-        mostrarVistaLogin();
-    } else if (hash === '#app') {
-        const token = localStorage.getItem('jwt_token');
-        if (token && usuarioActual) {
-            establecerSesionActiva(usuarioActual, token);
-        } else {
-            mostrarVistaLogin();
-        }
+    const token = localStorage.getItem('jwt_token');
+    if (token && usuarioActual) {
+        establecerSesionActiva(usuarioActual, token);
     } else {
-        mostrarVistaLanding();
+        mostrarVistaLogin();
     }
 });
 
