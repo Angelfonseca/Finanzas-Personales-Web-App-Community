@@ -8,7 +8,7 @@ Este módulo implementa:
    - synchronous = NORMAL
    - foreign_keys = ON
    - busy_timeout = 5000
-3. Gestor de conexiones con caché LRU (TenantConnectionManager) para no saturar memoria ni descriptores de archivo.
+3. Conexión por petición: cada request abre su propia conexión y la cierra al terminar.
 4. Migraciones automáticas bajo demanda (lazy migrations) verificando PRAGMA user_version al conectar.
 5. Respaldos y exportaciones en caliente exclusivamente mediante VACUUM INTO o la API nativa de backup de SQLite.
 """
@@ -16,9 +16,7 @@ Este módulo implementa:
 import os
 import sqlite3
 import threading
-from collections import OrderedDict
-from contextlib import contextmanager
-from typing import Tuple, Optional, Generator
+from typing import Tuple, Optional
 
 # =============================================================================
 # 1. CONSTANTES Y RUTAS DE ALMACENAMIENTO MULTI-TENANT
@@ -30,9 +28,6 @@ TENANTS_DIR = os.path.join(DATA_DIR, "tenants")
 
 # Versión actual del esquema de base de datos de cada tenant
 CURRENT_TENANT_SCHEMA_VERSION = 3
-
-# Capacidad por defecto del caché LRU de conexiones abiertas
-DEFAULT_LRU_CACHE_CAPACITY = int(os.environ.get("TENANT_CONN_CACHE_SIZE", "32"))
 
 
 # =============================================================================
@@ -213,108 +208,31 @@ def apply_lazy_migrations(conn: sqlite3.Connection) -> None:
 
 
 # =============================================================================
-# 5. GESTOR DE CONEXIONES CON POLÍTICA DE DESALOJO LRU
+# 5. CONEXIONES POR PETICIÓN
 # =============================================================================
 
-class TenantConnectionManager:
-    """
-    Gestor thread-safe de conexiones a bases de datos tenant con política de
-    desalojo LRU (Least Recently Used) para optimizar memoria RAM y descriptores de archivo.
-    """
-    def __init__(self, max_connections: int = DEFAULT_LRU_CACHE_CAPACITY):
-        self.max_connections = max_connections
-        self._cache: OrderedDict[str, sqlite3.Connection] = OrderedDict()
-        self._lock = threading.Lock()
-
-    def get_connection(self, db_name_or_path: str) -> sqlite3.Connection:
-        """
-        Retorna una conexión activa para el tenant. Si existe en el caché LRU y sigue viva,
-        la reutiliza y la marca como recientemente usada. En caso contrario, abre una nueva,
-        aplica los PRAGMAs obligatorios y ejecuta las lazy migrations correspondientes.
-        """
-        db_path = get_tenant_path(db_name_or_path)
-
-        with self._lock:
-            # 1. Comprobar si ya existe en caché
-            if db_path in self._cache:
-                conn = self._cache[db_path]
-                try:
-                    conn.execute("SELECT 1;")
-                    self._cache.move_to_end(db_path)
-                    return conn
-                except Exception:
-                    # Conexión dañada o cerrada externamente
-                    self._cache.pop(db_path, None)
-
-            # 2. Desalojar la conexión menos recientemente utilizada (LRU) si se llegó al tope
-            while len(self._cache) >= self.max_connections:
-                evicted_path, evicted_conn = self._cache.popitem(last=False)
-                try:
-                    evicted_conn.close()
-                except Exception:
-                    pass
-
-            # 3. Establecer nueva conexión bajo demanda
-            ensure_tenant_directories()
-            conn = sqlite3.connect(db_path, timeout=5.0, check_same_thread=False)
-            conn.row_factory = sqlite3.Row
-
-            # 4. Configurar PRAGMAs obligatorios
-            configure_sqlite_pragmas(conn)
-
-            # 5. Aplicar migraciones automáticas al vuelo (lazy migrations)
-            apply_lazy_migrations(conn)
-
-            # 6. Almacenar en caché LRU
-            self._cache[db_path] = conn
-            return conn
-
-    def release_connection(self, db_name_or_path: str, conn: sqlite3.Connection) -> None:
-        """Mantiene la conexión en el caché LRU para próximas consultas."""
-        pass
-
-    def close_connection(self, db_name_or_path: str) -> None:
-        """Cierra y purga del caché la conexión del tenant (por ejemplo, al eliminar su cuenta)."""
-        db_path = get_tenant_path(db_name_or_path)
-        with self._lock:
-            conn = self._cache.pop(db_path, None)
-            if conn:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-
-    def close_all(self) -> None:
-        """Cierra todas las conexiones cacheadas al apagar el servidor."""
-        with self._lock:
-            while self._cache:
-                _, conn = self._cache.popitem()
-                try:
-                    conn.close()
-                except Exception:
-                    pass
+_tenants_migrados = set()
+_lock_migraciones = threading.Lock()
 
 
-# Instancia singleton del gestor de conexiones
-tenant_conn_manager = TenantConnectionManager()
+def get_tenant_conn(db_name_or_path: str) -> sqlite3.Connection:
+    """Abre una conexión nueva por petición. Las migraciones corren una sola vez por proceso y tenant."""
+    db_path = get_tenant_path(db_name_or_path)
+    ensure_tenant_directories()
+    conn = sqlite3.connect(db_path, timeout=5.0, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    configure_sqlite_pragmas(conn)
+    if db_path not in _tenants_migrados:
+        with _lock_migraciones:
+            if db_path not in _tenants_migrados:
+                apply_lazy_migrations(conn)
+                _tenants_migrados.add(db_path)
+    return conn
 
 
-def get_tenant_conn(db_name: str) -> sqlite3.Connection:
-    """Helper canónico para obtener la conexión al tenant gestionada por el caché LRU."""
-    return tenant_conn_manager.get_connection(db_name)
-
-def release_tenant_conn(db_name: str, conn: sqlite3.Connection) -> None:
-    """Helper canónico para liberar la conexión al tenant en el gestor."""
-    tenant_conn_manager.release_connection(db_name, conn)
-
-@contextmanager
-def get_tenant_connection_context(db_name: str) -> Generator[sqlite3.Connection, None, None]:
-    """Context manager para operaciones atómicas bajo demanda con liberación garantizada."""
-    conn = get_tenant_conn(db_name)
-    try:
-        yield conn
-    finally:
-        release_tenant_conn(db_name, conn)
+def olvidar_tenant(db_name_or_path: str) -> None:
+    """Fuerza re-verificar migraciones (tras restaurar o borrar un tenant)."""
+    _tenants_migrados.discard(get_tenant_path(db_name_or_path))
 
 
 # =============================================================================
@@ -397,18 +315,3 @@ def backup_tenant_db_hot(db_name_or_path: str, dest_path: str, prefer_vacuum: bo
         conn.close()
         
     return dest_path
-
-
-# =============================================================================
-# 8. COMPATIBILIDAD CON CÓDIGO HEREDADO
-# =============================================================================
-
-def get_db(db_name: str = "user_1.db") -> sqlite3.Connection:
-    """Helper de compatibilidad que retorna conexión al tenant solicitado."""
-    return get_tenant_conn(db_name)
-
-def init_db():
-    """Inicializa la base de datos del tenant 1 por defecto."""
-    ensure_tenant_directories()
-    tenant_1 = get_tenant_path("user_1.db")
-    init_tenant_db(tenant_1)

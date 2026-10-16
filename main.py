@@ -30,7 +30,7 @@ from database import (
     get_tenant_path, 
     ensure_tenant_directories, 
     backup_tenant_db_hot, 
-    tenant_conn_manager
+    olvidar_tenant
 )
 import master_db
 from security import (
@@ -208,11 +208,6 @@ def startup_event():
         print("[EMAIL] Servicio de correo transaccional (API / SMTP) configurado y activo.")
     else:
         print("[EMAIL ADVERTENCIA] El servicio de envío de correos NO está configurado en .env. La recuperación de contraseñas por correo permanecerá inactiva hasta definir RESEND_API_KEY o credenciales SMTP.")
-
-@app.on_event("shutdown")
-def shutdown_event():
-    """Cierra y limpia todas las conexiones abiertas en el caché LRU de tenants."""
-    tenant_conn_manager.close_all()
 
 # =============================================================================
 # ENDPOINTS: AUTENTICACIÓN (LOGIN & PERFIL)
@@ -1277,6 +1272,7 @@ async def restaurar_backup(
 
         # 6. Re-aplicar esquema final en la base destino
         init_tenant_db(target_path)
+        olvidar_tenant(db_name)
 
         return {
             "status": "ok",

@@ -18,7 +18,7 @@ import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from database import get_tenant_conn, release_tenant_conn
+from database import get_tenant_conn
 import master_db
 
 # Cargar variables de entorno desde .env si existe en el directorio base
@@ -200,6 +200,6 @@ def get_tenant_db(current_user: Dict[str, Any] = Depends(verify_token)) -> Gener
         raise
     finally:
         try:
-            release_tenant_conn(db_name, conn)
+            conn.close()
         except Exception:
             pass
