@@ -1,9 +1,0 @@
-venv/
-finanzas.db
-data/
-*.db
-*.db-wal
-*.db-shm
-__pycache__/
-.env
-.agent/
