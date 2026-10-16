@@ -135,8 +135,17 @@ Finora MX | Gestión Patrimonial
 </body>
 </html>"""
 
-    # 1. Enviar vía Resend API si está configurado
-    if resend_api_key:
+    es_resend_valido = bool(resend_api_key and resend_api_key.lower() not in RESEND_PLACEHOLDERS and not resend_api_key.lower().startswith("tu_"))
+    es_smtp_valido = bool(
+        smtp_user
+        and smtp_password
+        and smtp_user.lower() not in SMTP_USER_PLACEHOLDERS
+        and smtp_password.lower() not in SMTP_PASSWORD_PLACEHOLDERS
+        and not smtp_user.lower().startswith("tu_")
+    )
+
+    # 1. Enviar vía Resend API si está configurado con una clave real
+    if es_resend_valido:
         try:
             import json
             import urllib.request
@@ -174,9 +183,9 @@ Finora MX | Gestión Patrimonial
                     pass
 
     # 2. Enviar vía SMTP (Gmail, Brevo, etc.)
-    if not smtp_user or not smtp_password:
-        if not resend_api_key:
-            print("[EMAIL WARNING] No se pudo enviar el correo: Ni RESEND_API_KEY ni (SMTP_USER + SMTP_PASSWORD) están configurados en el archivo .env")
+    if not es_smtp_valido:
+        if not es_resend_valido:
+            print("[EMAIL AVISO] No se pudo enviar el correo: Ni RESEND_API_KEY ni SMTP tienen credenciales válidas en .env (modo autónomo)")
         return False
 
     # Construir el mensaje MIME multiparte
@@ -209,15 +218,46 @@ Finora MX | Gestión Patrimonial
         print(f"[EMAIL ERROR] Error al enviar correo vía SMTP ({smtp_host}:{smtp_port}): {e}")
         return False
 
+# Valores de plantilla que indican que el usuario aún no ha configurado credenciales reales
+RESEND_PLACEHOLDERS = {
+    "tu_api_key_aqui",
+    "tu_api_key",
+    "your_api_key_here",
+    "re_123456789",
+    "",
+}
+
+SMTP_USER_PLACEHOLDERS = {
+    "tu_correo@gmail.com",
+    "tu_usuario@tu-dominio.com",
+    "tu_usuario@ejemplo.com",
+    "",
+}
+
+SMTP_PASSWORD_PLACEHOLDERS = {
+    "tu_contrasena_de_aplicacion_16_caracteres",
+    "tu_contrasena_o_token",
+    "",
+}
+
 def esta_configurado_servicio_correo() -> bool:
     """
-    Determina si el servidor cuenta con configuración válida para el envío de correos
-    transaccionales (ya sea mediante API Key de Resend o mediante credenciales SMTP).
+    Determina si el servidor cuenta con configuración válida y no-placeholder
+    para el envío de correos transaccionales (ya sea mediante API Key de Resend o mediante SMTP).
     """
     resend_api_key = os.environ.get("RESEND_API_KEY", "").strip()
-    if resend_api_key:
+    if resend_api_key and resend_api_key.lower() not in RESEND_PLACEHOLDERS and not resend_api_key.lower().startswith("tu_"):
         return True
     smtp_user = os.environ.get("SMTP_USER", "").strip()
     smtp_password = os.environ.get("SMTP_PASSWORD", "").strip()
-    return bool(smtp_user and smtp_password)
+    if (
+        smtp_user
+        and smtp_password
+        and smtp_user.lower() not in SMTP_USER_PLACEHOLDERS
+        and smtp_password.lower() not in SMTP_PASSWORD_PLACEHOLDERS
+        and not smtp_user.lower().startswith("tu_")
+    ):
+        return True
+    return False
+
 

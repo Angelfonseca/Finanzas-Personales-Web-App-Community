@@ -34,17 +34,35 @@ if os.path.exists(_env_path):
     except Exception:
         pass
 
-# Clave secreta para firma de tokens JWT (requerida y segura)
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
-if not SECRET_KEY:
-    import secrets
-    SECRET_KEY = secrets.token_urlsafe(64)
-    # Intentar persistir en .env si es posible
-    try:
-        with open(_env_path, "a", encoding="utf-8") as _f:
-            _f.write(f"\nJWT_SECRET_KEY={SECRET_KEY}\n")
-    except Exception:
-        pass
+# Clave secreta para firma de tokens JWT (ESTRICTAMENTE OBLIGATORIA)
+JWT_PLACEHOLDERS = {
+    "tu_clave_secreta_jwt_de_al_menos_32_caracteres_aleatorios",
+    "tu_clave_hexadecimal_generada_aqui",
+    "tu_clave_generada_aqui",
+    "secret",
+    "changeme",
+    "admin",
+    "",
+}
+
+SECRET_KEY = (os.environ.get("JWT_SECRET_KEY") or "").strip()
+if not SECRET_KEY or SECRET_KEY.lower() in JWT_PLACEHOLDERS or len(SECRET_KEY) < 32:
+    raise RuntimeError(
+        "\n"
+        "===============================================================================\n"
+        " [ERROR CRÍTICO DE SEGURIDAD] JWT_SECRET_KEY ES ESTRICTAMENTE OBLIGATORIA\n"
+        "===============================================================================\n"
+        " La variable de entorno 'JWT_SECRET_KEY' es obligatoria y debe tener al menos\n"
+        " 32 caracteres seguros en el archivo .env.\n\n"
+        " No se permite iniciar la aplicación sin esta clave porque firma los tokens de\n"
+        " sesión de todos los usuarios.\n\n"
+        " Para generar una clave criptográfica segura, ejecuta en tu terminal:\n"
+        "   docker run --rm python:3.11-slim python3 -c \"import secrets; print(secrets.token_hex(32))\"\n"
+        "   # o en tu terminal local: openssl rand -hex 32\n\n"
+        " Luego asígnala en tu archivo .env:\n"
+        "   JWT_SECRET_KEY=<tu_clave_generada>\n"
+        "===============================================================================\n"
+    )
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 8

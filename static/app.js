@@ -1519,7 +1519,8 @@ async function cargarDatosAdmin() {
 
             const bannerEmail = document.getElementById('admin-banner-email-warning');
             if (bannerEmail && stats.email_service_configured !== undefined) {
-                bannerEmail.style.display = stats.email_service_configured ? 'none' : 'block';
+                const yaAceptado = sessionStorage.getItem('admin_email_warning_dismissed') === '1';
+                bannerEmail.style.display = (!stats.email_service_configured && !yaAceptado) ? 'block' : 'none';
             }
         }
 
@@ -2358,11 +2359,24 @@ function abrirModalRecuperarPassword() {
         .then(r => r.json())
         .then(data => {
             const alerta = document.getElementById('alerta-email-no-configurado');
-            if (alerta) {
-                alerta.style.display = data.configured ? 'none' : 'block';
+            const form1 = document.getElementById('form-solicitar-codigo');
+            const form2 = document.getElementById('form-restablecer-password');
+            if (data && data.configured === false) {
+                if (alerta) alerta.style.display = 'block';
+                if (form1) form1.style.display = 'none';
+                if (form2) form2.style.display = 'none';
+            } else {
+                if (alerta) alerta.style.display = 'none';
+                if (form1) form1.style.display = 'block';
             }
         })
         .catch(() => {});
+}
+
+function aceptarAvisoCorreoAdmin() {
+    sessionStorage.setItem('admin_email_warning_dismissed', '1');
+    const banner = document.getElementById('admin-banner-email-warning');
+    if (banner) banner.style.display = 'none';
 }
 
 function cerrarModalRecuperarPassword() {
@@ -2416,6 +2430,13 @@ async function enviarSolicitudCodigo(e) {
                 const inputCodigo = document.getElementById('recuperar-codigo');
                 if (inputCodigo) inputCodigo.focus();
             }
+        } else if (res.status === 503) {
+            const formPaso1 = document.getElementById('form-solicitar-codigo');
+            const formPaso2 = document.getElementById('form-restablecer-password');
+            const alertaNoConfigurado = document.getElementById('alerta-email-no-configurado');
+            if (formPaso1) formPaso1.style.display = 'none';
+            if (formPaso2) formPaso2.style.display = 'none';
+            if (alertaNoConfigurado) alertaNoConfigurado.style.display = 'block';
         } else {
             alert(data.detail || 'Hubo un error al procesar la solicitud.');
         }
