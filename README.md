@@ -235,3 +235,5 @@ Este proyecto se distribuye bajo la licencia **GNU General Public License v3.0 (
 * **Libertad de Modificación y Contribución:** Eres libre de modificar el código fuente, corregir errores o añadir nuevas funcionalidades, siempre y cuando cualquier redistribución o trabajo derivado se mantenga bajo los mismos términos libres y de código abierto de la licencia GPLv3.
 * **Protección contra Apropiación y Reventa Comercial (Copyleft):** No se autoriza empaquetar, cerrar el código fuente ni comercializar este software como un producto privativo o de reventa cerrada. El código y sus derivados deben permanecer siempre abiertos y accesibles para toda la comunidad.
 
+> **Aviso Legal:** Finora es un proyecto desarrollado de forma independiente por RGM Labs. No está afiliado, respaldado ni asociado con ninguna otra entidad o marca registrada con el mismo nombre.
+
