@@ -18,7 +18,7 @@ import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from database import get_tenant_conn
+from database import get_tenant_conn, release_tenant_conn
 import master_db
 
 # Cargar variables de entorno desde .env si existe en el directorio base
@@ -153,6 +153,13 @@ def verify_token(token: Optional[str] = Depends(oauth2_scheme)) -> Dict[str, Any
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tu cuenta ha sido desactivada por el administrador."
         )
+
+    sub_status = user.get("subscription_status", "active")
+    if sub_status in ("suspended", "cancelled"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tu suscripción se encuentra suspendida o cancelada. Contacta al soporte."
+        )
         
     return {
         "id": user["id"],
@@ -160,8 +167,10 @@ def verify_token(token: Optional[str] = Depends(oauth2_scheme)) -> Dict[str, Any
         "username": user["username"],
         "role": user["role"],
         "db_name": user["db_name"],
+        "db_path": user.get("db_path", ""),
         "email": user.get("email"),
-        "is_active": user["is_active"]
+        "is_active": user["is_active"],
+        "subscription_status": sub_status
     }
 
 def verify_admin(current_user: Dict[str, Any] = Depends(verify_token)) -> Dict[str, Any]:
@@ -176,8 +185,8 @@ def verify_admin(current_user: Dict[str, Any] = Depends(verify_token)) -> Dict[s
 def get_tenant_db(current_user: Dict[str, Any] = Depends(verify_token)) -> Generator[sqlite3.Connection, None, None]:
     """
     Dependencia FastAPI que resuelve dinámicamente la conexión a la base de datos
-    específica del tenant autenticado ('data/tenants/{db_name}').
-    Garantiza rollback automático en caso de error para liberar bloqueos.
+    específica del tenant autenticado ('data/tenants/{db_name}') gestionada por el caché LRU.
+    Garantiza rollback automático en caso de error y liberación adecuada.
     """
     db_name = current_user.get("db_name", "user_1.db")
     conn = get_tenant_conn(db_name)
@@ -191,6 +200,6 @@ def get_tenant_db(current_user: Dict[str, Any] = Depends(verify_token)) -> Gener
         raise
     finally:
         try:
-            conn.close()
+            release_tenant_conn(db_name, conn)
         except Exception:
             pass

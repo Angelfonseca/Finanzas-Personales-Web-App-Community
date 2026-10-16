@@ -24,8 +24,14 @@ import shutil
 import tempfile
 from datetime import datetime
 
-# Módulos de infraestructura interna
-from database import init_tenant_db, get_tenant_conn, get_tenant_path, ensure_tenant_directories
+from database import (
+    init_tenant_db, 
+    get_tenant_conn, 
+    get_tenant_path, 
+    ensure_tenant_directories, 
+    backup_tenant_db_hot, 
+    tenant_conn_manager
+)
 import master_db
 from security import (
     hash_password,
@@ -202,6 +208,11 @@ def startup_event():
         print("[EMAIL] Servicio de correo transaccional (API / SMTP) configurado y activo.")
     else:
         print("[EMAIL ADVERTENCIA] El servicio de envío de correos NO está configurado en .env. La recuperación de contraseñas por correo permanecerá inactiva hasta definir RESEND_API_KEY o credenciales SMTP.")
+
+@app.on_event("shutdown")
+def shutdown_event():
+    """Cierra y limpia todas las conexiones abiertas en el caché LRU de tenants."""
+    tenant_conn_manager.close_all()
 
 # =============================================================================
 # ENDPOINTS: AUTENTICACIÓN (LOGIN & PERFIL)
@@ -1164,17 +1175,11 @@ def descargar_backup(background_tasks: BackgroundTasks, current_user: Dict[str, 
     fecha_str = ahora_local().strftime("%Y%m%d_%H%M%S")
     username_safe = "".join(c for c in current_user.get("username", "user") if c.isalnum() or c in ("-", "_"))
     
-    # Crear respaldo consistente usando la API de backup de SQLite (consolida páginas de WAL)
+    # Crear respaldo consistente en caliente usando VACUUM INTO o API nativa de backup de SQLite
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=".db")
     os.close(tmp_fd)
     
-    src = get_tenant_conn(db_name)
-    try:
-        dst = sqlite3.connect(tmp_path)
-        src.backup(dst)
-        dst.close()
-    finally:
-        src.close()
+    backup_tenant_db_hot(db_name, tmp_path, prefer_vacuum=True)
         
     background_tasks.add_task(os.unlink, tmp_path)
     

@@ -1,12 +1,13 @@
 """
-master_db.py - Gestión de la Base de Datos Maestra y Usuarios Multi-Tenant
+master_db.py - Gestión de la Base de Datos Maestra (auth_master.db) y Usuarios Multi-Tenant
 
 Este módulo centraliza:
-1. El esquema de la base de datos maestra ('data/master.db').
-2. Las operaciones CRUD de usuarios (administradores y usuarios estándar).
-3. El registro de auditoría de actividad (last_login, login_count).
-4. El cálculo de métricas de almacenamiento físico de cada tenant.
-5. El seed inicial del primer Administrador y la migración sin pérdidas de datos.
+1. El esquema de la base de datos central maestra ('data/auth_master.db').
+2. La gestión de usuarios, credenciales hasheadas con bcrypt y estado de suscripción ('active', 'suspended', 'trial').
+3. El registro de tokens OTP efímeros con tiempo de expiración y límites de reintentos.
+4. El mapeo y almacenamiento de rutas físicas de archivos (/data/tenants/user_{id}.db).
+5. Configuración obligatoria de PRAGMAs (WAL, NORMAL, foreign_keys=ON, busy_timeout=5000) en cada conexión.
+6. Aprovisionamiento seguro del primer Administrador y migración transparente de bases de datos heredadas.
 """
 
 import os
@@ -14,23 +15,81 @@ import shutil
 import sqlite3
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any, Tuple
-from database import DATA_DIR, TENANTS_DIR, get_tenant_path, provision_tenant_db, init_tenant_db
+from database import (
+    DATA_DIR, 
+    TENANTS_DIR, 
+    get_tenant_path, 
+    get_tenant_path_by_id, 
+    provision_tenant_db, 
+    init_tenant_db,
+    configure_sqlite_pragmas,
+    tenant_conn_manager
+)
 
-MASTER_DB_PATH = os.path.join(DATA_DIR, "master.db")
+# =============================================================================
+# 1. CONSTANTES Y RUTAS DE LA BASE MAESTRA
+# =============================================================================
+
+AUTH_MASTER_DB_NAME = "auth_master.db"
+AUTH_MASTER_DB_PATH = os.path.join(DATA_DIR, AUTH_MASTER_DB_NAME)
+
+# Alias de compatibilidad hacia atrás
+MASTER_DB_PATH = AUTH_MASTER_DB_PATH
+LEGACY_MASTER_DB_PATH = os.path.join(DATA_DIR, "master.db")
+
+
+# =============================================================================
+# 2. CONEXIÓN A LA BASE CENTRAL MAESTRA CON PRAGMAS OBLIGATORIOS
+# =============================================================================
 
 def get_master_conn() -> sqlite3.Connection:
-    """Crea y retorna una conexión a la base de datos maestra con WAL mode."""
+    """
+    Crea y retorna una conexión a la base de datos central maestra (auth_master.db)
+    configurada obligatoriamente con los PRAGMAs del estándar institucional:
+    - journal_mode = WAL
+    - synchronous = NORMAL
+    - foreign_keys = ON
+    - busy_timeout = 5000
+    """
     os.makedirs(DATA_DIR, exist_ok=True)
-    conn = sqlite3.connect(MASTER_DB_PATH, timeout=15.0, check_same_thread=False)
+    conn = sqlite3.connect(AUTH_MASTER_DB_PATH, timeout=5.0, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    configure_sqlite_pragmas(conn)
     return conn
 
+
+# =============================================================================
+# 3. INICIALIZACIÓN Y MIGRACIONES DE LA BASE MAESTRA (auth_master.db)
+# =============================================================================
+
 def init_master_db() -> None:
-    """Crea la tabla 'users', 'password_resets' e índices en la base de datos maestra."""
+    """
+    Inicializa el esquema de la base de datos central maestra 'auth_master.db':
+    - Migra datos transparentemente desde el archivo legacy 'master.db' si existe.
+    - Crea la tabla 'users' con control de suscripción y rutas de archivos de tenant.
+    - Crea la tabla 'password_resets' para tokens de seguridad OTP.
+    - Crea índices de alto rendimiento sobre username, email y estado de suscripción.
+    """
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    # Migración transparente: si existe master.db anterior pero no auth_master.db, copiarlo
+    if os.path.exists(LEGACY_MASTER_DB_PATH) and not os.path.exists(AUTH_MASTER_DB_PATH):
+        try:
+            shutil.copy2(LEGACY_MASTER_DB_PATH, AUTH_MASTER_DB_PATH)
+            # Copiar también archivos WAL y SHM si existen
+            for ext in ("-wal", "-shm"):
+                leg_ext = f"{LEGACY_MASTER_DB_PATH}{ext}"
+                if os.path.exists(leg_ext):
+                    shutil.copy2(leg_ext, f"{AUTH_MASTER_DB_PATH}{ext}")
+        except Exception:
+            pass
+
     conn = get_master_conn()
     cursor = conn.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL;")
-    
+
+    # -------------------------------------------------------------
+    # Tabla: users (usuarios, credenciales, suscripción y rutas de BD)
+    # -------------------------------------------------------------
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,20 +97,41 @@ def init_master_db() -> None:
             password_hash TEXT NOT NULL,
             role TEXT CHECK(role IN ('admin', 'user')) NOT NULL DEFAULT 'user',
             is_active INTEGER NOT NULL DEFAULT 1,
+            subscription_status TEXT NOT NULL DEFAULT 'active',
             db_name TEXT NOT NULL UNIQUE,
+            db_path TEXT NOT NULL DEFAULT '',
             email TEXT DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_login TIMESTAMP DEFAULT NULL,
             login_count INTEGER NOT NULL DEFAULT 0
         )
     """)
-    
-    # Migración defensiva si la columna email no existía
+
+    # Migraciones defensivas para bases de datos existentes
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN subscription_status TEXT NOT NULL DEFAULT 'active';")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN db_path TEXT NOT NULL DEFAULT '';")
+    except sqlite3.OperationalError:
+        pass
+
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN email TEXT DEFAULT NULL;")
     except sqlite3.OperationalError:
         pass
 
+    # Poblar db_path para cualquier fila existente donde esté vacío
+    rows_without_path = cursor.execute("SELECT id, db_name FROM users WHERE db_path IS NULL OR db_path = ''").fetchall()
+    for r in rows_without_path:
+        p = get_tenant_path(r["db_name"])
+        cursor.execute("UPDATE users SET db_path = ? WHERE id = ?", (p, r["id"]))
+
+    # -------------------------------------------------------------
+    # Tabla: password_resets (tokens OTP de recuperación)
+    # -------------------------------------------------------------
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS password_resets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,18 +144,25 @@ def init_master_db() -> None:
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     """)
-    
-    # Migración defensiva si la columna attempts no existía
+
     try:
         cursor.execute("ALTER TABLE password_resets ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;")
     except sqlite3.OperationalError:
         pass
-    
+
+    # Índices optimizados
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_subscription ON users(subscription_status);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_resets_user_code ON password_resets(user_id, code);")
+    
     conn.commit()
     conn.close()
+
+
+# =============================================================================
+# 4. CONSULTAS DE USUARIOS Y AUTENTICACIÓN
+# =============================================================================
 
 def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
     """Busca un usuario por su nombre de usuario (insensible a mayúsculas)."""
@@ -109,8 +196,13 @@ def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
     conn.close()
     return dict(row) if row else None
 
+
+# =============================================================================
+# 5. GESTIÓN DE TOKENS OTP (ONE-TIME PASSWORDS)
+# =============================================================================
+
 def count_recent_reset_requests(user_id: int, hours: int = 24) -> int:
-    """Cuenta cuántas solicitudes de código de restablecimiento ha generado el usuario en las últimas N horas."""
+    """Cuenta cuántas solicitudes de código OTP de restablecimiento ha generado el usuario en las últimas N horas."""
     limite = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
     conn = get_master_conn()
     cursor = conn.cursor()
@@ -132,7 +224,7 @@ def create_password_reset_code(user_id: int) -> str:
     conn = get_master_conn()
     cursor = conn.cursor()
     
-    # Limpieza automática: purgar códigos caducados o usados de más de 24 horas para mantener la BD limpia
+    # Limpieza automática: purgar códigos caducados o usados de más de 24 horas
     limite_limpieza = (ahora_dt - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
     cursor.execute("DELETE FROM password_resets WHERE expires_at < ? OR (used = 1 AND created_at < ?)", (limite_limpieza, limite_limpieza))
 
@@ -148,13 +240,9 @@ def create_password_reset_code(user_id: int) -> str:
 
 def verify_and_use_reset_code(identifier: str, code: str, new_password_hash: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     """
-    Verifica que el código de 6 dígitos pertenezca al usuario, esté vigente y no haya sido usado.
-    Aplica una política de seguridad estricta: máximo 2 intentos fallidos de validación antes de invalidar el código permanentemente.
+    Verifica que el código OTP de 6 dígitos pertenezca al usuario, esté vigente y no haya sido usado.
+    Aplica una política estricta de máximo 2 intentos fallidos antes de invalidar el código permanentemente.
     Si es válido, actualiza el password_hash del usuario y marca el código como usado.
-    
-    Retorna:
-    --------
-    Tuple[Optional[Dict[str, Any]], Optional[str]]: (usuario_actualizado, error_detalle)
     """
     user = get_user_by_identifier(identifier)
     if not user:
@@ -167,7 +255,6 @@ def verify_and_use_reset_code(identifier: str, code: str, new_password_hash: str
     conn = get_master_conn()
     cursor = conn.cursor()
     
-    # Buscar el código pendiente más reciente (no usado y con vigencia activa)
     reset_row = cursor.execute(
         """
         SELECT * FROM password_resets 
@@ -188,7 +275,6 @@ def verify_and_use_reset_code(identifier: str, code: str, new_password_hash: str
     if code_clean != codigo_correcto:
         nuevos_intentos = intentos_previos + 1
         if nuevos_intentos >= 2:
-            # Invalidar inmediatamente el código por exceder los 2 intentos permitidos
             cursor.execute("UPDATE password_resets SET attempts = ?, used = 1 WHERE id = ?", (nuevos_intentos, reset_id))
             conn.commit()
             conn.close()
@@ -199,7 +285,7 @@ def verify_and_use_reset_code(identifier: str, code: str, new_password_hash: str
             conn.close()
             return None, f"Código de recuperación incorrecto. Te queda {2 - nuevos_intentos} intento antes de que el código sea cancelado."
 
-    # Si coincide, quemar el código exitosamente y cambiar contraseña
+    # Si coincide, quemar el código y actualizar credencial
     cursor.execute("UPDATE password_resets SET used = 1 WHERE id = ?", (reset_id,))
     cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_password_hash, user_id))
     conn.commit()
@@ -208,10 +294,22 @@ def verify_and_use_reset_code(identifier: str, code: str, new_password_hash: str
     conn.close()
     return dict(updated_user) if updated_user else None, None
 
-def create_user_entry(username: str, password_hash: str, role: str = 'user', is_active: int = 1, email: Optional[str] = None) -> Dict[str, Any]:
+
+# =============================================================================
+# 6. OPERACIONES CRUD DE USUARIOS Y TENANTS
+# =============================================================================
+
+def create_user_entry(
+    username: str, 
+    password_hash: str, 
+    role: str = 'user', 
+    is_active: int = 1, 
+    email: Optional[str] = None,
+    subscription_status: str = 'active'
+) -> Dict[str, Any]:
     """
-    Crea un nuevo usuario en la base maestra y dispara el aprovisionamiento automático
-    de su base de datos tenant individual ('user_{id}.db').
+    Crea un nuevo usuario en la base central maestra 'auth_master.db' y dispara el
+    aprovisionamiento automático de su archivo físico independiente '/data/tenants/user_{id}.db'.
     """
     username_clean = username.strip()
     email_clean = email.strip() if (email and email.strip()) else None
@@ -227,30 +325,32 @@ def create_user_entry(username: str, password_hash: str, role: str = 'user', is_
             conn.close()
             raise ValueError(f"El correo electrónico '{email_clean}' ya está registrado en otra cuenta.")
     
-    # 1. Insertar inicialmente con un placeholder temporal de db_name y correo
+    # 1. Insertar inicialmente para obtener el ID único
     cursor.execute(
         """
-        INSERT INTO users (username, password_hash, role, is_active, db_name, email)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO users (username, password_hash, role, is_active, subscription_status, db_name, db_path, email)
+        VALUES (?, ?, ?, ?, ?, ?, '', ?)
         """,
-        (username_clean, password_hash, role, is_active, f"temp_{os.urandom(4).hex()}", email_clean)
+        (username_clean, password_hash, role, is_active, subscription_status, f"temp_{os.urandom(4).hex()}", email_clean)
     )
     new_id = cursor.lastrowid
     
-    # 2. Aprovisionar la base de datos física del tenant
-    db_name = provision_tenant_db(new_id)
+    # 2. Aprovisionar físicamente el tenant 'user_{id}.db' con PRAGMAs y migraciones
+    db_name, db_path = provision_tenant_db(new_id)
     
-    # 3. Asignar el db_name definitivo
-    cursor.execute("UPDATE users SET db_name = ? WHERE id = ?", (db_name, new_id))
+    # 3. Guardar el nombre de archivo y la ruta física canónica en auth_master.db
+    cursor.execute(
+        "UPDATE users SET db_name = ?, db_path = ? WHERE id = ?",
+        (db_name, db_path, new_id)
+    )
     conn.commit()
     
-    # Recuperar el registro completo
     user_row = cursor.execute("SELECT * FROM users WHERE id = ?", (new_id,)).fetchone()
     conn.close()
     return dict(user_row)
 
 def update_login_activity(user_id: int, timestamp_str: str) -> None:
-    """Actualiza la fecha/hora del último inicio de sesión e incrementa el contador de logins."""
+    """Registra la fecha/hora del último inicio de sesión e incrementa el contador de accesos."""
     conn = get_master_conn()
     cursor = conn.cursor()
     cursor.execute(
@@ -265,10 +365,18 @@ def update_login_activity(user_id: int, timestamp_str: str) -> None:
     conn.close()
 
 def set_user_status(user_id: int, is_active: int) -> None:
-    """Activa o suspende el acceso de un usuario."""
+    """Activa o suspende el acceso de un usuario al sistema."""
     conn = get_master_conn()
     cursor = conn.cursor()
     cursor.execute("UPDATE users SET is_active = ? WHERE id = ?", (1 if is_active else 0, user_id))
+    conn.commit()
+    conn.close()
+
+def update_subscription_status(user_id: int, status: str) -> None:
+    """Actualiza el estado de suscripción de un usuario ('active', 'suspended', 'trial', 'cancelled')."""
+    conn = get_master_conn()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET subscription_status = ? WHERE id = ?", (status.strip().lower(), user_id))
     conn.commit()
     conn.close()
 
@@ -277,11 +385,11 @@ def update_user(
     username: Optional[str] = None, 
     password_hash: Optional[str] = None, 
     role: Optional[str] = None,
-    email: Optional[str] = None
+    email: Optional[str] = None,
+    subscription_status: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
     """
-    Actualiza datos de un usuario (nombre de usuario, contraseña hasheada, rol y/o email).
-    Valida que el nuevo nombre o correo no esté duplicado con otro usuario.
+    Actualiza datos de un usuario (nombre de usuario, credencial, rol, email y/o suscripción).
     """
     user = get_user_by_id(user_id)
     if not user:
@@ -298,7 +406,6 @@ def update_user(
         if len(clean_user) < 3:
             conn.close()
             raise ValueError("El nombre de usuario debe tener al menos 3 caracteres.")
-        # Verificar que no exista otro usuario con ese nombre
         existing = cursor.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND id != ?", (clean_user, user_id)).fetchone()
         if existing:
             conn.close()
@@ -326,6 +433,10 @@ def update_user(
         fields.append("role = ?")
         params.append(role.strip())
 
+    if subscription_status is not None and subscription_status.strip():
+        fields.append("subscription_status = ?")
+        params.append(subscription_status.strip().lower())
+
     if not fields:
         conn.close()
         return user
@@ -341,19 +452,25 @@ def update_user(
 
 def delete_user_and_tenant(user_id: int) -> bool:
     """
-    Elimina permanentemente a un usuario de la base maestra y borra
+    Elimina permanentemente a un usuario de 'auth_master.db' y borra
     su archivo físico de base de datos tenant (.db, -wal, -shm).
-    Protege las cuentas con rol admin para que no puedan ser borradas.
+    Desaloja previamente la conexión del caché LRU para evitar bloqueos de I/O.
+    Protege las cuentas con rol admin e ID 1 contra eliminación accidental.
     """
     user = get_user_by_id(user_id)
     if not user:
         return False
         
-    # Regla: No se puede eliminar la cuenta principal del sistema (ID 1 o usuario 'admin')
     if user["id"] == 1 or user["username"].lower() == "admin":
         return False
         
     db_name = user["db_name"]
+    db_path = user.get("db_path") or get_tenant_path(db_name)
+
+    # 1. Purgar y cerrar conexión en el caché LRU
+    tenant_conn_manager.close_connection(db_name)
+
+    # 2. Eliminar registros de la base maestra
     conn = get_master_conn()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM password_resets WHERE user_id = ?", (user_id,))
@@ -361,8 +478,7 @@ def delete_user_and_tenant(user_id: int) -> bool:
     conn.commit()
     conn.close()
     
-    # Eliminar archivos físicos del tenant
-    db_path = get_tenant_path(db_name)
+    # 3. Eliminar archivos físicos del tenant
     for path in [db_path, f"{db_path}-wal", f"{db_path}-shm"]:
         if os.path.exists(path):
             try:
@@ -371,9 +487,14 @@ def delete_user_and_tenant(user_id: int) -> bool:
                 pass
     return True
 
-def get_tenant_file_size(db_name: str) -> int:
+
+# =============================================================================
+# 7. MÉTRICAS Y AUDITORÍA DE ALMACENAMIENTO FÍSICO
+# =============================================================================
+
+def get_tenant_file_size(db_name_or_path: str) -> int:
     """Calcula el tamaño total en bytes del tenant (archivo principal + WAL + SHM)."""
-    db_path = get_tenant_path(db_name)
+    db_path = get_tenant_path(db_name_or_path)
     total_bytes = 0
     for path in [db_path, f"{db_path}-wal", f"{db_path}-shm"]:
         if os.path.exists(path):
@@ -390,12 +511,12 @@ def format_bytes(size_bytes: int) -> str:
     return f"{size_bytes / (1024 * 1024):.2f} MB"
 
 def list_users_with_metrics() -> List[Dict[str, Any]]:
-    """Retorna la lista de todos los usuarios con métricas de actividad y peso de su BD."""
+    """Retorna la lista de todos los usuarios con métricas de actividad, estado de suscripción y peso de su BD."""
     conn = get_master_conn()
     cursor = conn.cursor()
     rows = cursor.execute(
         """
-        SELECT id, username, email, role, is_active, db_name, created_at, last_login, login_count 
+        SELECT id, username, email, role, is_active, subscription_status, db_name, db_path, created_at, last_login, login_count 
         FROM users 
         ORDER BY id ASC
         """
@@ -420,21 +541,18 @@ def get_admin_stats(ahora: datetime) -> Dict[str, Any]:
     inactive_users = cursor.execute("SELECT COUNT(*) as total FROM users WHERE is_active = 0").fetchone()["total"]
     total_logins = cursor.execute("SELECT SUM(login_count) as total FROM users").fetchone()["total"] or 0
     
-    # Usuarios activos hoy (mismo día YYYY-MM-DD)
     hoy_str = ahora.strftime("%Y-%m-%d")
     activos_hoy = cursor.execute(
         "SELECT COUNT(*) as total FROM users WHERE last_login LIKE ? AND is_active = 1",
         (f"{hoy_str}%",)
     ).fetchone()["total"]
     
-    # Usuarios activos últimos 7 días
     siete_dias_atras = (ahora - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
     activos_7d = cursor.execute(
         "SELECT COUNT(*) as total FROM users WHERE last_login >= ? AND is_active = 1",
         (siete_dias_atras,)
     ).fetchone()["total"]
     
-    # Sumar tamaño en disco de todas las bases de datos en data/tenants
     total_disk_bytes = 0
     if os.path.exists(TENANTS_DIR):
         for f in os.listdir(TENANTS_DIR):
@@ -454,14 +572,19 @@ def get_admin_stats(ahora: datetime) -> Dict[str, Any]:
         "total_disk_formatted": format_bytes(total_disk_bytes)
     }
 
+
+# =============================================================================
+# 8. SEED INICIAL Y MIGRACIÓN TRANSPARENTE
+# =============================================================================
+
 def seed_default_admin_and_migrate(default_password_hash: str) -> Optional[Dict[str, Any]]:
     """
     Rutina de inicio:
-    - Inicializa 'master.db'.
+    - Inicializa 'auth_master.db'.
     - Si la tabla 'users' está vacía:
       1. Crea el usuario Administrador por defecto 'admin'.
       2. Migra el archivo 'finanzas.db' existente de la raíz a 'data/tenants/user_1.db'
-         para conservar al 100% los datos históricos del usuario.
+         o inicializa uno nuevo para conservar al 100% los datos históricos.
     """
     init_master_db()
     conn = get_master_conn()
@@ -472,27 +595,25 @@ def seed_default_admin_and_migrate(default_password_hash: str) -> Optional[Dict[
         conn.close()
         return None
         
-    # Tabla vacía: crear usuario Administrador 'admin'
     base_dir = os.path.dirname(DATA_DIR)
     root_finanzas_db = os.path.join(base_dir, "finanzas.db")
-    target_tenant_1 = get_tenant_path("user_1.db")
+    target_tenant_1 = get_tenant_path_by_id(1)
     
     os.makedirs(TENANTS_DIR, exist_ok=True)
     
-    # Migrar archivo existente o inicializar uno nuevo (sin sobreescribir datos existentes)
+    # Migrar archivo existente o inicializar uno nuevo
     if os.path.exists(root_finanzas_db) and not os.path.exists(target_tenant_1):
         shutil.copy2(root_finanzas_db, target_tenant_1)
-        # Aplicar migraciones por seguridad
         init_tenant_db(target_tenant_1)
     else:
         init_tenant_db(target_tenant_1)
         
     cursor.execute(
         """
-        INSERT INTO users (username, password_hash, role, is_active, db_name)
-        VALUES (?, ?, 'admin', 1, 'user_1.db')
+        INSERT INTO users (username, password_hash, role, is_active, subscription_status, db_name, db_path)
+        VALUES (?, ?, 'admin', 1, 'active', 'user_1.db', ?)
         """,
-        ("admin", default_password_hash)
+        ("admin", default_password_hash, target_tenant_1)
     )
     conn.commit()
     user_row = cursor.execute("SELECT * FROM users WHERE id = 1").fetchone()
