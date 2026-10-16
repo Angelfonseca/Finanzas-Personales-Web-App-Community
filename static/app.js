@@ -372,12 +372,12 @@ function toggleModoOscuro() {
         localStorage.setItem('theme', 'dark');
         actualizarIconosModoOscuro(true);
     } else {
-        document.documentElement.removeAttribute('data-theme');
+        document.documentElement.setAttribute('data-theme', 'light');
         localStorage.setItem('theme', 'light');
         actualizarIconosModoOscuro(false);
     }
     if (window.Chart) {
-        Chart.defaults.color = nuevoTemaOscuro ? '#f0f0f0' : '#222222';
+        Chart.defaults.color = nuevoTemaOscuro ? '#f8fafc' : '#0d172a';
     }
     if (miGrafica) actualizarColoresGrafica();
     if (graficaDona) actualizarColoresDona();
@@ -389,16 +389,19 @@ const inicialOscuro = temaGuardado === 'dark';
 if (inicialOscuro) {
     document.documentElement.setAttribute('data-theme', 'dark');
     actualizarIconosModoOscuro(true);
+} else {
+    document.documentElement.setAttribute('data-theme', 'light');
+    actualizarIconosModoOscuro(false);
 }
 if (window.Chart) {
-    Chart.defaults.color = inicialOscuro ? '#f0f0f0' : '#222222';
+    Chart.defaults.color = inicialOscuro ? '#f8fafc' : '#0d172a';
 }
 
 function actualizarColoresGrafica() {
     if (!miGrafica) return;
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
-    const textColor = esOscuro ? '#f0f0f0' : '#222222';
-    const gridColor = esOscuro ? 'rgba(255, 255, 255, 0.12)' : '#eee';
+    const textColor = esOscuro ? '#f8fafc' : '#0d172a';
+    const gridColor = esOscuro ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)';
 
     if (window.Chart) Chart.defaults.color = textColor;
     if (miGrafica.options && miGrafica.options.scales) {
@@ -420,7 +423,7 @@ function actualizarColoresGrafica() {
 function actualizarColoresDona() {
     if (!graficaDona) return;
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
-    const textColor = esOscuro ? '#f0f0f0' : '#222222';
+    const textColor = esOscuro ? '#f8fafc' : '#0d172a';
     if (window.Chart) Chart.defaults.color = textColor;
     if (graficaDona.options && graficaDona.options.plugins && graficaDona.options.plugins.legend) {
         graficaDona.options.plugins.legend.labels.color = textColor;

@@ -31,6 +31,7 @@ html, body {
     --panel-bg: #ffffff;
     --text-color: #0d172a;
     --text-muted: #5e6c84;
+    --text-main: #0d172a;
     --border-color: #e4e1d7;
     --th-bg: #f2efe7;
     --table-border: #ede9e0;
@@ -56,9 +57,16 @@ html, body {
     --accent-hover: #0f766e;
     --accent-subtle: rgba(13, 148, 136, 0.1);
 
+    /* Éxito / Ingresos / Ganancias (Contraste alto >= 4.5:1 en fondo claro) */
+    --success-color: #15803d;
+    --success-subtle: rgba(21, 128, 61, 0.1);
+
     /* Egresos / Pasivos (Vino / Borgoña Sobrio) */
     --danger-color: #be123c;
-    --warning-color: #d97706;
+    --danger-subtle: rgba(190, 18, 60, 0.1);
+    --warning-color: #b45309;
+    --warning-subtle: rgba(180, 83, 9, 0.08);
+    --warning-border: rgba(180, 83, 9, 0.28);
 }
 
 /* Variables para el Modo Oscuro: Obsidian Vault & Satin Gold */
@@ -67,6 +75,7 @@ html, body {
     --panel-bg: #0f1624;
     --text-color: #f8fafc;
     --text-muted: #8fa0b5;
+    --text-main: #f8fafc;
     --border-color: #1a2638;
     --th-bg: #141e30;
     --table-border: #1a2638;
@@ -86,8 +95,15 @@ html, body {
     --accent-color: #10b981;
     --accent-hover: #34d399;
     --accent-subtle: rgba(16, 185, 129, 0.15);
+
+    --success-color: #34d399;
+    --success-subtle: rgba(52, 211, 153, 0.15);
+
     --danger-color: #fb7185;
+    --danger-subtle: rgba(251, 113, 133, 0.15);
     --warning-color: #fbbf24;
+    --warning-subtle: rgba(245, 158, 11, 0.15);
+    --warning-border: rgba(245, 158, 11, 0.35);
 }
 
 body {
@@ -786,7 +802,7 @@ body.privacy-mode #tabla-inversiones tr:hover td:nth-child(7) {
     font-weight: bold;
 }
 .card.balance p { color: var(--primary-color); }
-.card.ingresos p { color: var(--accent-color); }
+.card.ingresos p { color: var(--success-color); }
 .card.gastos p { color: var(--danger-color); }
 
 /* Estructura de Columnas y Grids */
@@ -850,6 +866,16 @@ input:focus, select:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px var(--primary-subtle);
+}
+
+select option {
+    background-color: var(--panel-bg);
+    color: var(--text-color);
+}
+
+::placeholder {
+    color: var(--text-muted);
+    opacity: 0.75;
 }
 
 button {
@@ -1147,8 +1173,8 @@ table td,
 table { width: 100%; border-collapse: collapse; margin-top: 0; }
 th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--table-border); font-size: 0.82rem; color: var(--text-color); }
 th { background-color: var(--th-bg); color: var(--text-color); }
-.text-gasto { color: #e74c3c; font-weight: bold; }
-.text-ingreso { color: #2ecc71; font-weight: bold; }
+.text-gasto { color: var(--danger-color); font-weight: bold; }
+.text-ingreso { color: var(--success-color); font-weight: bold; }
 .table-responsive {
     max-height: 460px;
     overflow-y: auto;
@@ -1367,10 +1393,11 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 }
 
 .inversiones-col-form .card-form {
-    background: var(--bg-color);
+    background: var(--panel-bg);
     padding: 16px 18px;
     border-radius: 10px;
     border: 1px solid var(--border-color);
+    box-shadow: var(--card-shadow);
     height: 100%;
     box-sizing: border-box;
 }
@@ -1419,10 +1446,11 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 
 .dona-wrapper {
     margin-top: 0;
-    background: var(--bg-color);
+    background: var(--panel-bg);
     padding: 16px 18px;
     border-radius: 10px;
     border: 1px solid var(--border-color);
+    box-shadow: var(--card-shadow);
     width: 100%;
     max-width: 100%;
     height: 100%;
@@ -1453,12 +1481,12 @@ th { background-color: var(--th-bg); color: var(--text-color); }
 }
 
 .pnl-positivo {
-    color: #2ecc71 !important;
+    color: var(--success-color) !important;
     font-weight: bold;
 }
 
 .pnl-negativo {
-    color: #e74c3c !important;
+    color: var(--danger-color) !important;
     font-weight: bold;
 }
 
@@ -1943,6 +1971,61 @@ th { background-color: var(--th-bg); color: var(--text-color); }
     border-radius: 8px;
     font-size: 0.88rem;
     text-align: center;
+}
+
+/* Banners y Tarjetas de Alerta Adaptativas (Modo Claro y Oscuro) */
+.alert-warning-banner {
+    margin: 16px 0;
+    padding: 12px 16px;
+    background: var(--warning-subtle);
+    border: 1px solid var(--warning-border);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: var(--warning-color);
+    line-height: 1.5;
+}
+
+.btn-warning-dismiss {
+    flex-shrink: 0;
+    padding: 6px 16px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border: 1px solid var(--warning-border);
+    color: var(--warning-color);
+    background: var(--warning-subtle);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+.btn-warning-dismiss:hover {
+    filter: brightness(1.1);
+}
+
+.card-unconfigured-email {
+    padding: 18px 16px;
+    background: var(--warning-subtle);
+    border: 1px solid var(--warning-border);
+    border-radius: 10px;
+    text-align: center;
+    margin-bottom: 8px;
+}
+.card-unconfigured-email h4 {
+    margin: 0 0 8px 0;
+    color: var(--warning-color);
+    font-size: 0.98rem;
+    font-weight: 700;
+}
+.card-unconfigured-email .unconfigured-icon-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--warning-subtle);
+    border: 1px solid var(--warning-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px auto;
+    color: var(--warning-color);
 }
 
 /* ========================================================== */
