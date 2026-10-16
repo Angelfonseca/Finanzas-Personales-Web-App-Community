@@ -222,6 +222,12 @@ function establecerSesionActiva(user, token) {
         btnTabAdmin.style.display = (user.role === 'admin') ? 'flex' : 'none';
     }
 
+    // Botón de eliminar mi cuenta en el dropdown: solo para usuarios que NO sean admin
+    const btnDropEliminar = document.getElementById('btn-dropdown-eliminar-cuenta');
+    if (btnDropEliminar) {
+        btnDropEliminar.style.display = (user.role !== 'admin') ? 'flex' : 'none';
+    }
+
     // Si un usuario no admin tiene guardada la pestaña admin, redirigir al resumen
     if (user.role !== 'admin') {
         const pestanaGuardada = localStorage.getItem('active_tab');
@@ -1743,6 +1749,14 @@ function abrirModalEditarUsuario(id, username, role, email) {
         roleGroup.style.display = (usuarioActual && usuarioActual.role === 'admin') ? 'block' : 'none';
     }
 
+    // Zona de Peligro (Eliminar Mi Cuenta): solo visible si es el usuario en sesión activa y NO es administrador
+    const dangerZone = document.getElementById('danger-zone-eliminar-cuenta');
+    if (dangerZone) {
+        const esMismoUsuario = usuarioActual && usuarioActual.id === id;
+        const esAdmin = usuarioActual && (usuarioActual.role === 'admin' || usuarioActual.id === 1 || (usuarioActual.username && usuarioActual.username.toLowerCase() === 'admin'));
+        dangerZone.style.display = (esMismoUsuario && !esAdmin) ? 'block' : 'none';
+    }
+
     modal.style.display = 'flex';
     setTimeout(() => {
         const input = document.getElementById('edit-user-username');
@@ -1854,6 +1868,48 @@ async function guardarEdicionUsuario(e) {
         }
     } catch (error) {
         alert("Error de conexión al guardar cambios.");
+    }
+}
+
+/**
+ * Permite a un usuario estándar eliminar definitivamente su propia cuenta y todos sus datos.
+ * Bloquea la acción para administradores del sistema.
+ */
+async function solicitarEliminarMiCuenta() {
+    if (!usuarioActual) return;
+
+    if (usuarioActual.role === 'admin' || usuarioActual.id === 1 || (usuarioActual.username && usuarioActual.username.toLowerCase() === 'admin')) {
+        alert("Los administradores del sistema no pueden eliminar su propia cuenta.");
+        return;
+    }
+
+    const confirm1 = confirm("⚠️ ATENCIÓN: ¿Estás seguro de que deseas eliminar permanentemente tu cuenta?\n\nEsta acción es irreversible y eliminará de inmediato:\n• Tu usuario y credenciales de acceso.\n• Todos tus movimientos de caja y categorías.\n• Tus apartados y metas de ahorro.\n• Tu portafolio bursátil y cotizaciones.\n\n¿Deseas continuar?");
+    if (!confirm1) return;
+
+    const respuesta = prompt("Para confirmar la eliminación definitiva de tu cuenta y todos tus datos, escribe ELIMINAR:");
+    if (!respuesta || respuesta.trim().toUpperCase() !== "ELIMINAR") {
+        alert("Operación cancelada. Tu cuenta no ha sido modificada.");
+        return;
+    }
+
+    try {
+        const res = await apiFetch('/auth/delete-account', {
+            method: 'DELETE'
+        });
+
+        if (res.ok) {
+            alert("Tu cuenta y todos tus datos financieros han sido eliminados permanentemente.");
+            cerrarModalEditarUsuario();
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('user_info');
+            sessionStorage.clear();
+            window.location.reload();
+        } else {
+            const err = await res.json();
+            alert(err.detail || "No se pudo eliminar tu cuenta.");
+        }
+    } catch (e) {
+        alert("Error de red al intentar eliminar la cuenta.");
     }
 }
 
@@ -2697,6 +2753,7 @@ window.abrirModalEditarMiPerfil = abrirModalEditarMiPerfil;
 window.guardarEdicionUsuario = guardarEdicionUsuario;
 window.cambiarEstadoUsuario = cambiarEstadoUsuario;
 window.eliminarUsuarioTenant = eliminarUsuarioTenant;
+window.solicitarEliminarMiCuenta = solicitarEliminarMiCuenta;
 
 // Funciones del Marco Legal, Términos y Privacidad
 function abrirModalLegal(seccion = 'terminos') {

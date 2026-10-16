@@ -735,6 +735,41 @@ body.privacy-mode #tabla-inversiones tr:hover td:nth-child(7) {
     color: #dc2626;
 }
 
+.dropdown-action-btn.dropdown-btn-danger {
+    color: var(--danger-color);
+}
+.dropdown-action-btn.dropdown-btn-danger:hover {
+    background-color: var(--danger-subtle);
+    color: var(--danger-color);
+}
+
+.danger-zone-box {
+    margin-top: 20px;
+    padding: 14px 16px;
+    border: 1px solid var(--danger-subtle);
+    border-radius: 8px;
+    background: var(--danger-subtle);
+}
+
+.btn-danger-outline {
+    padding: 7px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--danger-color);
+    background: transparent;
+    border: 1px solid var(--danger-color);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.btn-danger-outline:hover {
+    background: var(--danger-color);
+    color: #ffffff;
+}
+
 /* Área de Contenido Principal */
 .app-main-content {
     flex: 1;

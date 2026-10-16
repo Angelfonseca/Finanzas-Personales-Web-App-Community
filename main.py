@@ -314,6 +314,37 @@ def editar_mi_perfil(req: UserUpdateRequest, current_user: Dict[str, Any] = Depe
         "new_token": nuevo_token
     }
 
+@app.delete("/auth/delete-account", summary="Eliminar permanentemente la cuenta del usuario activo")
+@app.delete("/api/auth/delete-account", summary="Eliminar permanentemente la cuenta del usuario activo (alias API)")
+@app.delete("/auth/me", summary="Eliminar permanentemente la cuenta del usuario activo")
+@app.delete("/api/auth/me", summary="Eliminar permanentemente la cuenta del usuario activo (alias API)")
+def eliminar_mi_cuenta(current_user: Dict[str, Any] = Depends(verify_token)):
+    """
+    Permite a los usuarios estándar eliminar permanentemente su propia cuenta y su base de datos tenant.
+    Regla de Seguridad: Los administradores NO pueden eliminar su propia cuenta a través de este endpoint.
+    """
+    user_id = current_user["id"]
+
+    # Bloquear estrictamente si es administrador o cuenta principal
+    if (
+        current_user.get("role") == "admin"
+        or user_id == 1
+        or current_user.get("username", "").lower() == "admin"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Los administradores del sistema no pueden eliminar su propia cuenta."
+        )
+
+    eliminado = master_db.delete_user_and_tenant(user_id)
+    if not eliminado:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo procesar la eliminación de tu cuenta."
+        )
+
+    return {"mensaje": "Tu cuenta y toda tu información financiera han sido eliminadas permanentemente."}
+
 # =============================================================================
 # ENDPOINTS: RECUPERACIÓN DE CONTRASEÑA POR EMAIL
 # =============================================================================
