@@ -13,7 +13,7 @@ import os
 import shutil
 import sqlite3
 from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from database import DATA_DIR, TENANTS_DIR, get_tenant_path, provision_tenant_db, init_tenant_db
 
 MASTER_DB_PATH = os.path.join(DATA_DIR, "master.db")
@@ -59,10 +59,17 @@ def init_master_db() -> None:
             code TEXT NOT NULL,
             expires_at TIMESTAMP NOT NULL,
             used INTEGER NOT NULL DEFAULT 0,
+            attempts INTEGER NOT NULL DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     """)
+    
+    # Migración defensiva si la columna attempts no existía
+    try:
+        cursor.execute("ALTER TABLE password_resets ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;")
+    except sqlite3.OperationalError:
+        pass
     
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);")
@@ -102,6 +109,18 @@ def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
     conn.close()
     return dict(row) if row else None
 
+def count_recent_reset_requests(user_id: int, hours: int = 24) -> int:
+    """Cuenta cuántas solicitudes de código de restablecimiento ha generado el usuario en las últimas N horas."""
+    limite = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_master_conn()
+    cursor = conn.cursor()
+    row = cursor.execute(
+        "SELECT COUNT(*) as total FROM password_resets WHERE user_id = ? AND created_at >= ?",
+        (user_id, limite)
+    ).fetchone()
+    conn.close()
+    return row["total"] if row else 0
+
 def create_password_reset_code(user_id: int) -> str:
     """Genera y registra un código numérico aleatorio de 6 dígitos con vigencia de 15 minutos."""
     import secrets
@@ -118,21 +137,26 @@ def create_password_reset_code(user_id: int) -> str:
     # Invalidar cualquier código anterior pendiente del usuario
     cursor.execute("UPDATE password_resets SET used = 1 WHERE user_id = ? AND used = 0", (user_id,))
     cursor.execute(
-        "INSERT INTO password_resets (user_id, code, expires_at, used) VALUES (?, ?, ?, 0)",
+        "INSERT INTO password_resets (user_id, code, expires_at, used, attempts) VALUES (?, ?, ?, 0, 0)",
         (user_id, codigo, expira)
     )
     conn.commit()
     conn.close()
     return codigo
 
-def verify_and_use_reset_code(identifier: str, code: str, new_password_hash: str) -> Optional[Dict[str, Any]]:
+def verify_and_use_reset_code(identifier: str, code: str, new_password_hash: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     """
     Verifica que el código de 6 dígitos pertenezca al usuario, esté vigente y no haya sido usado.
+    Aplica una política de seguridad estricta: máximo 2 intentos fallidos de validación antes de invalidar el código permanentemente.
     Si es válido, actualiza el password_hash del usuario y marca el código como usado.
+    
+    Retorna:
+    --------
+    Tuple[Optional[Dict[str, Any]], Optional[str]]: (usuario_actualizado, error_detalle)
     """
     user = get_user_by_identifier(identifier)
     if not user:
-        return None
+        return None, "El usuario o correo electrónico ingresado no existe en el sistema."
 
     user_id = user["id"]
     code_clean = code.strip()
@@ -140,27 +164,47 @@ def verify_and_use_reset_code(identifier: str, code: str, new_password_hash: str
 
     conn = get_master_conn()
     cursor = conn.cursor()
+    
+    # Buscar el código pendiente más reciente (no usado y con vigencia activa)
     reset_row = cursor.execute(
         """
         SELECT * FROM password_resets 
-        WHERE user_id = ? AND code = ? AND used = 0 AND expires_at >= ?
+        WHERE user_id = ? AND used = 0 AND expires_at >= ?
         ORDER BY id DESC LIMIT 1
         """,
-        (user_id, code_clean, ahora_str)
+        (user_id, ahora_str)
     ).fetchone()
 
     if not reset_row:
         conn.close()
-        return None
+        return None, "El código de recuperación es incorrecto, ya ha sido utilizado o ha expirado (vigencia de 15 minutos)."
 
-    # Quemar el código y actualizar la contraseña del usuario
-    cursor.execute("UPDATE password_resets SET used = 1 WHERE id = ?", (reset_row["id"],))
+    reset_id = reset_row["id"]
+    codigo_correcto = reset_row["code"]
+    intentos_previos = reset_row["attempts"] if "attempts" in reset_row.keys() else 0
+
+    if code_clean != codigo_correcto:
+        nuevos_intentos = intentos_previos + 1
+        if nuevos_intentos >= 2:
+            # Invalidar inmediatamente el código por exceder los 2 intentos permitidos
+            cursor.execute("UPDATE password_resets SET attempts = ?, used = 1 WHERE id = ?", (nuevos_intentos, reset_id))
+            conn.commit()
+            conn.close()
+            return None, "Has superado el límite de 2 intentos permitidos para este código de recuperación. El código ha sido cancelado por seguridad. Solicita uno nuevo o contacta al administrador."
+        else:
+            cursor.execute("UPDATE password_resets SET attempts = ? WHERE id = ?", (nuevos_intentos, reset_id))
+            conn.commit()
+            conn.close()
+            return None, f"Código de recuperación incorrecto. Te queda {2 - nuevos_intentos} intento antes de que el código sea cancelado."
+
+    # Si coincide, quemar el código exitosamente y cambiar contraseña
+    cursor.execute("UPDATE password_resets SET used = 1 WHERE id = ?", (reset_id,))
     cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_password_hash, user_id))
     conn.commit()
     
     updated_user = cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     conn.close()
-    return dict(updated_user) if updated_user else None
+    return dict(updated_user) if updated_user else None, None
 
 def create_user_entry(username: str, password_hash: str, role: str = 'user', is_active: int = 1, email: Optional[str] = None) -> Dict[str, Any]:
     """

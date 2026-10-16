@@ -171,8 +171,8 @@ La versión comunitaria incluye soporte para el envío de códigos de recuperaci
 | `POST` | `/auth/login` | Público | Autenticación con credenciales, registro de auditoría y emisión de JWT |
 | `GET` | `/auth/me` | `verify_token` | Retorna los datos del usuario en sesión activa |
 | `PATCH` | `/auth/profile` | `verify_token` | Permite al usuario activo modificar su nombre de usuario o contraseña |
-| `POST` | `/auth/recuperar-password/solicitar` | Público | Genera y envía código de 6 dígitos por email si está configurado |
-| `POST` | `/auth/recuperar-password/confirmar` | Público | Valida código de 6 dígitos no expirado y actualiza la contraseña |
+| `POST` | `/auth/forgot-password` | Público | Genera y envía código de 6 dígitos por email (máximo 2 intentos por usuario en 24h) |
+| `POST` | `/auth/reset-password` | Público | Valida código y actualiza clave (máximo 2 intentos fallidos antes de cancelarlo) |
 
 ### Administración (Exclusivo Admin)
 | Método | Endpoint | Seguridad | Descripción |

@@ -329,6 +329,12 @@ def forgot_password(req: ForgotPasswordRequest, background_tasks: BackgroundTask
 
     user = master_db.get_user_by_identifier(req.identifier)
     if user and user.get("email") and user.get("is_active"):
+        intentos = master_db.count_recent_reset_requests(user["id"], hours=24)
+        if intentos >= 2:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Has alcanzado el límite máximo de 2 intentos de recuperación de contraseña para este usuario en las últimas 24 horas. Por seguridad, solicita asistencia al administrador del sistema."
+            )
         codigo = master_db.create_password_reset_code(user["id"])
         from email_service import enviar_correo_codigo_recuperacion
         background_tasks.add_task(
@@ -349,18 +355,19 @@ def forgot_password(req: ForgotPasswordRequest, background_tasks: BackgroundTask
 def reset_password(req: ResetPasswordRequest, request: Request):
     """
     Restablece la contraseña utilizando el código de 6 dígitos recibido por correo.
+    Aplica una política de seguridad estricta: máximo 2 intentos fallidos antes de invalidar el código.
     """
     client_ip = request.client.host if request.client else "unknown"
     clave_tasa = f"reset:{client_ip}"
     verificar_tasa_login(clave_tasa)
 
     nuevo_hash = hash_password(req.new_password)
-    user = master_db.verify_and_use_reset_code(req.identifier, req.code, nuevo_hash)
+    user, error_msg = master_db.verify_and_use_reset_code(req.identifier, req.code, nuevo_hash)
     if not user:
         registrar_fallo_login(clave_tasa)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El código de recuperación es incorrecto, ya ha sido utilizado o ha expirado (vigencia de 15 minutos)."
+            detail=error_msg or "El código de recuperación es incorrecto, ya ha sido utilizado o ha expirado (vigencia de 15 minutos)."
         )
 
     limpiar_fallos_login(clave_tasa)

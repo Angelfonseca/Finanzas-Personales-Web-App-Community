@@ -1716,6 +1716,7 @@
             <form id="form-solicitar-codigo" onsubmit="enviarSolicitudCodigo(event)">
                 <p style="margin: 0 0 16px 0; font-size: 0.88rem; color: var(--text-muted); line-height: 1.5;">
                     Ingresa tu usuario o el correo electrónico que tienes registrado en tu cuenta. Te enviaremos un código de seguridad de 6 dígitos.
+                    <span style="display: block; margin-top: 6px; font-size: 0.78rem; color: var(--gold-color);">Límite de seguridad: Máximo 2 intentos de recuperación por usuario cada 24 horas.</span>
                 </p>
                 <div class="form-group">
                     <label for="recuperar-identifier">Usuario o Correo:</label>
@@ -1731,8 +1732,8 @@
 
             <!-- Paso 2: Introducir Código y Nueva Contraseña (oculto inicialmente) -->
             <form id="form-restablecer-password" style="display: none;" onsubmit="enviarRestablecerPassword(event)">
-                <div class="alert-info" style="margin-bottom: 16px; padding: 12px; background: rgba(197, 160, 89, 0.1); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 8px; font-size: 0.82rem; color: var(--gold-color);">
-                    Hemos enviado un código a tu correo. Revisa también tu carpeta de Spam.
+                <div class="alert-info" style="margin-bottom: 16px; padding: 12px; background: rgba(197, 160, 89, 0.1); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 8px; font-size: 0.82rem; color: var(--gold-color); line-height: 1.5;">
+                    Hemos enviado un código a tu correo. Revisa también tu carpeta de Spam. Cuentas con un máximo de <strong>2 intentos</strong> para validar el código.
                 </div>
                 <div class="form-group">
                     <label for="recuperar-codigo">Código de 6 dígitos:</label>
