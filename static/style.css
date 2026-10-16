@@ -2966,7 +2966,7 @@ tbody tr:hover {
     top: 0;
     width: 100%;
     height: 72px;
-    background-color: rgba(247, 246, 242, 0.92);
+    background-color: rgba(246, 245, 240, 0.92);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--border-color);
@@ -3111,6 +3111,23 @@ tbody tr:hover {
     padding: 64px 24px 80px 24px;
     text-align: center;
     z-index: 1;
+}
+
+.landing-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100vw;
+    height: 100%;
+    background-image: radial-gradient(rgba(197, 160, 89, 0.18) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+    mask-image: radial-gradient(ellipse 65% 55% at 50% 30%, black 20%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 65% 55% at 50% 30%, black 20%, transparent 80%);
+    opacity: 0.45;
+    z-index: -1;
 }
 
 .hero-chip {
@@ -3319,6 +3336,9 @@ tbody tr:hover {
 
 .mockup-curr-btn.active {
     background: var(--gold-color);
+    color: #ffffff;
+}
+[data-theme="dark"] .mockup-curr-btn.active {
     color: #080c14;
 }
 
@@ -3524,8 +3544,13 @@ tbody tr:hover {
 
 .pillar-card:hover {
     transform: translateY(-4px);
+    border-color: var(--gold-border);
+    box-shadow: 0 16px 32px -8px rgba(13, 23, 42, 0.08), 0 0 0 1px var(--gold-border);
+}
+
+[data-theme="dark"] .pillar-card:hover {
     border-color: rgba(197, 160, 89, 0.45);
-    box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.55), 0 0 20px rgba(197, 160, 89, 0.1);
 }
 
 .pillar-icon-box {
@@ -3612,7 +3637,7 @@ tbody tr:hover {
 .showcase-tab-btn.active {
     color: var(--gold-color);
     border-bottom-color: var(--gold-color);
-    background: rgba(197, 160, 89, 0.06);
+    background: var(--gold-subtle);
 }
 
 .showcase-panel {
@@ -3812,7 +3837,7 @@ tbody tr:hover {
 }
 
 .faq-item.active .faq-answer {
-    max-height: 250px;
+    max-height: 500px;
     padding: 0 24px 22px 24px;
 }
 
@@ -3957,17 +3982,29 @@ tbody tr:hover {
 
 @media (max-width: 768px) {
     .landing-header {
-        height: auto;
-        padding: 12px 0;
+        height: 64px;
+        padding: 0;
     }
 
     .landing-nav-container {
-        flex-direction: column;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
         gap: 12px;
+        padding: 0 16px;
     }
 
     .landing-nav-links {
-        display: none; /* Ocultar enlaces directos en pantalla muy angosta */
+        display: none;
+    }
+
+    .landing-ticker-badge {
+        display: none;
+    }
+
+    .btn-landing-login {
+        padding: 8px 14px;
+        font-size: 0.82rem;
     }
 
     .hero-title {
