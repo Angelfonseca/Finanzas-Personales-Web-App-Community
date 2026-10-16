@@ -170,3 +170,14 @@ Al arrancar por primera vez, el sistema crea automáticamente el usuario Adminis
 | `GET` | `/api/tipo-cambio` | `verify_token` | Tipos de cambio vigentes con caché |
 | `GET` | `/api/exportar-excel` | `verify_token` | Descarga de reporte Excel del tenant |
 | `GET` | `/api/backup` | `verify_token` | Descarga de la base de datos SQLite del tenant |
+
+---
+
+## 📜 Licencia y Términos de Uso
+
+Este proyecto se distribuye bajo la licencia **GNU General Public License v3.0 (GNU GPLv3)**. Consulta el archivo [`LICENSE`](./LICENSE) para el texto legal completo.
+
+* **Libertad de Uso y Estudio:** Puedes descargar, auditar, instalar y utilizar esta plataforma de forma totalmente libre y gratuita para tu uso personal, familiar o interno.
+* **Libertad de Modificación y Contribución:** Eres libre de modificar el código fuente, corregir errores o añadir nuevas funcionalidades, siempre y cuando cualquier redistribución o trabajo derivado se mantenga bajo los mismos términos libres y de código abierto de la licencia GPLv3.
+* **Protección contra Apropiación y Reventa Comercial (Copyleft):** No se autoriza empaquetar, cerrar el código fuente ni comercializar este software como un producto privativo o de reventa cerrada. El código y sus derivados deben permanecer siempre abiertos y accesibles para toda la comunidad.
+
