@@ -1572,3 +1572,21 @@
     margin: 8px 0;
 }
 .rec-item-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ==========================================================================
+   Fase 5: dashboard (patrimonio dual, desglose y asignación) y cuentas con rendimiento
+   ========================================================================== */
+.networth-dual { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-end; }
+.networth-sub { display: block; color: var(--text-muted); font-size: 0.75rem; }
+.networth-sin { color: var(--text-muted) !important; font-size: 1.25rem; }
+.dot-rendimiento { background-color: var(--gold-color); }
+.dot-deuda { background-color: var(--danger-color); }
+.breakdown-debt strong { color: var(--danger-color); }
+.alloc-bar-rendimiento { background-color: var(--gold-color); opacity: 0.7; }
+.section-subtitle { margin: 16px 0 6px 0; font-size: 1.05rem; color: var(--text-color); }
+.cuentas-rend-section .rend-form { margin-bottom: 8px; }
+.rend-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.rend-valor { font-size: 1.35rem; font-weight: 700; margin: 4px 0; font-variant-numeric: tabular-nums; }
+.rend-mov { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 6px; }
+.rend-mov input { flex: 1 1 110px; min-width: 0; }
+.rend-card-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }

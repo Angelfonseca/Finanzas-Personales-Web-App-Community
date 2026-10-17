@@ -240,6 +240,10 @@ export function cerrarSesionLimpia(errorMsg = '') {
         estado.graficas.dona.destroy();
         estado.graficas.dona = null;
     }
+    if (estado.graficas.categorias) {
+        estado.graficas.categorias.destroy();
+        estado.graficas.categorias = null;
+    }
 
     // 3. Limpiar elementos del DOM
     const tMov = document.getElementById('tabla-movimientos');

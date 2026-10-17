@@ -25,10 +25,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Hojas de estilo y biblioteca de gráficos Chart.js -->
-    <link rel="stylesheet" href="/static/css/tokens.css?v=5.3">
-    <link rel="stylesheet" href="/static/css/componentes.css?v=5.3">
-    <link rel="stylesheet" href="/static/css/layout.css?v=5.3">
-    <link rel="stylesheet" href="/static/css/vistas.css?v=5.3">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=5.5">
+    <link rel="stylesheet" href="/static/css/componentes.css?v=5.5">
+    <link rel="stylesheet" href="/static/css/layout.css?v=5.5">
+    <link rel="stylesheet" href="/static/css/vistas.css?v=5.5">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -309,7 +309,16 @@
             <div class="hero-networth">
                 <div class="networth-header">
                     <small>PATRIMONIO NETO TOTAL</small>
-                    <h2 id="lbl-dash-patrimonio">$0.00</h2>
+                    <div class="networth-dual">
+                        <div>
+                            <h2 id="lbl-dash-patrimonio">$0.00</h2>
+                            <small class="networth-sub">Contando cuentas con rendimiento</small>
+                        </div>
+                        <div>
+                            <h2 class="networth-sin" id="lbl-dash-patrimonio-sin">$0.00</h2>
+                            <small class="networth-sub">Sin contarlas</small>
+                        </div>
+                    </div>
                 </div>
                 <div class="networth-breakdown">
                     <div class="breakdown-item">
@@ -333,6 +342,20 @@
                             <strong id="lbl-dash-inversiones">$0.00</strong>
                         </div>
                     </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-dot dot-rendimiento"></span>
+                        <div class="breakdown-info">
+                            <small>Cuentas con Rendimiento</small>
+                            <strong id="lbl-dash-rendimiento">$0.00</strong>
+                        </div>
+                    </div>
+                    <div class="breakdown-item breakdown-debt">
+                        <span class="breakdown-dot dot-deuda"></span>
+                        <div class="breakdown-info">
+                            <small>Deuda a Meses (−)</small>
+                            <strong id="lbl-dash-deuda">$0.00</strong>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Tira de Distribución de Patrimonio (Estilo Kubera Asset Allocation) -->
@@ -340,17 +363,23 @@
                     <div class="alloc-bar alloc-bar-balance" id="alloc-bar-balance" style="width: 33.3%;"></div>
                     <div class="alloc-bar alloc-bar-apartados" id="alloc-bar-apartados" style="width: 33.3%;"></div>
                     <div class="alloc-bar alloc-bar-inversiones" id="alloc-bar-inversiones" style="width: 33.4%;"></div>
+                    <div class="alloc-bar alloc-bar-rendimiento" id="alloc-bar-rendimiento" style="width: 0%;"></div>
                 </div>
             </div>
 
             <div class="cards">
                 <div class="card ingresos">
-                    <h3>Ingresos Totales</h3>
-                    <p id="lbl-dash-ingresos">$0.00</p>
+                    <h3>Ingresos del Mes</h3>
+                    <p id="lbl-dash-mes-ingresos">$0.00</p>
                 </div>
                 <div class="card gastos">
-                    <h3>Gastos Totales</h3>
-                    <p id="lbl-dash-gastos">$0.00</p>
+                    <h3>Gastos del Mes</h3>
+                    <p id="lbl-dash-mes-gastos">$0.00</p>
+                </div>
+                <div class="card balance">
+                    <h3>Ahorro del Mes</h3>
+                    <p id="lbl-dash-mes-ahorro">$0.00</p>
+                    <small id="lbl-dash-tasa-ahorro" class="pnl-badge">(0% de ahorro)</small>
                 </div>
                 <div class="card balance">
                     <h3>Rendimiento Inversiones</h3>
@@ -375,6 +404,26 @@
                         <span>Historial por Mes</span>
                     </h2>
                     <div id="lista-resumen-mensual"></div>
+                </div>
+            </div>
+            <div class="dashboard-grid">
+                <div class="panel">
+                    <h2 class="panel-heading">
+                        <svg class="heading-svg-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span>Próximos Movimientos</span>
+                    </h2>
+                    <div id="lista-proximos"></div>
+                </div>
+
+                <div class="panel">
+                    <h2 class="panel-heading">
+                        <svg class="heading-svg-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                        <span>Gastos por Categoría (mes actual)</span>
+                    </h2>
+                    <div class="chart-container-dona">
+                        <canvas id="graficaCategorias"></canvas>
+                        <div id="categorias-sin-datos" class="hidden empty-state">Sin gastos registrados este mes.</div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -748,6 +797,37 @@
                         </table>
                     </div>
                 </div>
+            </div>
+            <div class="inversiones-tabla-section cuentas-rend-section">
+                <h3 class="section-subtitle">Cuentas con rendimiento (tasa fija)</h3>
+                <p class="hint-text">Saldos que generan interés diario compuesto (Nu, Cetes, MercadoPago, SOFIPOs). No modifican tu balance disponible. Montos en MXN.</p>
+                <form id="form-rendimiento" class="rend-form">
+                    <div class="form-row-2col">
+                        <div class="form-group">
+                            <label for="rend-nombre">Nombre de la cuenta:</label>
+                            <input type="text" id="rend-nombre" maxlength="60" placeholder="Ej. Nu, Cetes, MercadoPago" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="rend-capital">Saldo actual ($ MXN):</label>
+                            <input type="number" step="0.01" min="0.01" id="rend-capital" placeholder="0.00" required>
+                        </div>
+                    </div>
+                    <div class="form-row-2col">
+                        <div class="form-group">
+                            <label for="rend-tasa">Tasa anual (%):</label>
+                            <input type="number" step="0.01" min="0" max="100" id="rend-tasa" placeholder="10" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="rend-fecha">Rinde desde:</label>
+                            <input type="date" id="rend-fecha" required>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary" id="btn-guardar-rendimiento"><span>Agregar cuenta</span></button>
+                    </div>
+                </form>
+                <p class="hint-text" id="rend-totales"></p>
+                <div class="grid-apartados" id="grid-rendimiento"></div>
             </div>
         </section>
 
