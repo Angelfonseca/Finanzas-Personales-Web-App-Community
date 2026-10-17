@@ -1,5 +1,5 @@
 /**
- * static/app.js - Controlador Principal del Frontend (SPA Multi-Tenant)
+ * static/js/main.js - Controlador Principal del Frontend (SPA Multi-Tenant)
  * 
  * Este módulo gestiona:
  * 1. Autenticación JWT y Guardias de Ruta (Login, Logout y Validación de Sesión).
@@ -2591,6 +2591,7 @@ function eliminarUsuarioTenantPorId(id) {
 }
 
 window.iniciarSesion = iniciarSesion;
+window.aceptarAvisoCorreoAdmin = aceptarAvisoCorreoAdmin;
 window.logoutUsuario = logoutUsuario;
 window.exportarExcel = exportarExcel;
 window.descargarBackup = descargarBackup;
