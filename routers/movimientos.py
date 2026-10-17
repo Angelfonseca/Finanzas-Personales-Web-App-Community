@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from typing import Literal, Optional
 import sqlite3
 
-from finanzas_core import calcular_resumen
+from finanzas_core import ahora_local, calcular_resumen, materializar_recurrentes
 from mercado import obtener_tasas_cambio
 from security import (
     get_tenant_db
@@ -54,8 +54,7 @@ def eliminar_transaccion(id_transaccion: int, conn: sqlite3.Connection = Depends
     if not trans:
         raise HTTPException(status_code=404, detail="Transacción no encontrada")
 
-    desc = (trans["descripcion"] or "").strip()
-    if desc.startswith("Ahorro destinado a:") or desc.startswith("Retiro de ahorro:"):
+    if trans["apartado_id"] is not None:
         raise HTTPException(
             status_code=400,
             detail="Este movimiento está vinculado a un sobre o meta de ahorro. Para modificarlo o retirar los fondos, utiliza los controles (+) o (-) dentro de la sección Metas / Apartados."
@@ -72,8 +71,7 @@ def actualizar_transaccion(id_transaccion: int, t: TransaccionUpdate, conn: sqli
     if not trans:
         raise HTTPException(status_code=404, detail="Transacción no encontrada")
 
-    desc = (trans["descripcion"] or "").strip()
-    if desc.startswith("Ahorro destinado a:") or desc.startswith("Retiro de ahorro:"):
+    if trans["apartado_id"] is not None:
         if (t.monto is not None and round(float(t.monto), 2) != round(float(trans["monto"]), 2)) or (t.tipo is not None and t.tipo != trans["tipo"]):
             raise HTTPException(
                 status_code=400,
@@ -99,8 +97,10 @@ def actualizar_transaccion(id_transaccion: int, t: TransaccionUpdate, conn: sqli
 
 @router.get("/api/resumen", summary="Resumen patrimonial consolidado del tenant")
 def obtener_resumen(moneda_base: str = "MXN", conn: sqlite3.Connection = Depends(get_tenant_db)):
+    hoy = ahora_local().date()
+    materializar_recurrentes(conn, hoy)
     tasa_usd_mxn = obtener_tasas_cambio().get("MXN", 18.40)
-    return calcular_resumen(conn, moneda_base, tasa_usd_mxn)
+    return calcular_resumen(conn, moneda_base, tasa_usd_mxn, hoy)
 
 @router.get("/api/resumen-mensual", summary="Historial agrupado por mes")
 def resumen_mensual(conn: sqlite3.Connection = Depends(get_tenant_db)):

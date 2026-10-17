@@ -115,8 +115,8 @@ def movimiento_apartado(apartado_id: int, mov: MovimientoApartado, conn: sqlite3
             nuevo_saldo = round(monto_actual + mov.monto, 2)
             desc = f"Ahorro destinado a: {apartado['nombre']}"
             cursor.execute(
-                'INSERT INTO transacciones (fecha, monto, tipo, categoria_id, descripcion) VALUES (?, ?, ?, ?, ?)',
-                (fecha_hoy, mov.monto, 'gasto', 1, desc)
+                'INSERT INTO transacciones (fecha, monto, tipo, categoria_id, descripcion, apartado_id) VALUES (?, ?, ?, ?, ?, ?)',
+                (fecha_hoy, mov.monto, 'gasto', 1, desc, apartado_id)
             )
             
         elif mov.accion == 'retirar':
@@ -127,8 +127,8 @@ def movimiento_apartado(apartado_id: int, mov: MovimientoApartado, conn: sqlite3
             nuevo_saldo = round(monto_actual - mov.monto, 2)
             desc = f"Retiro de ahorro: {apartado['nombre']}"
             cursor.execute(
-                'INSERT INTO transacciones (fecha, monto, tipo, categoria_id, descripcion) VALUES (?, ?, ?, ?, ?)',
-                (fecha_hoy, mov.monto, 'ingreso', 1, desc)
+                'INSERT INTO transacciones (fecha, monto, tipo, categoria_id, descripcion, apartado_id) VALUES (?, ?, ?, ?, ?, ?)',
+                (fecha_hoy, mov.monto, 'ingreso', 1, desc, apartado_id)
             )
         
         cursor.execute('UPDATE apartados SET monto_actual = ? WHERE id = ?', (nuevo_saldo, apartado_id))
