@@ -265,6 +265,22 @@ La versión comunitaria incluye soporte para el envío de códigos de recuperaci
 
 ---
 
+## 🧪 Entorno de Pruebas Local
+
+Variables ficticias en `.env.test` para levantar la app sin Docker y explorarla:
+
+```bash
+pip install -r requirements.txt
+set -a; . ./.env.test; set +a      # carga las variables de prueba
+uvicorn main:app --reload --port 8001
+```
+
+* Aplicación: http://127.0.0.1:8001 (usuario `admin`, contraseña `admin123`)
+* Documentación de la API: http://127.0.0.1:8001/docs
+* Para empezar de cero, borra la carpeta `data/`.
+
+> `.env.test` solo contiene valores de desarrollo. Nunca lo uses en producción; el archivo real de producción es `.env` (no se versiona).
+
 ## 🧪 Pruebas
 
 ```bash

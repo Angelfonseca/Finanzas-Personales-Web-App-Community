@@ -1,0 +1,9 @@
+# Secretos y datos locales (.env.test SÍ se versiona: solo valores ficticios)
+.env
+!.env.test
+data/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
