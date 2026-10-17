@@ -2,7 +2,7 @@
  * static/js/apartados.js - Apartados y metas de ahorro.
  */
 
-import { apiFetch, escapeHTML, formatErrorDetail, recargar } from './core.js';
+import { apiFetch, escapeHTML, fmt, formatErrorDetail, recargar, toast } from './core.js';
 
 
 // =============================================================================
@@ -37,7 +37,7 @@ export async function cargarApartados() {
             if (item.tipo === 'meta') {
                 const porcentaje = Math.min(item.porcentaje || 0, 100);
                 contenidoMeta = `
-                    <p style="margin: 5px 0;"><small>Meta: $${Number(item.meta_monto).toFixed(2)} (${item.porcentaje}%)</small></p>
+                    <p style="margin: 5px 0;"><small>Meta: ${fmt(item.meta_monto)} (${item.porcentaje}%)</small></p>
                     <div class="progress-bar-bg">
                         <div class="progress-bar-fill" style="width: ${porcentaje}%;"></div>
                     </div>
@@ -47,7 +47,7 @@ export async function cargarApartados() {
             card.innerHTML = `
                 <button type="button" class="btn-eliminar-apartado" onclick="eliminarApartado(${item.id})" title="Eliminar">×</button>
                 <h3 style="margin: 0 20px 8px 0;">${escapeHTML(item.nombre)} <small style="font-weight: normal; font-size: 0.8rem;">(${escapeHTML(item.tipo)})</small></h3>
-                <p style="margin: 5px 0;"><strong>Saldo:</strong> $${Number(item.monto_actual).toFixed(2)}</p>
+                <p style="margin: 5px 0;"><strong>Saldo:</strong> ${fmt(item.monto_actual)}</p>
                 ${contenidoMeta}
                 <div class="acciones-apartado">
                     <input type="number" id="monto-acc-${item.id}" step="0.01" min="0.01" placeholder="Monto">
@@ -79,12 +79,12 @@ export async function guardarNuevoApartado(e) {
     const meta_monto = (tipo === 'meta' && metaInput && metaInput.value) ? parseFloat(metaInput.value) : null;
 
     if (!nombre) {
-        alert("Ingresa un nombre para el apartado.");
+        toast("Ingresa un nombre para el apartado.", 'error');
         return;
     }
 
     if (tipo === 'meta' && (meta_monto === null || isNaN(meta_monto) || meta_monto <= 0)) {
-        alert("Una meta requiere un monto objetivo válido mayor a cero.");
+        toast("Una meta requiere un monto objetivo válido mayor a cero.", 'error');
         return;
     }
 
@@ -109,10 +109,10 @@ export async function guardarNuevoApartado(e) {
             recargar();
         } else {
             const error = await res.json();
-            alert(error.detail || 'Error al crear apartado');
+            toast(error.detail || 'Error al crear apartado', 'error');
         }
     } catch (err) {
-        alert("Error al conectar con el servidor.");
+        toast("Error al conectar con el servidor.", 'error');
     } finally {
         guardandoApartado = false;
         if (btnSubmit) {
@@ -152,7 +152,7 @@ export async function realizarMovimiento(id, accion) {
     const monto = parseFloat(input?.value);
 
     if (isNaN(monto) || monto <= 0) {
-        alert("Ingresa un monto válido mayor a 0");
+        toast("Ingresa un monto válido mayor a 0", 'error');
         return;
     }
 
@@ -178,11 +178,11 @@ export async function realizarMovimiento(id, accion) {
                 const error = await res.json();
                 errorMsg = formatErrorDetail(error.detail, errorMsg);
             } catch (_) {}
-            alert(errorMsg);
+            toast(errorMsg, 'error');
         }
     } catch (err) {
         console.error("Error al realizar movimiento en apartado:", err);
-        alert("Error de conexión al procesar el movimiento.");
+        toast("Error de conexión al procesar el movimiento.", 'error');
     } finally {
         procesandoMovimientoApartado = false;
         btns.forEach(b => b.disabled = false);
@@ -214,7 +214,7 @@ export async function eliminarApartado(id) {
                 card.style.pointerEvents = 'auto';
             }
             const error = await res.json();
-            alert(error.detail || "No se pudo eliminar el apartado.");
+            toast(error.detail || "No se pudo eliminar el apartado.", 'error');
         }
     } catch (error) {
         if (card) {
@@ -222,7 +222,7 @@ export async function eliminarApartado(id) {
             card.style.pointerEvents = 'auto';
         }
         console.error("Error al eliminar:", error);
-        alert("Error de conexión al eliminar el apartado.");
+        toast("Error de conexión al eliminar el apartado.", 'error');
     }
 }
 

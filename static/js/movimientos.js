@@ -2,7 +2,7 @@
  * static/js/movimientos.js - Formulario, tabla y edición de movimientos de caja.
  */
 
-import { apiFetch, estado, formatErrorDetail, recargar } from './core.js';
+import { apiFetch, estado, formatErrorDetail, recargar, toast } from './core.js';
 
 
 // =============================================================================
@@ -40,7 +40,7 @@ if (formTrans) {
         const montoVal = parseFloat(document.getElementById('monto').value);
         if (isNaN(montoVal) || montoVal <= 0) {
             if (mensajeDiv) {
-                mensajeDiv.style.color = '#e74c3c';
+                mensajeDiv.style.color = 'var(--danger-color)';
                 mensajeDiv.textContent = 'Ingresa un monto válido mayor a 0.';
             }
             return;
@@ -69,7 +69,7 @@ if (formTrans) {
 
             if (response.ok) {
                 if (mensajeDiv) {
-                    mensajeDiv.style.color = '#2ecc71';
+                    mensajeDiv.style.color = 'var(--success-color)';
                     mensajeDiv.textContent = '¡Movimiento guardado!';
                 }
                 formTrans.reset();
@@ -82,13 +82,13 @@ if (formTrans) {
                     errText = formatErrorDetail(err.detail, errText);
                 } catch (_) {}
                 if (mensajeDiv) {
-                    mensajeDiv.style.color = '#e74c3c';
+                    mensajeDiv.style.color = 'var(--danger-color)';
                     mensajeDiv.textContent = errText;
                 }
             }
         } catch (error) {
             if (mensajeDiv) {
-                mensajeDiv.style.color = '#e74c3c';
+                mensajeDiv.style.color = 'var(--danger-color)';
                 mensajeDiv.textContent = 'Error de conexión.';
             }
         } finally {
@@ -110,7 +110,7 @@ export async function eliminarTransaccion(id) {
             recargar();
         } else {
             const err = await response.json().catch(() => ({}));
-            alert(err.detail || "No se pudo eliminar el movimiento.");
+            toast(err.detail || "No se pudo eliminar el movimiento.", 'error');
         }
     } catch (error) {
         console.error("Error al eliminar:", error);
@@ -158,7 +158,7 @@ export async function guardarEdicionTransaccion(e) {
     const descripcion = document.getElementById('modal-edit-trans-desc').value.trim();
 
     if (!fecha || isNaN(monto) || monto <= 0 || !tipo) {
-        alert("Por favor ingresa una fecha, tipo y monto numérico válido mayor a cero.");
+        toast("Por favor ingresa una fecha, tipo y monto numérico válido mayor a cero.", 'error');
         return;
     }
 
@@ -174,10 +174,10 @@ export async function guardarEdicionTransaccion(e) {
             await recargar();
         } else {
             const err = await res.json();
-            alert(err.detail || "Error al actualizar el movimiento.");
+            toast(err.detail || "Error al actualizar el movimiento.", 'error');
         }
     } catch (err) {
-        alert("Error de red al intentar guardar los cambios.");
+        toast("Error de red al intentar guardar los cambios.", 'error');
     }
 }
 

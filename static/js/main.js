@@ -5,7 +5,7 @@
 import { cerrarModalCrearUsuario, cerrarModalEditarUsuario } from './admin.js';
 import { cargarApartados, cerrarModalCrearApartado } from './apartados.js';
 import { cerrarModalRecuperarPassword, cerrarSesionLimpia, establecerSesionActiva, mostrarVistaLogin, verificarSesionInicial } from './auth.js';
-import { apiFetch, escapeHTML, estado } from './core.js';
+import { apiFetch, escapeHTML, estado, fmt } from './core.js';
 import { actualizarGrafica } from './dashboard.js';
 import { cargarInversiones, cerrarModalEditarInversion, inicializarBuscadorTickers } from './inversiones.js';
 import { cerrarModalEditarTransaccion } from './movimientos.js';
@@ -15,19 +15,18 @@ import './respaldo.js'; // registra handlers de Excel y respaldo en window
 
 export async function cargarDatos() {
     try {
-        const fmtMoneda = (val) => Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         // 1. Resumen Consolidado del Tenant
         const resResumen = await apiFetch(`/api/resumen?moneda_base=${encodeURIComponent(estado.monedaGlobal)}`);
         const dataResumen = await resResumen.json();
         
         if (document.getElementById('lbl-dash-patrimonio')) {
-            document.getElementById('lbl-dash-patrimonio').textContent = `$${fmtMoneda(dataResumen.patrimonio_neto)} ${estado.monedaGlobal}`;
-            document.getElementById('lbl-dash-balance').textContent = `$${fmtMoneda(dataResumen.balance)}`;
-            document.getElementById('lbl-dash-apartados').textContent = `$${fmtMoneda(dataResumen.apartados)}`;
-            document.getElementById('lbl-dash-inversiones').textContent = `$${fmtMoneda(dataResumen.inversiones)} ${estado.monedaGlobal}`;
-            document.getElementById('lbl-dash-ingresos').textContent = `$${fmtMoneda(dataResumen.ingresos)}`;
-            document.getElementById('lbl-dash-gastos').textContent = `$${fmtMoneda(dataResumen.gastos)}`;
+            document.getElementById('lbl-dash-patrimonio').textContent = `${fmt(dataResumen.patrimonio_neto)} ${estado.monedaGlobal}`;
+            document.getElementById('lbl-dash-balance').textContent = `${fmt(dataResumen.balance)}`;
+            document.getElementById('lbl-dash-apartados').textContent = `${fmt(dataResumen.apartados)}`;
+            document.getElementById('lbl-dash-inversiones').textContent = `${fmt(dataResumen.inversiones)} ${estado.monedaGlobal}`;
+            document.getElementById('lbl-dash-ingresos').textContent = `${fmt(dataResumen.ingresos)}`;
+            document.getElementById('lbl-dash-gastos').textContent = `${fmt(dataResumen.gastos)}`;
 
             // Tira de Distribución de Activos (Asset Allocation estilo Kubera)
             const vBal = Math.max(0, Number(dataResumen.balance) || 0);
@@ -41,20 +40,20 @@ export async function cargarDatos() {
                 const barBal = document.getElementById('alloc-bar-balance');
                 const barAp = document.getElementById('alloc-bar-apartados');
                 const barInv = document.getElementById('alloc-bar-inversiones');
-                if (barBal) { barBal.style.width = `${pBal}%`; barBal.title = `Efectivo: ${pBal}% ($${fmtMoneda(vBal)})`; }
-                if (barAp) { barAp.style.width = `${pAp}%`; barAp.title = `Metas/Apartados: ${pAp}% ($${fmtMoneda(vAp)})`; }
-                if (barInv) { barInv.style.width = `${pInv}%`; barInv.title = `Inversiones: ${pInv}% ($${fmtMoneda(vInv)})`; }
+                if (barBal) { barBal.style.width = `${pBal}%`; barBal.title = `Efectivo: ${pBal}% (${fmt(vBal)})`; }
+                if (barAp) { barAp.style.width = `${pAp}%`; barAp.title = `Metas/Apartados: ${pAp}% (${fmt(vAp)})`; }
+                if (barInv) { barInv.style.width = `${pInv}%`; barInv.title = `Inversiones: ${pInv}% (${fmt(vInv)})`; }
             }
         }
 
         if (document.getElementById('lbl-apartados-total-acum')) {
-            document.getElementById('lbl-apartados-total-acum').textContent = `$${fmtMoneda(dataResumen.apartados)}`;
+            document.getElementById('lbl-apartados-total-acum').textContent = `${fmt(dataResumen.apartados)}`;
         }
 
         if (document.getElementById('lbl-balance')) {
-            document.getElementById('lbl-balance').textContent = `$${Number(dataResumen.balance).toFixed(2)}`;
-            document.getElementById('lbl-ingresos').textContent = `$${Number(dataResumen.ingresos).toFixed(2)}`;
-            document.getElementById('lbl-gastos').textContent = `$${Number(dataResumen.gastos).toFixed(2)}`;
+            document.getElementById('lbl-balance').textContent = `${fmt(dataResumen.balance)}`;
+            document.getElementById('lbl-ingresos').textContent = `${fmt(dataResumen.ingresos)}`;
+            document.getElementById('lbl-gastos').textContent = `${fmt(dataResumen.gastos)}`;
         }
 
         // 2. Resumen Mensual Histórico
@@ -73,8 +72,8 @@ export async function cargarDatos() {
                     div.innerHTML = `
                         <div><strong>${m.mes}</strong></div>
                         <div class="monthly-info">
-                            <span style="color: #2ecc71;">+${Number(m.ingresos).toFixed(2)}</span>
-                            <span style="color: #e74c3c;">-${Number(m.gastos).toFixed(2)}</span>
+                            <span style="color: var(--success-color);">+${fmt(m.ingresos)}</span>
+                            <span style="color: var(--danger-color);">-${fmt(m.gastos)}</span>
                         </div>
                     `;
                     contenedorMensual.appendChild(div);
@@ -101,7 +100,7 @@ export async function cargarDatos() {
                         <td>${escapeHTML(t.fecha)}</td>
                         <td>${escapeHTML(t.descripcion || '-')}</td>
                         <td class="${t.tipo === 'gasto' ? 'text-gasto' : 'text-ingreso'}">${escapeHTML(t.tipo.toUpperCase())}</td>
-                        <td>$${Number(t.monto).toFixed(2)}</td>
+                        <td>${fmt(t.monto)}</td>
                         <td class="col-acciones">
                             <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarTransaccionPorId(${t.id})" title="Editar movimiento"><svg class="action-svg-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
                             <button type="button" class="btn-accion btn-eliminar" onclick="eliminarTransaccion(${t.id})" title="Eliminar movimiento"><svg class="action-svg-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>

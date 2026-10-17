@@ -2,7 +2,7 @@
  * static/js/admin.js - Panel de administración de usuarios (solo admin).
  */
 
-import { apiFetch, escapeHTML, estado, formatErrorDetail } from './core.js';
+import { apiFetch, escapeHTML, estado, formatErrorDetail, toast } from './core.js';
 
 
 // =============================================================================
@@ -155,10 +155,10 @@ export async function cambiarEstadoUsuario(userId, nuevoEstado) {
             cargarDatosAdmin();
         } else {
             const err = await res.json();
-            alert(err.detail || "Error al modificar el estado del usuario.");
+            toast(err.detail || "Error al modificar el estado del usuario.", 'error');
         }
     } catch (e) {
-        alert("Error de red al actualizar estado.");
+        toast("Error de red al actualizar estado.", 'error');
     }
 }
 
@@ -179,10 +179,10 @@ export async function eliminarUsuarioTenant(userId, username) {
             cargarDatosAdmin();
         } else {
             const err = await res.json();
-            alert(err.detail || "No se pudo eliminar el usuario.");
+            toast(err.detail || "No se pudo eliminar el usuario.", 'error');
         }
     } catch (e) {
-        alert("Error de red al eliminar usuario.");
+        toast("Error de red al eliminar usuario.", 'error');
     }
 }
 
@@ -238,17 +238,17 @@ export async function guardarNuevoUsuario(e) {
         if (res.ok) {
             cerrarModalCrearUsuario();
             await cargarDatosAdmin();
-            alert(`Usuario '${username}' y su base de datos individual han sido creados con éxito.`);
+            toast(`Usuario '${username}' y su base de datos individual han sido creados con éxito.`, 'ok');
         } else {
             let errText = "Error al crear usuario.";
             try {
                 const err = await res.json();
                 errText = formatErrorDetail(err.detail, errText);
             } catch (_) {}
-            alert(errText);
+            toast(errText, 'error');
         }
     } catch (error) {
-        alert("Error de red al intentar crear el usuario.");
+        toast("Error de red al intentar crear el usuario.", 'error');
     } finally {
         guardandoUsuario = false;
         if (btnSubmit) {
@@ -339,14 +339,14 @@ export async function guardarEdicionUsuario(e) {
     const role = roleSelect ? roleSelect.value : undefined;
 
     if (!username) {
-        alert("El nombre de usuario no puede estar vacío.");
+        toast("El nombre de usuario no puede estar vacío.", 'error');
         return;
     }
 
     const payload = { username, email: email || null };
     if (password && password.trim().length > 0) {
         if (password.length < 4) {
-            alert("La nueva contraseña debe tener al menos 4 caracteres.");
+            toast("La nueva contraseña debe tener al menos 4 caracteres.", 'error');
             return;
         }
         payload.password = password;
@@ -404,13 +404,13 @@ export async function guardarEdicionUsuario(e) {
             if (estado.usuarioActual && estado.usuarioActual.role === 'admin') {
                 await cargarDatosAdmin();
             }
-            alert(data.mensaje || "Usuario actualizado exitosamente.");
+            toast(data.mensaje || "Usuario actualizado exitosamente.", 'ok');
         } else {
             const err = await res.json();
-            alert(err.detail || "Error al actualizar el usuario.");
+            toast(err.detail || "Error al actualizar el usuario.", 'error');
         }
     } catch (error) {
-        alert("Error de conexión al guardar cambios.");
+        toast("Error de conexión al guardar cambios.", 'error');
     }
 }
 
@@ -423,7 +423,7 @@ export async function solicitarEliminarMiCuenta() {
     if (!estado.usuarioActual) return;
 
     if (estado.usuarioActual.role === 'admin' || estado.usuarioActual.id === 1 || (estado.usuarioActual.username && estado.usuarioActual.username.toLowerCase() === 'admin')) {
-        alert("Los administradores del sistema no pueden eliminar su propia cuenta.");
+        toast("Los administradores del sistema no pueden eliminar su propia cuenta.", 'error');
         return;
     }
 
@@ -432,7 +432,7 @@ export async function solicitarEliminarMiCuenta() {
 
     const respuesta = prompt("Para confirmar la eliminación definitiva de tu cuenta y todos tus datos, escribe ELIMINAR:");
     if (!respuesta || respuesta.trim().toUpperCase() !== "ELIMINAR") {
-        alert("Operación cancelada. Tu cuenta no ha sido modificada.");
+        toast("Operación cancelada. Tu cuenta no ha sido modificada.", 'ok');
         return;
     }
 
@@ -442,7 +442,7 @@ export async function solicitarEliminarMiCuenta() {
         });
 
         if (res.ok) {
-            alert("Tu cuenta y todos tus datos financieros han sido eliminados permanentemente.");
+            toast("Tu cuenta y todos tus datos financieros han sido eliminados permanentemente.", 'ok');
             cerrarModalEditarUsuario();
             localStorage.removeItem('jwt_token');
             localStorage.removeItem('user_info');
@@ -450,10 +450,10 @@ export async function solicitarEliminarMiCuenta() {
             window.location.reload();
         } else {
             const err = await res.json();
-            alert(err.detail || "No se pudo eliminar tu cuenta.");
+            toast(err.detail || "No se pudo eliminar tu cuenta.", 'error');
         }
     } catch (e) {
-        alert("Error de red al intentar eliminar la cuenta.");
+        toast("Error de red al intentar eliminar la cuenta.", 'error');
     }
 }
 

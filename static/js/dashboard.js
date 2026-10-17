@@ -2,7 +2,7 @@
  * static/js/dashboard.js - Gráfica mensual del dashboard.
  */
 
-import { estado } from './core.js';
+import { colorVar, estado } from './core.js';
 
 
 export function actualizarGrafica(dataMensual) {
@@ -45,7 +45,7 @@ export function actualizarGrafica(dataMensual) {
                         label: 'Ingresos',
                         data: ingresos,
                         backgroundColor: 'rgba(16, 185, 129, 0.75)',
-                        borderColor: '#10b981',
+                        borderColor: colorVar('--accent-color'),
                         borderWidth: 1,
                         borderRadius: 6
                     },
@@ -53,7 +53,7 @@ export function actualizarGrafica(dataMensual) {
                         label: 'Gastos',
                         data: gastos,
                         backgroundColor: 'rgba(244, 63, 94, 0.75)',
-                        borderColor: '#f43f5e',
+                        borderColor: colorVar('--danger-color'),
                         borderWidth: 1,
                         borderRadius: 6
                     }

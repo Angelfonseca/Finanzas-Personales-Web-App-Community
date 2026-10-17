@@ -2,7 +2,7 @@
  * static/js/inversiones.js - Posiciones bursátiles, dona de asignación, buscador y sincronización.
  */
 
-import { actualizarIndicadorTasa, apiFetch, escapeHTML, estado, formatErrorDetail, recargar } from './core.js';
+import { actualizarIndicadorTasa, apiFetch, escapeHTML, estado, fmt, formatErrorDetail, recargar, toast } from './core.js';
 
 
 export async function cargarInversiones() {
@@ -17,24 +17,23 @@ export async function cargarInversiones() {
             actualizarIndicadorTasa();
         }
 
-        const fmtMoneda = (val) => Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         // Tarjetas de Resumen
-        document.getElementById('lbl-inv-invertido').textContent = `$${fmtMoneda(resumen.total_invertido)} ${estado.monedaGlobal}`;
-        document.getElementById('lbl-inv-valor').textContent = `$${fmtMoneda(resumen.total_valor_actual)} ${estado.monedaGlobal}`;
+        document.getElementById('lbl-inv-invertido').textContent = `${fmt(resumen.total_invertido)} ${estado.monedaGlobal}`;
+        document.getElementById('lbl-inv-valor').textContent = `${fmt(resumen.total_valor_actual)} ${estado.monedaGlobal}`;
         
         const lblPnl = document.getElementById('lbl-inv-pnl');
         const signo = resumen.total_pnl >= 0 ? '+' : '';
         const signoMonto = resumen.total_pnl < 0 ? '-' : (resumen.total_pnl > 0 ? '+' : '');
 
         if (lblPnl) {
-            lblPnl.innerHTML = `${signoMonto}$${fmtMoneda(Math.abs(resumen.total_pnl))} ${estado.monedaGlobal} <span id="lbl-inv-pnl-pct" class="pnl-badge">(${signo}${resumen.total_pnl_porcentaje.toFixed(2)}%)</span>`;
+            lblPnl.innerHTML = `${signoMonto}${fmt(Math.abs(resumen.total_pnl))} ${estado.monedaGlobal} <span id="lbl-inv-pnl-pct" class="pnl-badge">(${signo}${resumen.total_pnl_porcentaje.toFixed(2)}%)</span>`;
             lblPnl.className = resumen.total_pnl > 0 ? 'pnl-positivo' : (resumen.total_pnl < 0 ? 'pnl-negativo' : 'pnl-neutro');
         }
 
         const lblDashPnl = document.getElementById('lbl-dash-pnl');
         if (lblDashPnl) {
-            lblDashPnl.innerHTML = `${signoMonto}$${fmtMoneda(Math.abs(resumen.total_pnl))} ${estado.monedaGlobal} <small style="font-size: 0.85rem;">(${signo}${resumen.total_pnl_porcentaje.toFixed(2)}%)</small>`;
+            lblDashPnl.innerHTML = `${signoMonto}${fmt(Math.abs(resumen.total_pnl))} ${estado.monedaGlobal} <small style="font-size: 0.85rem;">(${signo}${resumen.total_pnl_porcentaje.toFixed(2)}%)</small>`;
             lblDashPnl.className = resumen.total_pnl > 0 ? 'pnl-positivo' : (resumen.total_pnl < 0 ? 'pnl-negativo' : 'pnl-neutro');
         }
 
@@ -52,11 +51,11 @@ export async function cargarInversiones() {
                     const signoPosMonto = pos.pnl < 0 ? '-' : (pos.pnl > 0 ? '+' : '');
 
                     const badgeMonedaColor = pos.moneda === 'USD' 
-                        ? 'background: rgba(46, 204, 113, 0.15); color: #27ae60;' 
-                        : 'background: rgba(52, 152, 219, 0.15); color: #2980b9;';
+                        ? 'background: rgba(46, 204, 113, 0.15); color: var(--success-color);' 
+                        : 'background: rgba(52, 152, 219, 0.15); color: var(--accent-color);';
 
                     const subOrig = (pos.moneda !== estado.monedaGlobal)
-                        ? `<br><small style="color: var(--text-muted); font-size: 0.75rem;">($${Number(pos.valor_actual_orig).toFixed(2)} ${pos.moneda})</small>`
+                        ? `<br><small style="color: var(--text-muted); font-size: 0.75rem;">(${fmt(pos.valor_actual_orig)} ${pos.moneda})</small>`
                         : '';
 
                     estado.cache.inversiones[pos.id] = pos;
@@ -64,10 +63,10 @@ export async function cargarInversiones() {
                         <td><strong>${escapeHTML(pos.ticker)}</strong></td>
                         <td><span class="badge-peso" style="${badgeMonedaColor}">${escapeHTML(pos.moneda)}</span></td>
                         <td>${pos.cantidad}</td>
-                        <td>$${Number(pos.precio_promedio).toFixed(2)} <small style="color: var(--text-muted);">${escapeHTML(pos.moneda)}</small></td>
-                        <td>$${Number(pos.precio_actual).toFixed(2)} <small style="color: var(--text-muted);">${escapeHTML(pos.moneda)}</small></td>
-                        <td><strong>$${fmtMoneda(pos.valor_actual)}</strong> ${subOrig}</td>
-                        <td class="${clasePnl}">${signoPosMonto}$${fmtMoneda(Math.abs(pos.pnl))} (${signoPos}${pos.pnl_porcentaje.toFixed(2)}%)</td>
+                        <td>${fmt(pos.precio_promedio)} <small style="color: var(--text-muted);">${escapeHTML(pos.moneda)}</small></td>
+                        <td>${fmt(pos.precio_actual)} <small style="color: var(--text-muted);">${escapeHTML(pos.moneda)}</small></td>
+                        <td><strong>${fmt(pos.valor_actual)}</strong> ${subOrig}</td>
+                        <td class="${clasePnl}">${signoPosMonto}${fmt(Math.abs(pos.pnl))} (${signoPos}${pos.pnl_porcentaje.toFixed(2)}%)</td>
                         <td><span class="badge-peso">${pos.peso_porcentaje.toFixed(1)}%</span></td>
                         <td class="col-acciones">
                             <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarInversionPorId(${pos.id})" title="Editar posición"><svg class="action-svg-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
@@ -346,7 +345,7 @@ export async function buscarCotizacionTicker() {
     const inputTicker = document.getElementById('inv-ticker');
     const ticker = inputTicker.value.trim().toUpperCase();
     if (!ticker) {
-        alert("Por favor ingresa un ticker (ej. VOO, QQQ).");
+        toast("Por favor ingresa un ticker (ej. VOO, QQQ).", 'error');
         return;
     }
 
@@ -368,10 +367,10 @@ export async function buscarCotizacionTicker() {
             }
         } else {
             const error = await res.json();
-            alert(error.detail || "No se encontró cotización en vivo. Puedes ingresarla manualmente.");
+            toast(error.detail || "No se encontró cotización en vivo. Puedes ingresarla manualmente.", 'error');
         }
     } catch (err) {
-        alert("Error de conexión al consultar cotización.");
+        toast("Error de conexión al consultar cotización.", 'error');
     } finally {
         btn.textContent = textoOriginal;
         btn.disabled = false;
@@ -396,7 +395,7 @@ if (formInversion) {
         const moneda = document.getElementById('inv-moneda')?.value || 'USD';
 
         if (!ticker || isNaN(cantidad) || cantidad <= 0 || isNaN(precio_promedio) || precio_promedio <= 0) {
-            alert("Completa los campos obligatorios con valores numéricos válidos mayores a cero.");
+            toast("Completa los campos obligatorios con valores numéricos válidos mayores a cero.", 'error');
             return;
         }
 
@@ -424,10 +423,10 @@ if (formInversion) {
                     const err = await res.json();
                     errText = formatErrorDetail(err.detail, errText);
                 } catch (_) {}
-                alert(errText);
+                toast(errText, 'error');
             }
         } catch (err) {
-            alert("Error de red al guardar la inversión.");
+            toast("Error de red al guardar la inversión.", 'error');
         } finally {
             guardandoInversion = false;
             if (btnSubmit) {
@@ -447,7 +446,7 @@ export async function eliminarInversion(id) {
             await cargarInversiones();
             await recargar();
         } else {
-            alert("No se pudo eliminar la inversión.");
+            toast("No se pudo eliminar la inversión.", 'error');
         }
     } catch (err) {
         console.error("Error al eliminar inversión:", err);
@@ -467,12 +466,12 @@ export async function sincronizarPrecios() {
             const data = await res.json();
             await cargarInversiones();
             await recargar();
-            alert(data.mensaje);
+            toast(data.mensaje, 'ok');
         } else {
-            alert("Error al sincronizar cotizaciones.");
+            toast("Error al sincronizar cotizaciones.", 'error');
         }
     } catch (err) {
-        alert("Error de conexión al sincronizar.");
+        toast("Error de conexión al sincronizar.", 'error');
     } finally {
         btn.textContent = originalText;
         btn.disabled = false;
@@ -527,7 +526,7 @@ export async function guardarEdicionInversion(e) {
     const precio_promedio = parseFloat(document.getElementById('modal-edit-precio-promedio').value);
 
     if (isNaN(cantidad) || cantidad <= 0 || isNaN(precio_promedio) || precio_promedio <= 0) {
-        alert("Por favor ingresa valores numéricos válidos mayores a cero.");
+        toast("Por favor ingresa valores numéricos válidos mayores a cero.", 'error');
         return;
     }
 
@@ -544,10 +543,10 @@ export async function guardarEdicionInversion(e) {
             await recargar();
         } else {
             const err = await res.json();
-            alert(err.detail || "Error al actualizar la posición.");
+            toast(err.detail || "Error al actualizar la posición.", 'error');
         }
     } catch (err) {
-        alert("Error de red al intentar guardar los cambios.");
+        toast("Error de red al intentar guardar los cambios.", 'error');
     }
 }
 

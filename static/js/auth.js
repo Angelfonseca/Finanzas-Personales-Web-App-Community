@@ -3,7 +3,7 @@
  */
 
 import { cargarDatosAdmin } from './admin.js';
-import { apiFetch, cargarTiposCambio, estado, recargar } from './core.js';
+import { apiFetch, cargarTiposCambio, estado, recargar, toast } from './core.js';
 import { cambiarPestana } from './ui.js';
 
 
@@ -354,7 +354,7 @@ export async function enviarSolicitudCodigo(e) {
     const identifier = inputIdentifier ? inputIdentifier.value.trim() : '';
 
     if (!identifier) {
-        alert('Por favor, ingresa tu usuario o correo electrónico.');
+        toast('Por favor, ingresa tu usuario o correo electrónico.', 'error');
         return;
     }
 
@@ -392,11 +392,11 @@ export async function enviarSolicitudCodigo(e) {
             if (formPaso2) formPaso2.style.display = 'none';
             if (alertaNoConfigurado) alertaNoConfigurado.style.display = 'block';
         } else {
-            alert(data.detail || 'Hubo un error al procesar la solicitud.');
+            toast(data.detail || 'Hubo un error al procesar la solicitud.', 'error');
         }
     } catch (err) {
         console.error('Error al solicitar código:', err);
-        alert('Error de conexión con el servidor.');
+        toast('Error de conexión con el servidor.', 'error');
     } finally {
         if (btnSubmit) {
             btnSubmit.disabled = false;
@@ -418,15 +418,15 @@ export async function enviarRestablecerPassword(e) {
     const confirm_password = passConfirmInput ? passConfirmInput.value : '';
 
     if (!code || code.length !== 6) {
-        alert('Ingresa el código numérico de 6 dígitos que te enviamos.');
+        toast('Ingresa el código numérico de 6 dígitos que te enviamos.', 'error');
         return;
     }
     if (new_password.length < 4) {
-        alert('La nueva contraseña debe tener al menos 4 caracteres.');
+        toast('La nueva contraseña debe tener al menos 4 caracteres.', 'error');
         return;
     }
     if (new_password !== confirm_password) {
-        alert('Las contraseñas no coinciden. Por favor verifícalas.');
+        toast('Las contraseñas no coinciden. Por favor verifícalas.', 'error');
         return;
     }
 
@@ -449,7 +449,7 @@ export async function enviarRestablecerPassword(e) {
         const data = await res.json();
 
         if (res.ok) {
-            alert(data.mensaje || '¡Contraseña actualizada con éxito! Ya puedes iniciar sesión.');
+            toast(data.mensaje || '¡Contraseña actualizada con éxito! Ya puedes iniciar sesión.', 'ok');
             cerrarModalRecuperarPassword();
             const inputLoginUser = document.getElementById('login-username');
             const inputLoginPass = document.getElementById('login-password');
@@ -459,11 +459,11 @@ export async function enviarRestablecerPassword(e) {
                 inputLoginPass.focus();
             }
         } else {
-            alert(data.detail || 'No se pudo restablecer la contraseña. Verifica el código.');
+            toast(data.detail || 'No se pudo restablecer la contraseña. Verifica el código.', 'error');
         }
     } catch (err) {
         console.error('Error al restablecer contraseña:', err);
-        alert('Error de conexión con el servidor.');
+        toast('Error de conexión con el servidor.', 'error');
     } finally {
         if (btnSubmit) {
             btnSubmit.disabled = false;

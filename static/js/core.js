@@ -77,7 +77,7 @@ export async function apiFetch(url, options = {}) {
 // =============================================================================
 
 export function fmt(valor, moneda = estado.monedaGlobal) {
-    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: moneda }).format(Number(valor) || 0);
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: moneda, currencyDisplay: 'narrowSymbol' }).format(Number(valor) || 0);
 }
 
 export function toast(msg, tipo = 'ok') {
@@ -121,10 +121,10 @@ export function actualizarIndicadorTasa() {
     if (selectGlobal) selectGlobal.value = estado.monedaGlobal;
 
     const badgeGlobal = document.getElementById('badge-tasa-global');
-    if (badgeGlobal) badgeGlobal.textContent = `1 USD ≈ $${Number(estado.tasasCambio.MXN || 18.40).toFixed(2)} MXN`;
+    if (badgeGlobal) badgeGlobal.textContent = `1 USD ≈ ${fmt(estado.tasasCambio.MXN || 18.40)} MXN`;
 
     const badgeInv = document.getElementById('badge-tasa-inversiones');
-    if (badgeInv) badgeInv.textContent = `1 USD ≈ $${Number(estado.tasasCambio.MXN || 18.40).toFixed(2)} MXN`;
+    if (badgeInv) badgeInv.textContent = `1 USD ≈ ${fmt(estado.tasasCambio.MXN || 18.40)} MXN`;
 
     document.querySelectorAll('.lbl-moneda-base').forEach(el => {
         el.textContent = estado.monedaGlobal;

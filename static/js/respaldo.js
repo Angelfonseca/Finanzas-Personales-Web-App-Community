@@ -3,7 +3,7 @@
  */
 
 import { cargarDatosAdmin } from './admin.js';
-import { apiFetch, estado, formatErrorDetail, recargar } from './core.js';
+import { apiFetch, estado, formatErrorDetail, recargar, toast } from './core.js';
 
 
 // =============================================================================
@@ -34,7 +34,7 @@ export function exportarExcel() {
             window.URL.revokeObjectURL(downloadUrl);
         })
         .catch(err => {
-            alert("No se pudo generar la exportación a Excel.");
+            toast("No se pudo generar la exportación a Excel.", 'error');
         })
         .finally(() => {
             if (btn) {
@@ -61,7 +61,7 @@ export async function descargarBackup() {
                 const err = await res.json();
                 errorMsg = formatErrorDetail(err.detail, errorMsg);
             } catch (_) {}
-            alert(errorMsg);
+            toast(errorMsg, 'error');
             return;
         }
 
@@ -85,7 +85,7 @@ export async function descargarBackup() {
         window.URL.revokeObjectURL(downloadUrl);
     } catch (err) {
         console.error("Error al descargar respaldo:", err);
-        alert("Error de conexión al descargar la base de datos.");
+        toast("Error de conexión al descargar la base de datos.", 'error');
     } finally {
         if (btn) {
             btn.disabled = false;
@@ -115,12 +115,12 @@ export async function procesarArchivoBackup(e) {
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.db') && !file.name.toLowerCase().endsWith('.sqlite') && !file.name.toLowerCase().endsWith('.sqlite3')) {
-        alert("El archivo seleccionado debe ser una base de datos SQLite (.db).");
+        toast("El archivo seleccionado debe ser una base de datos SQLite (.db).", 'error');
         return;
     }
 
     if (file.size > 50 * 1024 * 1024) {
-        alert("El archivo excede el tamaño máximo permitido (50 MB).");
+        toast("El archivo excede el tamaño máximo permitido (50 MB).", 'error');
         return;
     }
 
@@ -142,7 +142,7 @@ export async function procesarArchivoBackup(e) {
 
         if (res.ok) {
             const data = await res.json();
-            alert("¡Base de datos restaurada con éxito!\n\nTus datos han sido actualizados.");
+            toast("¡Base de datos restaurada con éxito!\n\nTus datos han sido actualizados.", 'ok');
             await recargar();
             if (estado.usuarioActual && estado.usuarioActual.role === 'admin') {
                 await cargarDatosAdmin();
@@ -153,11 +153,11 @@ export async function procesarArchivoBackup(e) {
                 const err = await res.json();
                 errorMsg = formatErrorDetail(err.detail, errorMsg);
             } catch (_) {}
-            alert(errorMsg);
+            toast(errorMsg, 'error');
         }
     } catch (err) {
         console.error("Error al restaurar respaldo:", err);
-        alert("Error al procesar o subir el archivo de respaldo.");
+        toast("Error al procesar o subir el archivo de respaldo.", 'error');
     } finally {
         if (btnRestore) {
             btnRestore.disabled = false;
