@@ -6,7 +6,9 @@ from pydantic import BaseModel, Field
 from typing import Literal, Optional, Dict, Any
 import sqlite3
 
-from finanzas_core import ahora_local, valorar_posiciones
+from datetime import date
+
+from finanzas_core import ahora_local, convertir, valor_rendimiento, valorar_posiciones
 from mercado import consultar_precio_y_moneda_mercado, buscar_tickers_mercado, obtener_tasas_cambio, cotizar_varios
 from security import (
     verify_token,
@@ -169,3 +171,144 @@ def get_tipo_cambio_publico():
         "tasas": tasas,
         "actualizado_en": ahora_local().strftime("%Y-%m-%d %H:%M:%S")
     }
+
+
+# =============================================================================
+# CUENTAS CON RENDIMIENTO (tasa fija, interés diario compuesto)
+# =============================================================================
+
+FECHA_PATTERN = r"^\d{4}-\d{2}-\d{2}$"
+
+
+class RendimientoCreate(BaseModel):
+    nombre: str = Field(..., min_length=1, max_length=60)
+    capital: float = Field(..., gt=0, le=1e12)
+    tasa_anual: float = Field(..., ge=0, le=100)
+    fecha_inicio: str = Field(..., pattern=FECHA_PATTERN)
+
+
+class RendimientoMovimiento(BaseModel):
+    monto: float = Field(..., gt=0, le=1e12)
+    accion: Literal['aportar', 'retirar']
+
+
+class RendimientoUpdate(BaseModel):
+    nombre: Optional[str] = Field(None, min_length=1, max_length=60)
+    tasa_anual: Optional[float] = Field(None, ge=0, le=100)
+
+
+def _cuenta_valorada(fila, hoy: date, base: str, tasa_fx: float) -> Dict[str, Any]:
+    capital = float(fila["capital"])
+    tasa = float(fila["tasa_anual"])
+    valor = valor_rendimiento(capital, tasa, date.fromisoformat(fila["fecha_base"]), hoy)
+    interes = round(valor - capital, 2)
+    ganancia_mes = round(valor * tasa / 100 / 12, 2)
+    return {
+        "id": fila["id"],
+        "nombre": fila["nombre"],
+        "tasa_anual": tasa,
+        "fecha_base": fila["fecha_base"],
+        "capital": round(convertir(capital, "MXN", base, tasa_fx), 2),
+        "valor_actual": round(convertir(valor, "MXN", base, tasa_fx), 2),
+        "interes_generado": round(convertir(interes, "MXN", base, tasa_fx), 2),
+        "ganancia_mensual_estimada": round(convertir(ganancia_mes, "MXN", base, tasa_fx), 2),
+    }
+
+
+def _capitalizar(cursor, fila, hoy: date) -> float:
+    """Fija el valor de hoy como nuevo capital y reinicia la fecha base."""
+    valor = valor_rendimiento(float(fila["capital"]), float(fila["tasa_anual"]),
+                              date.fromisoformat(fila["fecha_base"]), hoy)
+    cursor.execute("UPDATE cuentas_rendimiento SET capital = ?, fecha_base = ? WHERE id = ?",
+                   (valor, hoy.isoformat(), fila["id"]))
+    return valor
+
+
+def _obtener_cuenta(cursor, cuenta_id: int):
+    fila = cursor.execute("SELECT * FROM cuentas_rendimiento WHERE id = ?", (cuenta_id,)).fetchone()
+    if not fila:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada.")
+    return fila
+
+
+@router.get("/api/rendimiento", summary="Cuentas con rendimiento y su valor actual")
+def listar_rendimiento(moneda_base: str = "MXN", conn: sqlite3.Connection = Depends(get_tenant_db)):
+    hoy = ahora_local().date()
+    base = moneda_base.upper()
+    tasa_fx = obtener_tasas_cambio().get("MXN", 18.40)
+    filas = conn.execute("SELECT * FROM cuentas_rendimiento ORDER BY id").fetchall()
+    cuentas = [_cuenta_valorada(f, hoy, base, tasa_fx) for f in filas]
+    total = {
+        "valor_actual": round(sum(c["valor_actual"] for c in cuentas), 2),
+        "interes_generado": round(sum(c["interes_generado"] for c in cuentas), 2),
+        "ganancia_mensual_estimada": round(sum(c["ganancia_mensual_estimada"] for c in cuentas), 2),
+    }
+    return {"moneda_base": base, "cuentas": cuentas, "total": total}
+
+
+@router.post("/api/rendimiento", status_code=201, summary="Crear cuenta con rendimiento")
+def crear_rendimiento(req: RendimientoCreate, conn: sqlite3.Connection = Depends(get_tenant_db)):
+    cursor = conn.cursor()
+    nombre = req.nombre.strip()
+    if not nombre:
+        raise HTTPException(status_code=400, detail="El nombre no puede estar vacío.")
+    try:
+        date.fromisoformat(req.fecha_inicio)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="La fecha de inicio no es válida.")
+    if cursor.execute("SELECT 1 FROM cuentas_rendimiento WHERE nombre = ?", (nombre,)).fetchone():
+        raise HTTPException(status_code=400, detail="Ya existe una cuenta con ese nombre.")
+    cursor.execute(
+        "INSERT INTO cuentas_rendimiento (nombre, capital, tasa_anual, fecha_base) VALUES (?, ?, ?, ?)",
+        (nombre, req.capital, req.tasa_anual, req.fecha_inicio)
+    )
+    conn.commit()
+    return {"id": cursor.lastrowid, "mensaje": "Cuenta creada."}
+
+
+@router.post("/api/rendimiento/{cuenta_id}/movimiento", summary="Aportar o retirar de una cuenta con rendimiento")
+def movimiento_rendimiento(cuenta_id: int, mov: RendimientoMovimiento, conn: sqlite3.Connection = Depends(get_tenant_db)):
+    cursor = conn.cursor()
+    fila = _obtener_cuenta(cursor, cuenta_id)
+    hoy = ahora_local().date()
+    valor = valor_rendimiento(float(fila["capital"]), float(fila["tasa_anual"]),
+                              date.fromisoformat(fila["fecha_base"]), hoy)
+    if mov.accion == 'retirar':
+        if mov.monto > valor:
+            raise HTTPException(status_code=400, detail="No puedes retirar más de lo que tiene la cuenta.")
+        nuevo_capital = valor - mov.monto
+    else:
+        nuevo_capital = valor + mov.monto
+    cursor.execute("UPDATE cuentas_rendimiento SET capital = ?, fecha_base = ? WHERE id = ?",
+                   (round(nuevo_capital, 2), hoy.isoformat(), cuenta_id))
+    conn.commit()
+    return {"mensaje": "Movimiento registrado.", "valor_actual": round(nuevo_capital, 2)}
+
+
+@router.put("/api/rendimiento/{cuenta_id}", summary="Editar nombre o tasa de una cuenta con rendimiento")
+def editar_rendimiento(cuenta_id: int, req: RendimientoUpdate, conn: sqlite3.Connection = Depends(get_tenant_db)):
+    cursor = conn.cursor()
+    fila = _obtener_cuenta(cursor, cuenta_id)
+    hoy = ahora_local().date()
+    if req.nombre is not None:
+        nombre = req.nombre.strip()
+        if not nombre:
+            raise HTTPException(status_code=400, detail="El nombre no puede estar vacío.")
+        if cursor.execute("SELECT 1 FROM cuentas_rendimiento WHERE nombre = ? AND id != ?", (nombre, cuenta_id)).fetchone():
+            raise HTTPException(status_code=400, detail="Ya existe una cuenta con ese nombre.")
+        cursor.execute("UPDATE cuentas_rendimiento SET nombre = ? WHERE id = ?", (nombre, cuenta_id))
+    if req.tasa_anual is not None and float(req.tasa_anual) != float(fila["tasa_anual"]):
+        # Capitalizar con la tasa anterior antes de cambiarla
+        _capitalizar(cursor, fila, hoy)
+        cursor.execute("UPDATE cuentas_rendimiento SET tasa_anual = ? WHERE id = ?", (req.tasa_anual, cuenta_id))
+    conn.commit()
+    return {"mensaje": "Cuenta actualizada."}
+
+
+@router.delete("/api/rendimiento/{cuenta_id}", summary="Eliminar cuenta con rendimiento")
+def eliminar_rendimiento(cuenta_id: int, conn: sqlite3.Connection = Depends(get_tenant_db)):
+    cursor = conn.cursor()
+    _obtener_cuenta(cursor, cuenta_id)
+    cursor.execute("DELETE FROM cuentas_rendimiento WHERE id = ?", (cuenta_id,))
+    conn.commit()
+    return {"mensaje": "Cuenta eliminada."}
