@@ -10,75 +10,7 @@
  * 6. Visualizaciones reactivas con Chart.js y autocompletado en tiempo real con Yahoo Finance.
  */
 
-// =============================================================================
-// 1. ESTADO GLOBAL DE LA APLICACIÓN
-// =============================================================================
-
-let usuarioActual = null;          // Objeto con metadata del usuario en sesión
-let miGrafica = null;              // Instancia Chart.js de barras (Ingresos vs Gastos)
-let graficaDona = null;            // Instancia Chart.js de dona (Asset Allocation)
-let monedaGlobal = localStorage.getItem('moneda_global') || 'MXN';
-if (!['MXN', 'USD'].includes(monedaGlobal)) monedaGlobal = 'MXN';
-let tasasCambio = { USD: 1.0, MXN: 18.40, EUR: 0.89 };
-let debounceTimerBuscar = null;
-
-// Caches locales para referencias seguras por ID
-let cacheTransacciones = {};
-let cacheInversiones = {};
-let cacheUsuarios = {};
-
-function escapeHTML(str) {
-    if (str === null || str === undefined) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-function formatErrorDetail(detail, fallback = "Ocurrió un error inesperado.") {
-    if (!detail) return fallback;
-    if (typeof detail === 'string') return detail;
-    if (Array.isArray(detail)) {
-        return detail.map(d => (d && d.msg) ? `${d.msg}` : JSON.stringify(d)).join('\n');
-    }
-    if (typeof detail === 'object') {
-        return detail.msg || detail.message || JSON.stringify(detail);
-    }
-    return String(detail);
-}
-
-// =============================================================================
-// 2. CLIENTE HTTP INTERCEPTOR (apiFetch)
-// =============================================================================
-
-/**
- * Cliente HTTP centralizado que intercepta todas las peticiones hacia la API:
- * 1. Inyecta la cabecera 'Authorization: Bearer <token>' automáticamente.
- * 2. Si el servidor responde 401 Unauthorized o 403 Forbidden, purga la sesión
- *    y redirige de inmediato a la pantalla de login.
- */
-async function apiFetch(url, options = {}) {
-    const token = localStorage.getItem('jwt_token');
-    const headers = options.headers ? { ...options.headers } : {};
-
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(url, { ...options, headers });
-
-    // Si el token expiró o la cuenta fue suspendida en master_db
-    if (response.status === 401 || response.status === 403) {
-        if (!url.includes('/auth/login')) {
-            cerrarSesionLimpia("Tu sesión ha expirado o tu cuenta ha sido suspendida.");
-            throw new Error("No autorizado");
-        }
-    }
-
-    return response;
-}
+import { estado, escapeHTML, formatErrorDetail, apiFetch, recargar } from './core.js';
 
 // =============================================================================
 // 3. AUTENTICACIÓN, LOGIN Y PURGA DE SESIÓN
@@ -122,9 +54,9 @@ function mostrarVistaLogin(errorMsg = '') {
 function ingresarOAcceder() {
     const token = localStorage.getItem('jwt_token');
     const userJson = localStorage.getItem('user_info');
-    if (token && (usuarioActual || userJson)) {
+    if (token && (estado.usuarioActual || userJson)) {
         try {
-            const user = usuarioActual || JSON.parse(userJson);
+            const user = estado.usuarioActual || JSON.parse(userJson);
             establecerSesionActiva(user, token);
             return;
         } catch (e) {}
@@ -166,7 +98,7 @@ async function verificarSesionInicial() {
  * Configura la UI para el usuario autenticado y carga sus datos.
  */
 function establecerSesionActiva(user, token) {
-    usuarioActual = user;
+    estado.usuarioActual = user;
     localStorage.setItem('jwt_token', token);
     localStorage.setItem('user_info', JSON.stringify(user));
 
@@ -295,16 +227,16 @@ function cerrarSesionLimpia(errorMsg = '') {
     // 1. Eliminar persistencia local
     localStorage.removeItem('jwt_token');
     localStorage.removeItem('user_info');
-    usuarioActual = null;
+    estado.usuarioActual = null;
 
     // 2. Destruir instancias de Chart.js
-    if (miGrafica) {
-        miGrafica.destroy();
-        miGrafica = null;
+    if (estado.graficas.barras) {
+        estado.graficas.barras.destroy();
+        estado.graficas.barras = null;
     }
-    if (graficaDona) {
-        graficaDona.destroy();
-        graficaDona = null;
+    if (estado.graficas.dona) {
+        estado.graficas.dona.destroy();
+        estado.graficas.dona = null;
     }
 
     // 3. Limpiar elementos del DOM
@@ -369,8 +301,8 @@ function toggleModoOscuro() {
     if (window.Chart) {
         Chart.defaults.color = nuevoTemaOscuro ? '#f8fafc' : '#0d172a';
     }
-    if (miGrafica) actualizarColoresGrafica();
-    if (graficaDona) actualizarColoresDona();
+    if (estado.graficas.barras) actualizarColoresGrafica();
+    if (estado.graficas.dona) actualizarColoresDona();
 }
 
 // Inicialización de tema guardado
@@ -388,40 +320,40 @@ if (window.Chart) {
 }
 
 function actualizarColoresGrafica() {
-    if (!miGrafica) return;
+    if (!estado.graficas.barras) return;
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = esOscuro ? '#f8fafc' : '#0d172a';
     const gridColor = esOscuro ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)';
 
     if (window.Chart) Chart.defaults.color = textColor;
-    if (miGrafica.options && miGrafica.options.scales) {
-        if (miGrafica.options.scales.x) {
-            miGrafica.options.scales.x.ticks.color = textColor;
-            miGrafica.options.scales.x.grid.color = gridColor;
+    if (estado.graficas.barras.options && estado.graficas.barras.options.scales) {
+        if (estado.graficas.barras.options.scales.x) {
+            estado.graficas.barras.options.scales.x.ticks.color = textColor;
+            estado.graficas.barras.options.scales.x.grid.color = gridColor;
         }
-        if (miGrafica.options.scales.y) {
-            miGrafica.options.scales.y.ticks.color = textColor;
-            miGrafica.options.scales.y.grid.color = gridColor;
+        if (estado.graficas.barras.options.scales.y) {
+            estado.graficas.barras.options.scales.y.ticks.color = textColor;
+            estado.graficas.barras.options.scales.y.grid.color = gridColor;
         }
     }
-    if (miGrafica.options && miGrafica.options.plugins && miGrafica.options.plugins.legend) {
-        miGrafica.options.plugins.legend.labels.color = textColor;
+    if (estado.graficas.barras.options && estado.graficas.barras.options.plugins && estado.graficas.barras.options.plugins.legend) {
+        estado.graficas.barras.options.plugins.legend.labels.color = textColor;
     }
-    miGrafica.update();
+    estado.graficas.barras.update();
 }
 
 function actualizarColoresDona() {
-    if (!graficaDona) return;
+    if (!estado.graficas.dona) return;
     const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = esOscuro ? '#f8fafc' : '#0d172a';
     if (window.Chart) Chart.defaults.color = textColor;
-    if (graficaDona.options && graficaDona.options.plugins && graficaDona.options.plugins.legend) {
-        graficaDona.options.plugins.legend.labels.color = textColor;
+    if (estado.graficas.dona.options && estado.graficas.dona.options.plugins && estado.graficas.dona.options.plugins.legend) {
+        estado.graficas.dona.options.plugins.legend.labels.color = textColor;
     }
-    if (graficaDona.data && graficaDona.data.datasets && graficaDona.data.datasets[0]) {
-        graficaDona.data.datasets[0].borderColor = esOscuro ? '#0f1624' : '#ffffff';
+    if (estado.graficas.dona.data && estado.graficas.dona.data.datasets && estado.graficas.dona.data.datasets[0]) {
+        estado.graficas.dona.data.datasets[0].borderColor = esOscuro ? '#0f1624' : '#ffffff';
     }
-    graficaDona.update();
+    estado.graficas.dona.update();
 }
 
 // =============================================================================
@@ -481,14 +413,14 @@ async function cargarDatos() {
         const fmtMoneda = (val) => Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         // 1. Resumen Consolidado del Tenant
-        const resResumen = await apiFetch(`/api/resumen?moneda_base=${encodeURIComponent(monedaGlobal)}`);
+        const resResumen = await apiFetch(`/api/resumen?moneda_base=${encodeURIComponent(estado.monedaGlobal)}`);
         const dataResumen = await resResumen.json();
         
         if (document.getElementById('lbl-dash-patrimonio')) {
-            document.getElementById('lbl-dash-patrimonio').textContent = `$${fmtMoneda(dataResumen.patrimonio_neto)} ${monedaGlobal}`;
+            document.getElementById('lbl-dash-patrimonio').textContent = `$${fmtMoneda(dataResumen.patrimonio_neto)} ${estado.monedaGlobal}`;
             document.getElementById('lbl-dash-balance').textContent = `$${fmtMoneda(dataResumen.balance)}`;
             document.getElementById('lbl-dash-apartados').textContent = `$${fmtMoneda(dataResumen.apartados)}`;
-            document.getElementById('lbl-dash-inversiones').textContent = `$${fmtMoneda(dataResumen.inversiones)} ${monedaGlobal}`;
+            document.getElementById('lbl-dash-inversiones').textContent = `$${fmtMoneda(dataResumen.inversiones)} ${estado.monedaGlobal}`;
             document.getElementById('lbl-dash-ingresos').textContent = `$${fmtMoneda(dataResumen.ingresos)}`;
             document.getElementById('lbl-dash-gastos').textContent = `$${fmtMoneda(dataResumen.gastos)}`;
 
@@ -558,7 +490,7 @@ async function cargarDatos() {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No hay movimientos.</td></tr>';
             } else {
                 dataTrans.forEach(t => {
-                    cacheTransacciones[t.id] = t;
+                    estado.cache.transacciones[t.id] = t;
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>${escapeHTML(t.fecha)}</td>
@@ -596,26 +528,26 @@ function actualizarGrafica(dataMensual) {
     const ingresos = dataMensual.map(m => m.ingresos);
     const gastos = dataMensual.map(m => m.gastos);
 
-    if (miGrafica) {
-        miGrafica.data.labels = meses;
-        miGrafica.data.datasets[0].data = ingresos;
-        miGrafica.data.datasets[1].data = gastos;
-        if (miGrafica.options && miGrafica.options.scales) {
-            if (miGrafica.options.scales.x) {
-                miGrafica.options.scales.x.ticks.color = textColor;
-                miGrafica.options.scales.x.grid.color = gridColor;
+    if (estado.graficas.barras) {
+        estado.graficas.barras.data.labels = meses;
+        estado.graficas.barras.data.datasets[0].data = ingresos;
+        estado.graficas.barras.data.datasets[1].data = gastos;
+        if (estado.graficas.barras.options && estado.graficas.barras.options.scales) {
+            if (estado.graficas.barras.options.scales.x) {
+                estado.graficas.barras.options.scales.x.ticks.color = textColor;
+                estado.graficas.barras.options.scales.x.grid.color = gridColor;
             }
-            if (miGrafica.options.scales.y) {
-                miGrafica.options.scales.y.ticks.color = textColor;
-                miGrafica.options.scales.y.grid.color = gridColor;
+            if (estado.graficas.barras.options.scales.y) {
+                estado.graficas.barras.options.scales.y.ticks.color = textColor;
+                estado.graficas.barras.options.scales.y.grid.color = gridColor;
             }
         }
-        if (miGrafica.options && miGrafica.options.plugins && miGrafica.options.plugins.legend) {
-            miGrafica.options.plugins.legend.labels.color = textColor;
+        if (estado.graficas.barras.options && estado.graficas.barras.options.plugins && estado.graficas.barras.options.plugins.legend) {
+            estado.graficas.barras.options.plugins.legend.labels.color = textColor;
         }
-        miGrafica.update();
+        estado.graficas.barras.update();
     } else {
-        miGrafica = new Chart(ctx, {
+        estado.graficas.barras = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: meses,
@@ -965,7 +897,7 @@ async function cargarTiposCambio() {
         const res = await apiFetch('/api/tipo-cambio');
         if (res.ok) {
             const data = await res.json();
-            tasasCambio = data.tasas || tasasCambio;
+            estado.tasasCambio = data.tasas || estado.tasasCambio;
             actualizarIndicadorTasa();
         }
     } catch (e) {
@@ -975,21 +907,21 @@ async function cargarTiposCambio() {
 
 function actualizarIndicadorTasa() {
     const selectGlobal = document.getElementById('select-moneda-global');
-    if (selectGlobal) selectGlobal.value = monedaGlobal;
+    if (selectGlobal) selectGlobal.value = estado.monedaGlobal;
 
     const badgeGlobal = document.getElementById('badge-tasa-global');
-    if (badgeGlobal) badgeGlobal.textContent = `1 USD ≈ $${Number(tasasCambio.MXN || 18.40).toFixed(2)} MXN`;
+    if (badgeGlobal) badgeGlobal.textContent = `1 USD ≈ $${Number(estado.tasasCambio.MXN || 18.40).toFixed(2)} MXN`;
 
     const badgeInv = document.getElementById('badge-tasa-inversiones');
-    if (badgeInv) badgeInv.textContent = `1 USD ≈ $${Number(tasasCambio.MXN || 18.40).toFixed(2)} MXN`;
+    if (badgeInv) badgeInv.textContent = `1 USD ≈ $${Number(estado.tasasCambio.MXN || 18.40).toFixed(2)} MXN`;
 
     document.querySelectorAll('.lbl-moneda-base').forEach(el => {
-        el.textContent = monedaGlobal;
+        el.textContent = estado.monedaGlobal;
     });
 }
 
 function cambiarMonedaGlobal(nuevaMoneda) {
-    monedaGlobal = nuevaMoneda;
+    estado.monedaGlobal = nuevaMoneda;
     localStorage.setItem('moneda_global', nuevaMoneda);
     actualizarIndicadorTasa();
     cargarDatos();
@@ -997,34 +929,34 @@ function cambiarMonedaGlobal(nuevaMoneda) {
 
 async function cargarInversiones() {
     try {
-        const res = await apiFetch(`/api/inversiones?moneda_base=${encodeURIComponent(monedaGlobal)}`);
+        const res = await apiFetch(`/api/inversiones?moneda_base=${encodeURIComponent(estado.monedaGlobal)}`);
         if (!res.ok) return;
         const data = await res.json();
         const { resumen, posiciones, tasa_usd_mxn } = data;
 
         if (tasa_usd_mxn) {
-            tasasCambio.MXN = tasa_usd_mxn;
+            estado.tasasCambio.MXN = tasa_usd_mxn;
             actualizarIndicadorTasa();
         }
 
         const fmtMoneda = (val) => Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         // Tarjetas de Resumen
-        document.getElementById('lbl-inv-invertido').textContent = `$${fmtMoneda(resumen.total_invertido)} ${monedaGlobal}`;
-        document.getElementById('lbl-inv-valor').textContent = `$${fmtMoneda(resumen.total_valor_actual)} ${monedaGlobal}`;
+        document.getElementById('lbl-inv-invertido').textContent = `$${fmtMoneda(resumen.total_invertido)} ${estado.monedaGlobal}`;
+        document.getElementById('lbl-inv-valor').textContent = `$${fmtMoneda(resumen.total_valor_actual)} ${estado.monedaGlobal}`;
         
         const lblPnl = document.getElementById('lbl-inv-pnl');
         const signo = resumen.total_pnl >= 0 ? '+' : '';
         const signoMonto = resumen.total_pnl < 0 ? '-' : (resumen.total_pnl > 0 ? '+' : '');
 
         if (lblPnl) {
-            lblPnl.innerHTML = `${signoMonto}$${fmtMoneda(Math.abs(resumen.total_pnl))} ${monedaGlobal} <span id="lbl-inv-pnl-pct" class="pnl-badge">(${signo}${resumen.total_pnl_porcentaje.toFixed(2)}%)</span>`;
+            lblPnl.innerHTML = `${signoMonto}$${fmtMoneda(Math.abs(resumen.total_pnl))} ${estado.monedaGlobal} <span id="lbl-inv-pnl-pct" class="pnl-badge">(${signo}${resumen.total_pnl_porcentaje.toFixed(2)}%)</span>`;
             lblPnl.className = resumen.total_pnl > 0 ? 'pnl-positivo' : (resumen.total_pnl < 0 ? 'pnl-negativo' : 'pnl-neutro');
         }
 
         const lblDashPnl = document.getElementById('lbl-dash-pnl');
         if (lblDashPnl) {
-            lblDashPnl.innerHTML = `${signoMonto}$${fmtMoneda(Math.abs(resumen.total_pnl))} ${monedaGlobal} <small style="font-size: 0.85rem;">(${signo}${resumen.total_pnl_porcentaje.toFixed(2)}%)</small>`;
+            lblDashPnl.innerHTML = `${signoMonto}$${fmtMoneda(Math.abs(resumen.total_pnl))} ${estado.monedaGlobal} <small style="font-size: 0.85rem;">(${signo}${resumen.total_pnl_porcentaje.toFixed(2)}%)</small>`;
             lblDashPnl.className = resumen.total_pnl > 0 ? 'pnl-positivo' : (resumen.total_pnl < 0 ? 'pnl-negativo' : 'pnl-neutro');
         }
 
@@ -1045,11 +977,11 @@ async function cargarInversiones() {
                         ? 'background: rgba(46, 204, 113, 0.15); color: #27ae60;' 
                         : 'background: rgba(52, 152, 219, 0.15); color: #2980b9;';
 
-                    const subOrig = (pos.moneda !== monedaGlobal)
+                    const subOrig = (pos.moneda !== estado.monedaGlobal)
                         ? `<br><small style="color: var(--text-muted); font-size: 0.75rem;">($${Number(pos.valor_actual_orig).toFixed(2)} ${pos.moneda})</small>`
                         : '';
 
-                    cacheInversiones[pos.id] = pos;
+                    estado.cache.inversiones[pos.id] = pos;
                     tr.innerHTML = `
                         <td><strong>${escapeHTML(pos.ticker)}</strong></td>
                         <td><span class="badge-peso" style="${badgeMonedaColor}">${escapeHTML(pos.moneda)}</span></td>
@@ -1139,9 +1071,9 @@ function actualizarGraficaDona(posiciones) {
     if (!posiciones || posiciones.length === 0) {
         if (noDataMsg) noDataMsg.style.display = 'block';
         canvas.style.display = 'none';
-        if (graficaDona) {
-            graficaDona.destroy();
-            graficaDona = null;
+        if (estado.graficas.dona) {
+            estado.graficas.dona.destroy();
+            estado.graficas.dona = null;
         }
         return;
     }
@@ -1201,17 +1133,17 @@ function actualizarGraficaDona(posiciones) {
         });
     };
 
-    if (graficaDona) {
-        graficaDona.data.labels = labels;
-        graficaDona.data.datasets[0].data = dataValores;
-        graficaDona.data.datasets[0].backgroundColor = colores;
-        graficaDona.data.datasets[0].borderColor = esOscuro ? '#0f1624' : '#ffffff';
-        graficaDona.options.plugins.legend.position = legendPos;
-        graficaDona.options.plugins.legend.labels.color = textColor;
-        graficaDona.options.plugins.legend.labels.generateLabels = funcionGenerarEtiquetas;
-        graficaDona.update();
+    if (estado.graficas.dona) {
+        estado.graficas.dona.data.labels = labels;
+        estado.graficas.dona.data.datasets[0].data = dataValores;
+        estado.graficas.dona.data.datasets[0].backgroundColor = colores;
+        estado.graficas.dona.data.datasets[0].borderColor = esOscuro ? '#0f1624' : '#ffffff';
+        estado.graficas.dona.options.plugins.legend.position = legendPos;
+        estado.graficas.dona.options.plugins.legend.labels.color = textColor;
+        estado.graficas.dona.options.plugins.legend.labels.generateLabels = funcionGenerarEtiquetas;
+        estado.graficas.dona.update();
     } else {
-        graficaDona = new Chart(canvas.getContext('2d'), {
+        estado.graficas.dona = new Chart(canvas.getContext('2d'), {
             type: 'doughnut',
             data: {
                 labels: labels,
@@ -1244,7 +1176,7 @@ function actualizarGraficaDona(posiciones) {
                                 const valor = context.raw || 0;
                                 const pct = total > 0 ? ((valor / total) * 100).toFixed(1) : 0;
                                 const valorFmt = Number(valor).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                                return ` ${context.label}: $${valorFmt} ${monedaGlobal} (${pct}%)`;
+                                return ` ${context.label}: $${valorFmt} ${estado.monedaGlobal} (${pct}%)`;
                             }
                         }
                     }
@@ -1266,7 +1198,7 @@ function inicializarBuscadorTickers() {
 
     input.addEventListener('input', (e) => {
         const val = e.target.value.trim();
-        clearTimeout(debounceTimerBuscar);
+        clearTimeout(estado.debounceTimerBuscar);
 
         if (val.length < 1) {
             dropdown.style.display = 'none';
@@ -1274,7 +1206,7 @@ function inicializarBuscadorTickers() {
             return;
         }
 
-        debounceTimerBuscar = setTimeout(async () => {
+        estado.debounceTimerBuscar = setTimeout(async () => {
             try {
                 const res = await apiFetch(`/api/inversiones/buscar?q=${encodeURIComponent(val)}`);
                 if (!res.ok) return;
@@ -1499,7 +1431,7 @@ function formatoTiempoRelativo(fechaStr) {
  * Carga las métricas globales y la lista de usuarios del panel de administración.
  */
 async function cargarDatosAdmin() {
-    if (!usuarioActual || usuarioActual.role !== 'admin') return;
+    if (!estado.usuarioActual || estado.usuarioActual.role !== 'admin') return;
 
     try {
         // 1. Cargar KPIs
@@ -1531,7 +1463,7 @@ async function cargarDatosAdmin() {
             } else {
                 usuarios.forEach(u => {
                     const tr = document.createElement('tr');
-                    const esMismoAdmin = (usuarioActual && usuarioActual.id === u.id);
+                    const esMismoAdmin = (estado.usuarioActual && estado.usuarioActual.id === u.id);
                     
                     const badgeRol = `<span class="badge-role ${u.role === 'admin' ? 'badge-role-admin' : 'badge-role-user'}">${u.role}</span>`;
                     const badgeEstado = u.is_active 
@@ -1542,7 +1474,7 @@ async function cargarDatosAdmin() {
                     const ultimoAccesoRelativo = formatoTiempoRelativo(u.last_login);
                     const detalleTitle = u.last_login ? `title="Fecha exacta: ${u.last_login}"` : '';
 
-                    cacheUsuarios[u.id] = u;
+                    estado.cache.usuarios[u.id] = u;
                     const esAdminPrincipal = (u.id === 1 || (u.username && u.username.toLowerCase() === 'admin'));
                     
                     let accionesHtml = `
@@ -1725,21 +1657,21 @@ function abrirModalEditarUsuario(id, username, role, email) {
     if (roleSelect) {
         roleSelect.value = role || 'user';
         // Si es el admin actual editándose a sí mismo, bloquear el cambio de rol para evitar perder privilegios
-        if (usuarioActual && usuarioActual.id === id && role === 'admin') {
+        if (estado.usuarioActual && estado.usuarioActual.id === id && role === 'admin') {
             roleSelect.disabled = true;
         } else {
             roleSelect.disabled = false;
         }
     }
     if (roleGroup) {
-        roleGroup.style.display = (usuarioActual && usuarioActual.role === 'admin') ? 'block' : 'none';
+        roleGroup.style.display = (estado.usuarioActual && estado.usuarioActual.role === 'admin') ? 'block' : 'none';
     }
 
     // Zona de Peligro (Eliminar Mi Cuenta): solo visible si es el usuario en sesión activa y NO es administrador
     const dangerZone = document.getElementById('danger-zone-eliminar-cuenta');
     if (dangerZone) {
-        const esMismoUsuario = usuarioActual && usuarioActual.id === id;
-        const esAdmin = usuarioActual && (usuarioActual.role === 'admin' || usuarioActual.id === 1 || (usuarioActual.username && usuarioActual.username.toLowerCase() === 'admin'));
+        const esMismoUsuario = estado.usuarioActual && estado.usuarioActual.id === id;
+        const esAdmin = estado.usuarioActual && (estado.usuarioActual.role === 'admin' || estado.usuarioActual.id === 1 || (estado.usuarioActual.username && estado.usuarioActual.username.toLowerCase() === 'admin'));
         dangerZone.style.display = (esMismoUsuario && !esAdmin) ? 'block' : 'none';
     }
 
@@ -1754,8 +1686,8 @@ function abrirModalEditarUsuario(id, username, role, email) {
  * Abre el modal de edición para que el usuario activo edite su propio perfil.
  */
 function abrirModalEditarMiPerfil() {
-    if (!usuarioActual) return;
-    abrirModalEditarUsuario(usuarioActual.id, usuarioActual.username, usuarioActual.role, usuarioActual.email);
+    if (!estado.usuarioActual) return;
+    abrirModalEditarUsuario(estado.usuarioActual.id, estado.usuarioActual.username, estado.usuarioActual.role, estado.usuarioActual.email);
 }
 
 /**
@@ -1800,7 +1732,7 @@ async function guardarEdicionUsuario(e) {
     }
 
     try {
-        const endpoint = (usuarioActual && usuarioActual.role === 'admin') 
+        const endpoint = (estado.usuarioActual && estado.usuarioActual.role === 'admin') 
             ? `/admin/users/${userId}` 
             : `/auth/profile`;
 
@@ -1815,12 +1747,12 @@ async function guardarEdicionUsuario(e) {
             cerrarModalEditarUsuario();
             
             // Si el usuario editado es el usuario en sesión activa, actualizar token y UI
-            if (usuarioActual && usuarioActual.id === parseInt(userId, 10)) {
+            if (estado.usuarioActual && estado.usuarioActual.id === parseInt(userId, 10)) {
                 if (data.new_token) {
                     localStorage.setItem('jwt_token', data.new_token);
                 }
                 if (data.user) {
-                    usuarioActual = data.user;
+                    estado.usuarioActual = data.user;
                     localStorage.setItem('user_info', JSON.stringify(data.user));
                     const lblUser = document.getElementById('lbl-username');
                     const lblRole = document.getElementById('lbl-user-role');
@@ -1844,7 +1776,7 @@ async function guardarEdicionUsuario(e) {
                 }
             }
             
-            if (usuarioActual && usuarioActual.role === 'admin') {
+            if (estado.usuarioActual && estado.usuarioActual.role === 'admin') {
                 await cargarDatosAdmin();
             }
             alert(data.mensaje || "Usuario actualizado exitosamente.");
@@ -1862,9 +1794,9 @@ async function guardarEdicionUsuario(e) {
  * Bloquea la acción para administradores del sistema.
  */
 async function solicitarEliminarMiCuenta() {
-    if (!usuarioActual) return;
+    if (!estado.usuarioActual) return;
 
-    if (usuarioActual.role === 'admin' || usuarioActual.id === 1 || (usuarioActual.username && usuarioActual.username.toLowerCase() === 'admin')) {
+    if (estado.usuarioActual.role === 'admin' || estado.usuarioActual.id === 1 || (estado.usuarioActual.username && estado.usuarioActual.username.toLowerCase() === 'admin')) {
         alert("Los administradores del sistema no pueden eliminar su propia cuenta.");
         return;
     }
@@ -1917,7 +1849,7 @@ function inicializarTabs() {
 }
 
 function cambiarPestana(tabId) {
-    if (tabId === 'tab-admin' && (!usuarioActual || usuarioActual.role !== 'admin')) {
+    if (tabId === 'tab-admin' && (!estado.usuarioActual || estado.usuarioActual.role !== 'admin')) {
         tabId = 'tab-dashboard';
     }
 
@@ -1958,8 +1890,8 @@ function cambiarPestana(tabId) {
     }
 
     setTimeout(() => {
-        if (miGrafica) miGrafica.resize();
-        if (graficaDona) graficaDona.resize();
+        if (estado.graficas.barras) estado.graficas.barras.resize();
+        if (estado.graficas.dona) estado.graficas.dona.resize();
     }, 60);
 }
 
@@ -2117,7 +2049,7 @@ function exportarExcel() {
         btn.innerHTML = '<span>Exportando...</span>';
     }
 
-    apiFetch(`/api/exportar-excel?moneda_base=${encodeURIComponent(monedaGlobal)}`)
+    apiFetch(`/api/exportar-excel?moneda_base=${encodeURIComponent(estado.monedaGlobal)}`)
         .then(res => {
             if (!res.ok) throw new Error("Error en la exportación");
             return res.blob();
@@ -2126,7 +2058,7 @@ function exportarExcel() {
             const downloadUrl = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = downloadUrl;
-            a.download = `reporte_financiero_${usuarioActual ? usuarioActual.username : 'tenant'}_${monedaGlobal}.xlsx`;
+            a.download = `reporte_financiero_${estado.usuarioActual ? estado.usuarioActual.username : 'tenant'}_${estado.monedaGlobal}.xlsx`;
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -2164,7 +2096,7 @@ async function descargarBackup() {
         }
 
         const disposition = res.headers.get('Content-Disposition');
-        let filename = `finanzas_${usuarioActual ? usuarioActual.username : 'tenant'}_respaldo.db`;
+        let filename = `finanzas_${estado.usuarioActual ? estado.usuarioActual.username : 'tenant'}_respaldo.db`;
         if (disposition && disposition.includes('filename=')) {
             const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
             if (match && match[1]) {
@@ -2240,7 +2172,7 @@ async function procesarArchivoBackup(e) {
             const data = await res.json();
             alert("¡Base de datos restaurada con éxito!\n\nTus datos han sido actualizados.");
             await cargarDatos();
-            if (usuarioActual && usuarioActual.role === 'admin') {
+            if (estado.usuarioActual && estado.usuarioActual.role === 'admin') {
                 await cargarDatosAdmin();
             }
         } else {
@@ -2292,8 +2224,8 @@ function toggleSidebar() {
         localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
         // Redimensionar gráficas tras la transición del layout
         setTimeout(() => {
-            if (miGrafica) miGrafica.resize();
-            if (graficaDona) graficaDona.resize();
+            if (estado.graficas.barras) estado.graficas.barras.resize();
+            if (estado.graficas.dona) estado.graficas.dona.resize();
         }, 280);
     }
 }
@@ -2567,25 +2499,25 @@ async function enviarRestablecerPassword(e) {
 // =============================================================================
 
 function abrirModalEditarTransaccionPorId(id) {
-    const t = cacheTransacciones[id];
+    const t = estado.cache.transacciones[id];
     if (!t) return;
     abrirModalEditarTransaccion(t.id, t.fecha, t.monto, t.tipo, t.descripcion);
 }
 
 function abrirModalEditarInversionPorId(id) {
-    const pos = cacheInversiones[id];
+    const pos = estado.cache.inversiones[id];
     if (!pos) return;
     abrirModalEditarInversion(pos.id, pos.ticker, pos.cantidad, pos.precio_promedio, pos.moneda);
 }
 
 function abrirModalEditarUsuarioPorId(id) {
-    const u = cacheUsuarios[id];
+    const u = estado.cache.usuarios[id];
     if (!u) return;
     abrirModalEditarUsuario(u.id, u.username, u.role, u.email);
 }
 
 function eliminarUsuarioTenantPorId(id) {
-    const u = cacheUsuarios[id];
+    const u = estado.cache.usuarios[id];
     if (!u) return;
     eliminarUsuarioTenant(u.id, u.username);
 }
@@ -2684,8 +2616,8 @@ window.cambiarTabLegal = cambiarTabLegal;
 // Navegación en el historial del navegador (Atrás / Adelante)
 window.addEventListener('popstate', () => {
     const token = localStorage.getItem('jwt_token');
-    if (token && usuarioActual) {
-        establecerSesionActiva(usuarioActual, token);
+    if (token && estado.usuarioActual) {
+        establecerSesionActiva(estado.usuarioActual, token);
     } else {
         mostrarVistaLogin();
     }
@@ -2694,6 +2626,7 @@ window.addEventListener('popstate', () => {
 // =============================================================================
 // 14. ARRANQUE DE LA APLICACIÓN
 // =============================================================================
+document.addEventListener('sesion-expirada', (e) => cerrarSesionLimpia(e.detail));
 inicializarTabs();
 inicializarEstadoSidebar();
 inicializarBuscadorTickers();
