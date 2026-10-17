@@ -164,6 +164,8 @@ def exportar_excel(
 ):
     """Genera el reporte financiero en Excel exclusivamente con los datos del tenant activo."""
     from export_service import generar_reporte_excel
+    from finanzas_core import materializar_recurrentes
+    materializar_recurrentes(conn, ahora_local().date())
     buf = generar_reporte_excel(
         moneda_base=moneda_base,
         conn=conn,
