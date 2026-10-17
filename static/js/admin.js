@@ -62,7 +62,7 @@ export async function cargarDatosAdmin() {
             const bannerEmail = document.getElementById('admin-banner-email-warning');
             if (bannerEmail && stats.email_service_configured !== undefined) {
                 const yaAceptado = sessionStorage.getItem('admin_email_warning_dismissed') === '1';
-                bannerEmail.style.display = (!stats.email_service_configured && !yaAceptado) ? 'block' : 'none';
+                bannerEmail.classList.toggle('hidden', !((!stats.email_service_configured && !yaAceptado)));
             }
         }
 
@@ -190,7 +190,7 @@ export async function eliminarUsuarioTenant(userId, username) {
 export function abrirModalCrearUsuario() {
     const modal = document.getElementById('modal-crear-usuario');
     if (modal) {
-        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
         setTimeout(() => {
             const input = document.getElementById('nuevo-user-username');
             if (input) input.focus();
@@ -201,7 +201,7 @@ export function abrirModalCrearUsuario() {
 
 export function cerrarModalCrearUsuario() {
     const modal = document.getElementById('modal-crear-usuario');
-    if (modal) modal.style.display = 'none';
+    if (modal) modal.classList.add('hidden');
     const form = document.getElementById('form-crear-usuario');
     if (form) form.reset();
 }
@@ -286,7 +286,7 @@ export function abrirModalEditarUsuario(id, username, role, email) {
         }
     }
     if (roleGroup) {
-        roleGroup.style.display = (estado.usuarioActual && estado.usuarioActual.role === 'admin') ? 'block' : 'none';
+        roleGroup.classList.toggle('hidden', !((estado.usuarioActual && estado.usuarioActual.role === 'admin')));
     }
 
     // Zona de Peligro (Eliminar Mi Cuenta): solo visible si es el usuario en sesión activa y NO es administrador
@@ -294,10 +294,10 @@ export function abrirModalEditarUsuario(id, username, role, email) {
     if (dangerZone) {
         const esMismoUsuario = estado.usuarioActual && estado.usuarioActual.id === id;
         const esAdmin = estado.usuarioActual && (estado.usuarioActual.role === 'admin' || estado.usuarioActual.id === 1 || (estado.usuarioActual.username && estado.usuarioActual.username.toLowerCase() === 'admin'));
-        dangerZone.style.display = (esMismoUsuario && !esAdmin) ? 'block' : 'none';
+        dangerZone.classList.toggle('hidden', !((esMismoUsuario && !esAdmin)));
     }
 
-    modal.style.display = 'flex';
+    modal.classList.remove('hidden');
     setTimeout(() => {
         const input = document.getElementById('edit-user-username');
         if (input) input.focus();
@@ -319,7 +319,7 @@ export function abrirModalEditarMiPerfil() {
  */
 export function cerrarModalEditarUsuario() {
     const modal = document.getElementById('modal-editar-usuario');
-    if (modal) modal.style.display = 'none';
+    if (modal) modal.classList.add('hidden');
     const form = document.getElementById('form-editar-usuario');
     if (form) form.reset();
 }

@@ -27,15 +27,15 @@ export function mostrarVistaLogin(errorMsg = '') {
     const vistaApp = document.getElementById('vista-app');
     const loginError = document.getElementById('login-error');
 
-    if (vistaLogin) vistaLogin.style.display = 'flex';
-    if (vistaApp) vistaApp.style.display = 'none';
+    if (vistaLogin) vistaLogin.classList.remove('hidden');
+    if (vistaApp) vistaApp.classList.add('hidden');
 
     if (loginError) {
         if (errorMsg) {
             loginError.textContent = errorMsg;
-            loginError.style.display = 'block';
+            loginError.classList.remove('hidden');
         } else {
-            loginError.style.display = 'none';
+            loginError.classList.add('hidden');
         }
     }
     const inputUser = document.getElementById('login-username');
@@ -103,8 +103,8 @@ export function establecerSesionActiva(user, token) {
 
     const vistaLogin = document.getElementById('vista-login');
     const vistaApp = document.getElementById('vista-app');
-    if (vistaLogin) vistaLogin.style.display = 'none';
-    if (vistaApp) vistaApp.style.display = 'flex';
+    if (vistaLogin) vistaLogin.classList.add('hidden');
+    if (vistaApp) vistaApp.classList.remove('hidden');
 
     if (window.location.hash !== '#app') {
         history.pushState(null, '', '#app');
@@ -134,13 +134,13 @@ export function establecerSesionActiva(user, token) {
     // Pestaña de administración: visible estrictamente para rol admin
     const btnTabAdmin = document.getElementById('btn-tab-admin');
     if (btnTabAdmin) {
-        btnTabAdmin.style.display = (user.role === 'admin') ? 'flex' : 'none';
+        btnTabAdmin.classList.toggle('hidden', !((user.role === 'admin')));
     }
 
     // Botón de eliminar mi cuenta en el dropdown: solo para usuarios que NO sean admin
     const btnDropEliminar = document.getElementById('btn-dropdown-eliminar-cuenta');
     if (btnDropEliminar) {
-        btnDropEliminar.style.display = (user.role !== 'admin') ? 'flex' : 'none';
+        btnDropEliminar.classList.toggle('hidden', !((user.role !== 'admin')));
     }
 
     // Si un usuario no admin tiene guardada la pestaña admin, redirigir al resumen
@@ -179,7 +179,7 @@ export async function iniciarSesion(e) {
 
     btnSubmit.disabled = true;
     btnSubmit.textContent = '⏳ Verificando credenciales...';
-    if (loginError) loginError.style.display = 'none';
+    if (loginError) loginError.classList.add('hidden');
 
     try {
         const res = await fetch('/auth/login', {
@@ -196,11 +196,11 @@ export async function iniciarSesion(e) {
             establecerSesionActiva(data.user, data.access_token);
         } else {
             loginError.textContent = data.detail || 'Usuario o contraseña incorrectos.';
-            loginError.style.display = 'block';
+            loginError.classList.remove('hidden');
         }
     } catch (err) {
         loginError.textContent = 'Error de conexión con el servidor.';
-        loginError.style.display = 'block';
+        loginError.classList.remove('hidden');
     } finally {
         btnSubmit.disabled = false;
         btnSubmit.textContent = 'Ingresar a la Plataforma';
@@ -268,7 +268,7 @@ export function cerrarSesionLimpia(errorMsg = '') {
 
     // Ocultar botón de admin y restablecer pestaña por defecto
     const btnTabAdmin = document.getElementById('btn-tab-admin');
-    if (btnTabAdmin) btnTabAdmin.style.display = 'none';
+    if (btnTabAdmin) btnTabAdmin.classList.add('hidden');
     cambiarPestana('tab-dashboard');
 
     // 4. Mostrar pantalla de login
@@ -291,11 +291,11 @@ export function abrirModalRecuperarPassword() {
     const formPaso2 = document.getElementById('form-restablecer-password');
     if (formPaso1) {
         formPaso1.reset();
-        formPaso1.style.display = 'block';
+        formPaso1.classList.remove('hidden');
     }
     if (formPaso2) {
         formPaso2.reset();
-        formPaso2.style.display = 'none';
+        formPaso2.classList.add('hidden');
     }
     
     const inputLoginUser = document.getElementById('login-username');
@@ -305,7 +305,7 @@ export function abrirModalRecuperarPassword() {
     }
     
     identificadorRecuperacionEnProceso = '';
-    modal.style.display = 'flex';
+    modal.classList.remove('hidden');
     if (inputIdentifier) inputIdentifier.focus();
 
     // Comprobar si el servicio de correo está configurado en el servidor para advertir al usuario
@@ -316,12 +316,12 @@ export function abrirModalRecuperarPassword() {
             const form1 = document.getElementById('form-solicitar-codigo');
             const form2 = document.getElementById('form-restablecer-password');
             if (data && data.configured === false) {
-                if (alerta) alerta.style.display = 'block';
-                if (form1) form1.style.display = 'none';
-                if (form2) form2.style.display = 'none';
+                if (alerta) alerta.classList.remove('hidden');
+                if (form1) form1.classList.add('hidden');
+                if (form2) form2.classList.add('hidden');
             } else {
-                if (alerta) alerta.style.display = 'none';
-                if (form1) form1.style.display = 'block';
+                if (alerta) alerta.classList.add('hidden');
+                if (form1) form1.classList.remove('hidden');
             }
         })
         .catch(() => {});
@@ -331,21 +331,21 @@ export function abrirModalRecuperarPassword() {
 export function aceptarAvisoCorreoAdmin() {
     sessionStorage.setItem('admin_email_warning_dismissed', '1');
     const banner = document.getElementById('admin-banner-email-warning');
-    if (banner) banner.style.display = 'none';
+    if (banner) banner.classList.add('hidden');
 }
 
 
 export function cerrarModalRecuperarPassword() {
     const modal = document.getElementById('modal-recuperar-password');
-    if (modal) modal.style.display = 'none';
+    if (modal) modal.classList.add('hidden');
 }
 
 
 export function volverAPaso1Recuperacion() {
     const formPaso1 = document.getElementById('form-solicitar-codigo');
     const formPaso2 = document.getElementById('form-restablecer-password');
-    if (formPaso1) formPaso1.style.display = 'block';
-    if (formPaso2) formPaso2.style.display = 'none';
+    if (formPaso1) formPaso1.classList.remove('hidden');
+    if (formPaso2) formPaso2.classList.add('hidden');
     const inputIdentifier = document.getElementById('recuperar-identifier');
     if (inputIdentifier) inputIdentifier.focus();
 }
@@ -381,10 +381,10 @@ export async function enviarSolicitudCodigo(e) {
         if (res.ok) {
             const formPaso1 = document.getElementById('form-solicitar-codigo');
             const formPaso2 = document.getElementById('form-restablecer-password');
-            if (formPaso1) formPaso1.style.display = 'none';
+            if (formPaso1) formPaso1.classList.add('hidden');
             if (formPaso2) {
                 formPaso2.reset();
-                formPaso2.style.display = 'block';
+                formPaso2.classList.remove('hidden');
                 const inputCodigo = document.getElementById('recuperar-codigo');
                 if (inputCodigo) inputCodigo.focus();
             }
@@ -392,9 +392,9 @@ export async function enviarSolicitudCodigo(e) {
             const formPaso1 = document.getElementById('form-solicitar-codigo');
             const formPaso2 = document.getElementById('form-restablecer-password');
             const alertaNoConfigurado = document.getElementById('alerta-email-no-configurado');
-            if (formPaso1) formPaso1.style.display = 'none';
-            if (formPaso2) formPaso2.style.display = 'none';
-            if (alertaNoConfigurado) alertaNoConfigurado.style.display = 'block';
+            if (formPaso1) formPaso1.classList.add('hidden');
+            if (formPaso2) formPaso2.classList.add('hidden');
+            if (alertaNoConfigurado) alertaNoConfigurado.classList.remove('hidden');
         } else {
             toast(data.detail || 'Hubo un error al procesar la solicitud.', 'error');
         }

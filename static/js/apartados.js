@@ -12,7 +12,7 @@ import { apiFetch, escapeHTML, fmt, formatErrorDetail, recargar, toast } from '.
 export function toggleMetaInput() {
     const tipo = document.getElementById('tipo-apartado').value;
     const metaGroup = document.getElementById('group-meta-monto');
-    if (metaGroup) metaGroup.style.display = tipo === 'meta' ? 'block' : 'none';
+    if (metaGroup) metaGroup.classList.toggle('hidden', !(tipo === 'meta'));
 }
 
 
@@ -25,7 +25,7 @@ export async function cargarApartados() {
         contenedor.innerHTML = '';
 
         if (!apartados || apartados.length === 0) {
-            contenedor.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 10px;">No hay apartados o metas aún.</p>';
+            contenedor.innerHTML = '<div class="empty-state">No hay apartados o metas aún. <br><button type="button" class="btn-primary btn-sm" onclick="abrirModalCrearApartado()">+ Crear primer apartado</button></div>';
             return;
         }
 
@@ -126,7 +126,7 @@ export async function guardarNuevoApartado(e) {
 export function abrirModalCrearApartado() {
     const modal = document.getElementById('modal-crear-apartado');
     if (modal) {
-        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
         setTimeout(() => {
             const input = document.getElementById('nombre-apartado');
             if (input) input.focus();
@@ -137,7 +137,7 @@ export function abrirModalCrearApartado() {
 
 export function cerrarModalCrearApartado() {
     const modal = document.getElementById('modal-crear-apartado');
-    if (modal) modal.style.display = 'none';
+    if (modal) modal.classList.add('hidden');
     const form = document.getElementById('form-apartado');
     if (form) form.reset();
     toggleMetaInput();

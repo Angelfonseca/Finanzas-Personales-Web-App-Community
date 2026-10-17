@@ -48,7 +48,9 @@ export function toggleModoOscuro() {
 // Inicialización de tema guardado
 export const temaGuardado = localStorage.getItem('theme');
 
-export const inicialOscuro = temaGuardado === 'dark';
+const prefiereOscuro = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)').matches : false;
+
+export const inicialOscuro = temaGuardado ? temaGuardado === 'dark' : prefiereOscuro;
 
 if (inicialOscuro) {
     document.documentElement.setAttribute('data-theme', 'dark');
@@ -280,9 +282,9 @@ export function toggleUserDropdown(event) {
     const menu = document.getElementById('user-dropdown-menu');
     const trigger = document.getElementById('btn-user-menu-trigger');
     if (!menu) return;
-    const isHidden = menu.style.display === 'none' || !menu.classList.contains('show');
+    const isHidden = menu.classList.contains('hidden') || !menu.classList.contains('show');
     if (isHidden) {
-        menu.style.display = 'block';
+        menu.classList.remove('hidden');
         setTimeout(() => menu.classList.add('show'), 10);
         if (trigger) trigger.setAttribute('aria-expanded', 'true');
     } else {
@@ -297,7 +299,7 @@ export function cerrarUserDropdown() {
     if (menu) {
         menu.classList.remove('show');
         setTimeout(() => {
-            menu.style.display = 'none';
+            menu.classList.add('hidden');
         }, 150);
     }
     if (trigger) trigger.setAttribute('aria-expanded', 'false');
@@ -308,25 +310,25 @@ export function cerrarUserDropdown() {
 export function abrirModalLegal(seccion = 'terminos') {
     const modal = document.getElementById('modal-legal');
     if (!modal) return;
-    modal.style.display = 'flex';
+    modal.classList.remove('hidden');
     cambiarTabLegal(seccion);
 }
 
 
 export function cerrarModalLegal() {
     const modal = document.getElementById('modal-legal');
-    if (modal) modal.style.display = 'none';
+    if (modal) modal.classList.add('hidden');
 }
 
 
 export function cambiarTabLegal(tabId) {
     document.querySelectorAll('.btn-legal-tab').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.legal-content-panel').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('.legal-content-panel').forEach(p => p.classList.add('hidden'));
 
     const btn = document.getElementById(`btn-tab-legal-${tabId}`);
     const panel = document.getElementById(`panel-legal-${tabId}`);
     if (btn) btn.classList.add('active');
-    if (panel) panel.style.display = 'block';
+    if (panel) panel.classList.remove('hidden');
 
     const scrollContainer = document.getElementById('legal-content-scroll');
     if (scrollContainer) scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
@@ -344,3 +346,19 @@ Object.assign(window, {
     toggleSidebar,
     toggleUserDropdown
 });
+
+
+// =============================================================================
+// Botón flotante "+" (móvil): abre Movimientos y enfoca el monto
+// =============================================================================
+
+export function inicializarFab() {
+    const fab = document.getElementById('btn-fab');
+    if (!fab) return;
+    fab.addEventListener('click', () => {
+        cambiarPestana('tab-movimientos');
+        const monto = document.getElementById('monto');
+        if (monto) setTimeout(() => monto.focus(), 60);
+    });
+}
+

@@ -75,29 +75,49 @@ Diseñada desde cero para ser rápida, privada y correr de forma ultra eficiente
 
 ---
 
+### 8. 🔁 Fijos, MSI y Cuentas con Rendimiento
+* **Fijos y MSI:** nómina (quincenal, mensual o semanal), gastos fijos (renta, suscripciones) y compras a meses. Cada registro genera sus movimientos reales solo cuando llega su fecha; nunca se insertan cobros futuros.
+* **Compras a meses:** el balance baja al vencer cada cuota; el patrimonio neto resta la deuda pendiente.
+* **Cuentas con rendimiento:** saldos con tasa anual fija (interés diario compuesto). No modifican el balance disponible; aportar, retirar o cambiar la tasa capitaliza el saldo actual.
+* **Categorías:** cada movimiento tiene categoría; el dashboard muestra el gasto del mes por categoría.
+
+---
+
 ## 📂 Estructura del Proyecto
 
 ```text
-finanzas-app/
-├── main.py              # API REST en FastAPI, inyección Depends(get_tenant_db) y endpoints
-├── master_db.py         # Base de datos maestra (users, auditoría, estadísticas admin y códigos OTP)
-├── security.py          # Criptografía bcrypt, tokens JWT y dependencias verify_token/verify_admin
-├── email_service.py     # Servicio de envío de correos transaccionales (API o SMTP)
-├── database.py          # Gestor de esquemas tenant, conexiones dinámicas y aprovisionamiento
-├── export_service.py    # Servicio generador de reportes Excel (.xlsx) con gráficas nativas
+Finanzas-Personales-Web-App-Community/
+├── main.py              # App FastAPI: middleware, lifespan (arranque), SPA e include_router
+├── routers/             # Endpoints por dominio
+│   ├── auth.py          # Login, perfil, recuperación de contraseña
+│   ├── admin.py         # Administración de usuarios y métricas (solo admin)
+│   ├── movimientos.py   # Transacciones, categorías, resumen y gasto por categoría
+│   ├── recurrentes.py   # Fijos y compras a meses (MSI)
+│   ├── apartados.py     # Sobres y metas de ahorro
+│   ├── inversiones.py   # Posiciones bursátiles, cuentas con rendimiento y tipos de cambio
+│   └── respaldo.py      # Respaldo, restauración y exportación a Excel
+├── finanzas_core.py     # Lógica financiera pura: conversión, resumen, recurrentes, MSI y rendimiento
+├── mercado.py           # Cotizaciones de Yahoo Finance y tipos de cambio (en paralelo, con caché)
+├── database.py          # Esquema por tenant, migraciones versionadas (v1–v4) y conexión por petición
+├── master_db.py         # Base maestra (usuarios, OTP y estadísticas admin)
+├── security.py          # bcrypt, JWT, dependencias verify_token/verify_admin y freno anti fuerza bruta
+├── export_service.py    # Reporte Excel (.xlsx) con hojas de resumen, movimientos, inversiones, fijos y rendimientos
+├── email_service.py     # Correos transaccionales (API o SMTP)
+├── test_finanzas.py     # Pruebas de la lógica financiera (sin dependencias)
 ├── requirements.txt     # Dependencias (fastapi, uvicorn, pydantic, openpyxl, bcrypt, pyjwt)
-├── Dockerfile           # Imagen Docker basada en python:3.11-slim
-├── docker-compose.yml   # Configuración de Docker Compose con volumen montado y puerto 8001
-├── .env.example         # Plantilla de variables de entorno para JWT y claves de correo
-├── README.md            # Documentación completa del proyecto
-├── LICENSE              # Licencia GNU General Public License v3.0 (GPLv3)
+├── Dockerfile           # Imagen Docker basada en python:3.11-slim (sin --reload)
+├── docker-compose.yml   # Compose con ./data montado (puerto 8002 → 8001)
+├── .env.example         # Variables de entorno (JWT y correo)
+├── README.md            # Documentación del proyecto
+├── LICENSE              # GNU General Public License v3.0 (GPLv3)
 ├── data/                # Almacenamiento local (ignorado en git)
-│   ├── master.db        # Base maestra de usuarios y auditoría
-│   └── tenants/         # Directorio de bases de datos individuales (user_1.db, user_2.db...)
+│   ├── auth_master.db   # Base maestra de usuarios
+│   └── tenants/         # Una base SQLite por usuario (user_1.db, user_2.db...)
 └── static/
-    ├── index.html       # Interfaz SPA con login, pestañas financieras y panel admin
-    ├── css/             # tokens.css, componentes.css, layout.css, vistas.css (diseño responsivo y modo oscuro)
-    └── app.js           # Cliente interceptor apiFetch, purga limpia de estado y Chart.js
+    ├── index.html       # SPA: login, pestañas y modales
+    ├── css/             # tokens.css, componentes.css, layout.css, vistas.css
+    └── js/              # ES modules: main (arranque), core (estado y helpers), auth, ui,
+                         # dashboard, movimientos, recurrentes, apartados, inversiones, admin, respaldo
 ```
 
 ---
@@ -212,10 +232,22 @@ La versión comunitaria incluye soporte para el envío de códigos de recuperaci
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/resumen` | `verify_token` | Resumen patrimonial del tenant en la divisa base |
 | `GET` | `/api/resumen-mensual` | `verify_token` | Agrupación de ingresos y gastos mensuales |
-| `GET` | `/api/transacciones` | `verify_token` | Listado histórico de movimientos de caja |
-| `POST` | `/api/transacciones` | `verify_token` | Registrar movimiento en la BD del tenant |
-| `PUT` | `/api/transacciones/{id}` | `verify_token` | Editar movimiento existente |
-| `DELETE` | `/api/transacciones/{id}` | `verify_token` | Eliminar movimiento |
+| `GET` | `/api/transacciones` | `verify_token` | Listado de movimientos con categoría y origen (fijo, MSI o apartado) |
+| `POST` | `/api/transacciones` | `verify_token` | Registrar movimiento (la categoría debe existir) |
+| `PUT` | `/api/transacciones/{id}` | `verify_token` | Editar movimiento (las cuotas MSI y los ahorros de apartado no se editan aquí) |
+| `DELETE` | `/api/transacciones/{id}` | `verify_token` | Eliminar movimiento (mismas restricciones que la edición) |
+| `GET` | `/api/categorias` | `verify_token` | Listar categorías de gasto e ingreso |
+| `POST` | `/api/categorias` | `verify_token` | Crear categoría (nombre único por tipo) |
+| `GET` | `/api/gastos-por-categoria` | `verify_token` | Gasto del mes por categoría (`?mes=YYYY-MM&moneda_base=`), sin movimientos de apartados |
+| `GET` | `/api/recurrentes` | `verify_token` | Fijos y compras a meses con deuda pendiente y progreso |
+| `POST` | `/api/recurrentes` | `verify_token` | Crear fijo o compra a meses (`meses` + `monto_total`) |
+| `PATCH` | `/api/recurrentes/{id}` | `verify_token` | Editar descripción, monto (solo fijos), categoría o pausar/reanudar |
+| `DELETE` | `/api/recurrentes/{id}` | `verify_token` | Eliminar registro; los movimientos ya generados se conservan |
+| `GET` | `/api/rendimiento` | `verify_token` | Cuentas con rendimiento: valor actual, interés y ganancia mensual |
+| `POST` | `/api/rendimiento` | `verify_token` | Crear cuenta con rendimiento |
+| `POST` | `/api/rendimiento/{id}/movimiento` | `verify_token` | Aportar o retirar (capitaliza el saldo; no toca el balance) |
+| `PUT` | `/api/rendimiento/{id}` | `verify_token` | Cambiar nombre o tasa (capitaliza con la tasa anterior) |
+| `DELETE` | `/api/rendimiento/{id}` | `verify_token` | Eliminar cuenta con rendimiento |
 | `GET` | `/api/apartados` | `verify_token` | Listar sobres y metas de ahorro |
 | `POST` | `/api/apartados` | `verify_token` | Crear apartado o meta |
 | `POST` | `/api/apartados/{id}/movimiento` | `verify_token` | Depositar o retirar fondos de un apartado |
@@ -228,8 +260,18 @@ La versión comunitaria incluye soporte para el envío de códigos de recuperaci
 | `GET` | `/api/inversiones/cotizar/{ticker}` | `verify_token` | Consultar precio de mercado en tiempo real |
 | `GET` | `/api/inversiones/buscar` | `verify_token` | Autocompletado de tickers de Yahoo Finance |
 | `GET` | `/api/tipo-cambio` | `verify_token` | Tipos de cambio vigentes con caché |
-| `GET` | `/api/exportar-excel` | `verify_token` | Descarga de reporte Excel del tenant |
+| `GET` | `/api/exportar-excel` | `verify_token` | Descarga de reporte Excel del tenant (incluye hojas de fijos y rendimientos) |
 | `GET` | `/api/backup` | `verify_token` | Descarga de la base de datos SQLite del tenant |
+
+---
+
+## 🧪 Pruebas
+
+```bash
+python3 test_finanzas.py   # imprime OK si la lógica financiera cumple los casos base
+```
+
+Las pruebas usan solo la biblioteca estándar (sin pytest) y una base SQLite en memoria.
 
 ---
 

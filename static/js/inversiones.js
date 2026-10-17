@@ -42,7 +42,7 @@ export async function cargarInversiones() {
         if (tbody) {
             tbody.innerHTML = '';
             if (posiciones.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Sin posiciones registradas. ¡Añade tu primer ETF o acción!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Sin posiciones registradas. ¡Añade tu primer ETF o acción! <br><button type="button" class="btn-primary btn-sm" onclick="document.getElementById(\'inv-ticker\').focus()">Registrar posición</button></td></tr>';
             } else {
                 posiciones.forEach(pos => {
                     const tr = document.createElement('tr');
@@ -149,8 +149,8 @@ export function actualizarGraficaDona(posiciones) {
     const textColor = esOscuro ? '#f0f0f0' : '#222222';
 
     if (!posiciones || posiciones.length === 0) {
-        if (noDataMsg) noDataMsg.style.display = 'block';
-        canvas.style.display = 'none';
+        if (noDataMsg) noDataMsg.classList.remove('hidden');
+        canvas.classList.add('hidden');
         if (estado.graficas.dona) {
             estado.graficas.dona.destroy();
             estado.graficas.dona = null;
@@ -158,8 +158,8 @@ export function actualizarGraficaDona(posiciones) {
         return;
     }
 
-    if (noDataMsg) noDataMsg.style.display = 'none';
-    canvas.style.display = 'block';
+    if (noDataMsg) noDataMsg.classList.add('hidden');
+    canvas.classList.remove('hidden');
 
     const paleta = [
         '#c5a059', // Champagne Gold / Commodities & Metals
@@ -282,7 +282,7 @@ export function inicializarBuscadorTickers() {
         clearTimeout(estado.debounceTimerBuscar);
 
         if (val.length < 1) {
-            dropdown.style.display = 'none';
+            dropdown.classList.add('hidden');
             dropdown.innerHTML = '';
             return;
         }
@@ -303,7 +303,7 @@ export function inicializarBuscadorTickers() {
 
     document.addEventListener('click', (e) => {
         if (!input.contains(e.target) && !dropdown.contains(e.target)) {
-            dropdown.style.display = 'none';
+            dropdown.classList.add('hidden');
         }
     });
 }
@@ -311,7 +311,7 @@ export function inicializarBuscadorTickers() {
 
 export function renderizarSugerenciasTickers(sugerencias, dropdown, input) {
     if (!sugerencias || sugerencias.length === 0) {
-        dropdown.style.display = 'none';
+        dropdown.classList.add('hidden');
         dropdown.innerHTML = '';
         return;
     }
@@ -330,7 +330,7 @@ export function renderizarSugerenciasTickers(sugerencias, dropdown, input) {
 
         div.addEventListener('click', () => {
             input.value = item.symbol;
-            dropdown.style.display = 'none';
+            dropdown.classList.add('hidden');
             dropdown.innerHTML = '';
             buscarCotizacionTicker();
         });
@@ -338,7 +338,7 @@ export function renderizarSugerenciasTickers(sugerencias, dropdown, input) {
         dropdown.appendChild(div);
     });
 
-    dropdown.style.display = 'block';
+    dropdown.classList.remove('hidden');
 }
 
 
@@ -499,7 +499,7 @@ export function abrirModalEditarInversion(id, ticker, cantidad, precio_promedio,
 
     const modal = document.getElementById('modal-editar-inversion');
     if (modal) {
-        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
         setTimeout(() => {
             if (inputCant) {
                 inputCant.focus();
@@ -512,7 +512,7 @@ export function abrirModalEditarInversion(id, ticker, cantidad, precio_promedio,
 
 export function cerrarModalEditarInversion() {
     const modal = document.getElementById('modal-editar-inversion');
-    if (modal) modal.style.display = 'none';
+    if (modal) modal.classList.add('hidden');
 }
 
 

@@ -87,7 +87,7 @@ export function actualizarGraficaCategorias(data) {
     const cats = (data && data.categorias) || [];
     if (cats.length === 0) {
         if (vacio) vacio.classList.remove('hidden');
-        canvas.style.display = 'none';
+        canvas.classList.add('hidden');
         if (estado.graficas.categorias) {
             estado.graficas.categorias.destroy();
             estado.graficas.categorias = null;
@@ -95,7 +95,7 @@ export function actualizarGraficaCategorias(data) {
         return;
     }
     if (vacio) vacio.classList.add('hidden');
-    canvas.style.display = 'block';
+    canvas.classList.remove('hidden');
 
     const labels = cats.map(c => c.categoria);
     const valores = cats.map(c => c.total);

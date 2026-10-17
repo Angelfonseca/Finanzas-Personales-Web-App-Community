@@ -277,7 +277,7 @@ export function abrirModalEditarTransaccion(id, fecha, monto, tipo, descripcion,
     llenarSelect('modal-edit-trans-categoria', tipo || 'gasto', true);
     if (categoriaId) document.getElementById('modal-edit-trans-categoria').value = String(categoriaId);
 
-    modal.style.display = 'flex';
+    modal.classList.remove('hidden');
     setTimeout(() => {
         const inputMonto = document.getElementById('modal-edit-trans-monto');
         if (inputMonto) {
@@ -290,7 +290,7 @@ export function abrirModalEditarTransaccion(id, fecha, monto, tipo, descripcion,
 
 export function cerrarModalEditarTransaccion() {
     const modal = document.getElementById('modal-editar-transaccion');
-    if (modal) modal.style.display = 'none';
+    if (modal) modal.classList.add('hidden');
 }
 
 

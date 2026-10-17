@@ -10,9 +10,23 @@ import { actualizarGrafica, actualizarGraficaCategorias, renderProximos } from '
 import { cargarInversiones, cerrarModalEditarInversion, inicializarBuscadorTickers } from './inversiones.js';
 import { cargarRecurrentes } from './recurrentes.js';
 import { cargarCategorias, cerrarModalEditarTransaccion, renderTablaMovimientos } from './movimientos.js';
-import { cerrarModalLegal, cerrarSidebarMobile, cerrarUserDropdown, inicializarEstadoSidebar, inicializarTabs } from './ui.js';
+import { cerrarModalLegal, cerrarSidebarMobile, cerrarUserDropdown, inicializarEstadoSidebar, inicializarFab, inicializarTabs } from './ui.js';
 import './respaldo.js'; // registra handlers de Excel y respaldo en window
 
+
+async function cargarMovimientos() {
+    const resTrans = await apiFetch('/api/transacciones');
+    const dataTrans = await resTrans.json();
+    estado.cache.transacciones = {};
+    dataTrans.forEach(t => { estado.cache.transacciones[t.id] = t; });
+    estado.cache.listaTransacciones = dataTrans;
+    renderTablaMovimientos();
+}
+
+async function cargarGraficaCategorias() {
+    const res = await apiFetch(`/api/gastos-por-categoria?moneda_base=${encodeURIComponent(estado.monedaGlobal)}`);
+    if (res.ok) actualizarGraficaCategorias(await res.json());
+}
 
 export async function cargarDatos() {
     try {
@@ -97,22 +111,15 @@ export async function cargarDatos() {
 
         actualizarGrafica(dataMensual.slice(0, 12).reverse());
 
-        // 3. Movimientos: lista en caché, tabla con filtros y categorías
-        const resTrans = await apiFetch('/api/transacciones');
-        const dataTrans = await resTrans.json();
-        estado.cache.transacciones = {};
-        dataTrans.forEach(t => { estado.cache.transacciones[t.id] = t; });
-        estado.cache.listaTransacciones = dataTrans;
-        renderTablaMovimientos();
-        await cargarCategorias();
-        await cargarRecurrentes();
-        renderProximos();
-        const resCategorias = await apiFetch(`/api/gastos-por-categoria?moneda_base=${encodeURIComponent(estado.monedaGlobal)}`);
-        if (resCategorias.ok) actualizarGraficaCategorias(await resCategorias.json());
-
-        // 4. Sobres de Ahorro y Portafolio de Inversiones
-        await cargarApartados();
-        await cargarInversiones();
+        // 3. Resto de datos en paralelo: movimientos, categorías, fijos y MSI, metas e inversiones
+        await Promise.all([
+            cargarMovimientos(),
+            cargarCategorias(),
+            cargarRecurrentes().then(() => renderProximos()),
+            cargarGraficaCategorias(),
+            cargarApartados(),
+            cargarInversiones(),
+        ]);
 
     } catch (error) {
         console.error("Error al actualizar datos:", error);
@@ -137,7 +144,7 @@ window.addEventListener('keydown', (e) => {
 document.addEventListener('click', (e) => {
     const menu = document.getElementById('user-dropdown-menu');
     const trigger = document.getElementById('btn-user-menu-trigger');
-    if (menu && menu.style.display !== 'none') {
+    if (menu && !menu.classList.contains('hidden')) {
         if (!menu.contains(e.target) && (!trigger || !trigger.contains(e.target))) {
             cerrarUserDropdown();
         }
@@ -171,6 +178,7 @@ window.addEventListener('popstate', () => {
 document.addEventListener('sesion-expirada', (e) => cerrarSesionLimpia(e.detail));
 
 inicializarTabs();
+inicializarFab();
 
 inicializarEstadoSidebar();
 
