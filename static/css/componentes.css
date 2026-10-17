@@ -661,3 +661,54 @@ tbody tr:hover {
 }
 .toast-ok { border-left-color: var(--success-color); }
 .toast-error { border-left-color: var(--danger-color); }
+
+/* ==========================================================================
+   Utilidades y componentes de la Fase 5 (fijos, MSI, filtros y etiquetas)
+   ========================================================================== */
+.hidden { display: none !important; }
+.hint-text { font-size: 0.85rem; color: var(--text-muted); margin: 6px 0 10px; }
+.link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--accent-color);
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
+}
+.btn-sm { padding: 6px 10px; font-size: 0.8rem; }
+.empty-state { text-align: center; color: var(--text-muted); padding: 16px 8px; font-size: 0.9rem; }
+.badge-tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--primary-subtle);
+    color: var(--text-muted);
+    margin-left: 4px;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.badge-fijo { background: var(--accent-subtle); color: var(--accent-color); }
+.badge-msi { background: var(--gold-subtle); color: var(--gold-color); }
+.badge-ahorro { background: var(--success-subtle); color: var(--success-color); }
+.segmented { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 12px; }
+.segmented-opt { flex: 1 1 auto; position: relative; }
+.segmented-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented-opt span {
+    display: block;
+    text-align: center;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+.segmented-opt input:checked + span {
+    border-color: var(--accent-color);
+    color: var(--text-color);
+    background: var(--accent-subtle);
+}
+.segmented-opt input:focus-visible + span { outline: 2px solid var(--accent-color); outline-offset: 2px; }

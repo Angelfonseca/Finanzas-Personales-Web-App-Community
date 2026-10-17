@@ -4,6 +4,7 @@
 
 import { cargarDatosAdmin } from './admin.js';
 import { estado } from './core.js';
+import { cargarRecurrentes } from './recurrentes.js';
 
 
 // =============================================================================
@@ -180,6 +181,7 @@ export function cambiarPestana(tabId) {
     const titulosMap = {
         'tab-dashboard': 'Resumen',
         'tab-movimientos': 'Movimientos',
+        'tab-recurrentes': 'Fijos y MSI',
         'tab-apartados': 'Metas de Ahorro',
         'tab-inversiones': 'Inversiones',
         'tab-admin': 'Administración'
@@ -199,6 +201,9 @@ export function cambiarPestana(tabId) {
     // Si entra al panel de administración, recargar métricas frescas
     if (tabId === 'tab-admin') {
         cargarDatosAdmin();
+    }
+    if (tabId === 'tab-recurrentes') {
+        cargarRecurrentes();
     }
 
     setTimeout(() => {

@@ -13,7 +13,7 @@ export const estado = {
     tasasCambio: { USD: 1.0, MXN: 18.40, EUR: 0.89 },
     graficas: { barras: null, dona: null },
     debounceTimerBuscar: null,
-    cache: { transacciones: {}, inversiones: {}, usuarios: {} }
+    cache: { transacciones: {}, listaTransacciones: [], categorias: [], inversiones: {}, usuarios: {} }
 };
 if (!['MXN', 'USD'].includes(estado.monedaGlobal)) estado.monedaGlobal = 'MXN';
 

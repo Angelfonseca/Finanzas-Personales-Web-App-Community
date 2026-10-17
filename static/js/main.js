@@ -8,7 +8,8 @@ import { cerrarModalRecuperarPassword, cerrarSesionLimpia, establecerSesionActiv
 import { apiFetch, escapeHTML, estado, fmt } from './core.js';
 import { actualizarGrafica } from './dashboard.js';
 import { cargarInversiones, cerrarModalEditarInversion, inicializarBuscadorTickers } from './inversiones.js';
-import { cerrarModalEditarTransaccion } from './movimientos.js';
+import { cargarRecurrentes } from './recurrentes.js';
+import { cargarCategorias, cerrarModalEditarTransaccion, renderTablaMovimientos } from './movimientos.js';
 import { cerrarModalLegal, cerrarSidebarMobile, cerrarUserDropdown, inicializarEstadoSidebar, inicializarTabs } from './ui.js';
 import './respaldo.js'; // registra handlers de Excel y respaldo en window
 
@@ -83,33 +84,15 @@ export async function cargarDatos() {
 
         actualizarGrafica(dataMensual.slice().reverse());
 
-        // 3. Tabla Cronológica de Movimientos
+        // 3. Movimientos: lista en caché, tabla con filtros y categorías
         const resTrans = await apiFetch('/api/transacciones');
         const dataTrans = await resTrans.json();
-        
-        const tbody = document.getElementById('tabla-movimientos');
-        if (tbody) {
-            tbody.innerHTML = '';
-            if (dataTrans.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No hay movimientos.</td></tr>';
-            } else {
-                dataTrans.forEach(t => {
-                    estado.cache.transacciones[t.id] = t;
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${escapeHTML(t.fecha)}</td>
-                        <td>${escapeHTML(t.descripcion || '-')}</td>
-                        <td class="${t.tipo === 'gasto' ? 'text-gasto' : 'text-ingreso'}">${escapeHTML(t.tipo.toUpperCase())}</td>
-                        <td>${fmt(t.monto)}</td>
-                        <td class="col-acciones">
-                            <button type="button" class="btn-accion btn-editar" onclick="abrirModalEditarTransaccionPorId(${t.id})" title="Editar movimiento"><svg class="action-svg-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
-                            <button type="button" class="btn-accion btn-eliminar" onclick="eliminarTransaccion(${t.id})" title="Eliminar movimiento"><svg class="action-svg-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            }
-        }
+        estado.cache.transacciones = {};
+        dataTrans.forEach(t => { estado.cache.transacciones[t.id] = t; });
+        estado.cache.listaTransacciones = dataTrans;
+        renderTablaMovimientos();
+        await cargarCategorias();
+        await cargarRecurrentes();
 
         // 4. Sobres de Ahorro y Portafolio de Inversiones
         await cargarApartados();

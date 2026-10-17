@@ -1548,3 +1548,27 @@
     font-weight: 600;
     margin-bottom: 14px;
 }
+
+/* ==========================================================================
+   Vistas de la Fase 5: filtros de movimientos y listas de fijos / MSI
+   ========================================================================== */
+.filtros-movimientos { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.filtros-movimientos > * { flex: 1 1 150px; min-width: 0; }
+.rec-item {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: var(--panel-bg);
+}
+.rec-item-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.rec-item-meta {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 8px 0;
+}
+.rec-item-actions { display: flex; gap: 8px; justify-content: flex-end; }
