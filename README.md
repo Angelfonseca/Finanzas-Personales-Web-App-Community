@@ -96,7 +96,7 @@ finanzas-app/
 │   └── tenants/         # Directorio de bases de datos individuales (user_1.db, user_2.db...)
 └── static/
     ├── index.html       # Interfaz SPA con login, pestañas financieras y panel admin
-    ├── style.css        # Estilos modernos, diseño responsivo móvil/desktop y modo oscuro
+    ├── css/             # tokens.css, componentes.css, layout.css, vistas.css (diseño responsivo y modo oscuro)
     └── app.js           # Cliente interceptor apiFetch, purga limpia de estado y Chart.js
 ```
 
