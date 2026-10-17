@@ -27,7 +27,7 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 TENANTS_DIR = os.path.join(DATA_DIR, "tenants")
 
 # Versión actual del esquema de base de datos de cada tenant
-CURRENT_TENANT_SCHEMA_VERSION = 3
+CURRENT_TENANT_SCHEMA_VERSION = 4
 
 
 # =============================================================================
@@ -203,6 +203,74 @@ def apply_lazy_migrations(conn: sqlite3.Connection) -> None:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_apartados_nombre ON apartados(nombre);")
         cursor.execute("PRAGMA user_version = 3;")
         current_version = 3
+
+    # -------------------------------------------------------------
+    # Versión 4: Fijos y MSI (recurrentes), cuentas con rendimiento,
+    # enlace real de apartados y categorías sembradas
+    # -------------------------------------------------------------
+    if current_version < 4 and CURRENT_TENANT_SCHEMA_VERSION >= 4:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS recurrentes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                descripcion TEXT NOT NULL,
+                tipo TEXT NOT NULL CHECK(tipo IN ('ingreso','gasto')),
+                monto REAL NOT NULL,
+                frecuencia TEXT NOT NULL CHECK(frecuencia IN ('semanal','quincenal','mensual')),
+                dia INTEGER,
+                proxima_fecha TEXT NOT NULL,
+                total_cuotas INTEGER,
+                cuotas_generadas INTEGER NOT NULL DEFAULT 0,
+                monto_total REAL,
+                categoria_id INTEGER DEFAULT 1 REFERENCES categorias(id),
+                activo INTEGER NOT NULL DEFAULT 1,
+                creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        try:
+            cursor.execute("ALTER TABLE transacciones ADD COLUMN recurrente_id INTEGER REFERENCES recurrentes(id) ON DELETE SET NULL;")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            cursor.execute("ALTER TABLE transacciones ADD COLUMN apartado_id INTEGER REFERENCES apartados(id) ON DELETE SET NULL;")
+        except sqlite3.OperationalError:
+            pass
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_transacciones_rec ON transacciones(recurrente_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_transacciones_apa ON transacciones(apartado_id);")
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS cuentas_rendimiento (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT NOT NULL UNIQUE,
+                capital REAL NOT NULL,
+                tasa_anual REAL NOT NULL,
+                fecha_base TEXT NOT NULL,
+                creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
+        # Backfill: enlace por texto -> FK real
+        cursor.execute("""
+            UPDATE transacciones SET apartado_id = (
+                SELECT a.id FROM apartados a
+                WHERE transacciones.descripcion IN ('Ahorro destinado a: ' || a.nombre, 'Retiro de ahorro: ' || a.nombre)
+            ) WHERE descripcion LIKE 'Ahorro destinado a:%' OR descripcion LIKE 'Retiro de ahorro:%';
+        """)
+
+        # Categorías sembradas (categorias no tiene UNIQUE: se evita duplicar)
+        categorias_seed = [
+            ('Comida', 'gasto'), ('Transporte', 'gasto'), ('Vivienda', 'gasto'), ('Servicios', 'gasto'),
+            ('Salud', 'gasto'), ('Entretenimiento', 'gasto'), ('Compras', 'gasto'), ('Educación', 'gasto'),
+            ('Compras a meses', 'gasto'), ('Otros', 'gasto'),
+            ('Nómina', 'ingreso'), ('Freelance', 'ingreso'), ('Rendimientos', 'ingreso'), ('Otros ingresos', 'ingreso'),
+        ]
+        for nombre, tipo in categorias_seed:
+            cursor.execute(
+                "INSERT INTO categorias (nombre, tipo) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM categorias WHERE nombre=? AND tipo=?)",
+                (nombre, tipo, nombre, tipo)
+            )
+        cursor.execute("PRAGMA user_version = 4;")
+        current_version = 4
+
 
     conn.commit()
 
