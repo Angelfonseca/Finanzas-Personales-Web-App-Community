@@ -92,3 +92,54 @@ export function toast(msg, tipo = 'ok') {
 export const colorVar = (nombre) => getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
 
 export const recargar = () => document.dispatchEvent(new Event('recargar'));
+
+// =============================================================================
+// 5. MONEDA Y TIPOS DE CAMBIO
+// =============================================================================
+
+
+// =============================================================================
+// 7. INVERSIONES & ASSET ALLOCATION
+// =============================================================================
+
+export async function cargarTiposCambio() {
+    try {
+        const res = await apiFetch('/api/tipo-cambio');
+        if (res.ok) {
+            const data = await res.json();
+            estado.tasasCambio = data.tasas || estado.tasasCambio;
+            actualizarIndicadorTasa();
+        }
+    } catch (e) {
+        console.warn("No se pudo obtener tipo de cambio:", e);
+    }
+}
+
+
+export function actualizarIndicadorTasa() {
+    const selectGlobal = document.getElementById('select-moneda-global');
+    if (selectGlobal) selectGlobal.value = estado.monedaGlobal;
+
+    const badgeGlobal = document.getElementById('badge-tasa-global');
+    if (badgeGlobal) badgeGlobal.textContent = `1 USD ≈ $${Number(estado.tasasCambio.MXN || 18.40).toFixed(2)} MXN`;
+
+    const badgeInv = document.getElementById('badge-tasa-inversiones');
+    if (badgeInv) badgeInv.textContent = `1 USD ≈ $${Number(estado.tasasCambio.MXN || 18.40).toFixed(2)} MXN`;
+
+    document.querySelectorAll('.lbl-moneda-base').forEach(el => {
+        el.textContent = estado.monedaGlobal;
+    });
+}
+
+
+export function cambiarMonedaGlobal(nuevaMoneda) {
+    estado.monedaGlobal = nuevaMoneda;
+    localStorage.setItem('moneda_global', nuevaMoneda);
+    actualizarIndicadorTasa();
+    recargar();
+}
+
+Object.assign(window, {
+    cambiarMonedaGlobal,
+    cambiarMonedaInversiones: cambiarMonedaGlobal
+});
