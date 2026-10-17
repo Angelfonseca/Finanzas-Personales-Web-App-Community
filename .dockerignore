@@ -1,0 +1,10 @@
+# Secretos y datos locales: nunca dentro de la imagen
+.env
+data/
+
+# Control de versiones y artefactos de desarrollo
+.git
+__pycache__/
+*.pyc
+.pytest_cache/
+PLAN.md
