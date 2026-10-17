@@ -18,7 +18,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.chart import PieChart, Reference
 from openpyxl.chart.label import DataLabelList
 from openpyxl.utils import get_column_letter
-from finanzas_core import ahora_local, convertir
+from finanzas_core import ahora_local, convertir, deuda_pendiente, valor_rendimiento
 from mercado import obtener_tasas_cambio, cotizar_varios
 
 def generar_reporte_excel(moneda_base: str = "MXN", conn: sqlite3.Connection = None, db_name: str = "user_1.db") -> io.BytesIO:
@@ -89,6 +89,8 @@ def generar_reporte_excel(moneda_base: str = "MXN", conn: sqlite3.Connection = N
     transacciones = cursor.execute("SELECT * FROM transacciones ORDER BY fecha DESC, id DESC").fetchall()
     apartados = cursor.execute("SELECT * FROM apartados ORDER BY id DESC").fetchall()
     inversiones_db = cursor.execute("SELECT * FROM inversiones ORDER BY id DESC").fetchall()
+    recurrentes_db = cursor.execute("SELECT * FROM recurrentes ORDER BY activo DESC, proxima_fecha ASC, id ASC").fetchall()
+    cuentas_rend_db = cursor.execute("SELECT * FROM cuentas_rendimiento ORDER BY id").fetchall()
     if debe_cerrar:
         conn.close()
 
@@ -524,6 +526,76 @@ def generar_reporte_excel(moneda_base: str = "MXN", conn: sqlite3.Connection = N
                 if len(val_str) > max_len:
                     max_len = len(val_str)
             ws.column_dimensions[col_letter].width = max(max_len + 4, 13)
+
+    # =========================================================================
+    # PASO 6B: HOJAS DE FIJOS Y MSI, Y CUENTAS CON RENDIMIENTO
+    # =========================================================================
+    def _encabezado(ws, titulo, cols):
+        ws['A1'] = titulo
+        ws['A1'].font = font_title
+        ws['A2'] = f"Reporte al {fecha_hora_emision} | Denominado en {moneda_base}"
+        ws['A2'].font = font_subtitle
+        for col_idx, h in enumerate(cols, start=1):
+            cell = ws.cell(row=4, column=col_idx, value=h)
+            cell.font = font_header
+            cell.fill = fill_header
+            cell.alignment = align_center
+            cell.border = border_thin
+
+    def _celda(ws, row, col, valor, fmt=None):
+        c = ws.cell(row=row, column=col, value=valor)
+        c.border = border_thin
+        c.font = font_regular
+        if fmt:
+            c.number_format = fmt
+        return c
+
+    hoy_excel = ahora_local().date()
+
+    ws4 = wb.create_sheet(title="Fijos y MSI")
+    _encabezado(ws4, "FIJOS Y COMPRAS A MESES", [
+        "Descripción", "Tipo", "Frecuencia", f"Monto por pago ({moneda_base})", "Próxima fecha",
+        "Cuotas", f"Deuda pendiente ({moneda_base})", "Estado"
+    ])
+    if not recurrentes_db:
+        ws4.cell(row=5, column=1, value="No hay fijos ni compras a meses registrados.").font = font_subtitle
+    for idx, r in enumerate(recurrentes_db, start=5):
+        es_msi = r["total_cuotas"] is not None
+        terminado = es_msi and r["cuotas_generadas"] >= r["total_cuotas"]
+        estado_txt = "Terminado" if terminado else ("Activo" if r["activo"] else "Pausado")
+        _celda(ws4, idx, 1, r["descripcion"])
+        _celda(ws4, idx, 2, "Gasto" if r["tipo"] == "gasto" else "Ingreso")
+        _celda(ws4, idx, 3, r["frecuencia"].capitalize())
+        _celda(ws4, idx, 4, round(convertir(float(r["monto"]), "MXN", moneda_base, tasa_usd_mxn), 2), '#,##0.00')
+        _celda(ws4, idx, 5, r["proxima_fecha"])
+        _celda(ws4, idx, 6, f"{r['cuotas_generadas']}/{r['total_cuotas']}" if es_msi else "Indefinido")
+        _celda(ws4, idx, 7, round(convertir(deuda_pendiente(r), "MXN", moneda_base, tasa_usd_mxn), 2), '#,##0.00')
+        _celda(ws4, idx, 8, estado_txt)
+    for col_letter, ancho in zip("ABCDEFGH", [30, 11, 12, 22, 16, 11, 22, 12]):
+        ws4.column_dimensions[col_letter].width = ancho
+
+    ws5 = wb.create_sheet(title="Cuentas con rendimiento")
+    _encabezado(ws5, "CUENTAS CON RENDIMIENTO", [
+        "Cuenta", "Tasa anual (%)", f"Capital ({moneda_base})", f"Valor actual ({moneda_base})",
+        f"Interés generado ({moneda_base})", f"Ganancia mensual estimada ({moneda_base})"
+    ])
+    if not cuentas_rend_db:
+        ws5.cell(row=5, column=1, value="No hay cuentas con rendimiento registradas.").font = font_subtitle
+    total_valor = 0.0
+    for idx, c in enumerate(cuentas_rend_db, start=5):
+        capital = float(c["capital"])
+        tasa = float(c["tasa_anual"])
+        valor = valor_rendimiento(capital, tasa, datetime.strptime(c["fecha_base"], "%Y-%m-%d").date(), hoy_excel)
+        valor_b = convertir(valor, "MXN", moneda_base, tasa_usd_mxn)
+        total_valor += valor_b
+        _celda(ws5, idx, 1, c["nombre"])
+        _celda(ws5, idx, 2, tasa, '0.00')
+        _celda(ws5, idx, 3, round(convertir(capital, "MXN", moneda_base, tasa_usd_mxn), 2), '#,##0.00')
+        _celda(ws5, idx, 4, round(valor_b, 2), '#,##0.00')
+        _celda(ws5, idx, 5, round(convertir(valor - capital, "MXN", moneda_base, tasa_usd_mxn), 2), '#,##0.00')
+        _celda(ws5, idx, 6, round(convertir(valor * tasa / 100 / 12, "MXN", moneda_base, tasa_usd_mxn), 2), '#,##0.00')
+    for col_letter, ancho in zip("ABCDEF", [30, 15, 20, 22, 24, 30]):
+        ws5.column_dimensions[col_letter].width = ancho
 
     # =========================================================================
     # PASO 7: RETORNO DEL BUFFER EN MEMORIA (BYTESIO)
